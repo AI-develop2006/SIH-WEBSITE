@@ -32,6 +32,37 @@ const DEPARTMENTS = [
   "Artificial Intelligence and Data Science",
 ];
 
+const TIMELINE = [
+  {
+    date: "6 Aug 2026",
+    label: "Portal opens",
+    description: "Registration portal goes live. Create your account and fill in your profile.",
+    status: "done",
+    icon: "🚀",
+  },
+  {
+    date: "15 Aug 2026",
+    label: "Registration deadline",
+    description: "Last day to submit your registration form. No entries accepted after midnight.",
+    status: "active",
+    icon: "📋",
+  },
+  {
+    date: "TBA",
+    label: "Team formation",
+    description: "Teams will be formed by your mentor based on skills and preferences. Date will be announced soon.",
+    status: "upcoming",
+    icon: "👥",
+  },
+  {
+    date: "TBA",
+    label: "Internal hackathon",
+    description: "Present your solution to the evaluation panel. Top teams proceed to the national SIH round.",
+    status: "upcoming",
+    icon: "🏆",
+  },
+];
+
 const FEATURES = [
   {
     title: "Smart team matching",
@@ -210,6 +241,102 @@ export default function LandingPage() {
                 </Button>
               </div>
             </div>
+          </div>
+        </section>
+
+        {/* ── Timeline ── */}
+        <section id="timeline" className="mx-auto w-full max-w-4xl px-5 py-20 sm:py-28">
+          <div className="mx-auto max-w-2xl text-center">
+            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Key dates</h2>
+            <p className="mt-3 text-muted-foreground">
+              Mark these on your calendar — especially the registration deadline.
+            </p>
+          </div>
+
+          <div className="relative mt-14">
+            {/* Vertical line */}
+            <div className="absolute left-6 top-0 hidden h-full w-px bg-border sm:block" aria-hidden="true" />
+
+            <ol className="flex flex-col gap-0">
+              {TIMELINE.map((item, i) => (
+                <li key={item.label} className="relative flex gap-6 sm:gap-8">
+                  {/* Node on the line */}
+                  <div className="relative hidden shrink-0 flex-col items-center sm:flex">
+                    <span
+                      className={[
+                        "relative z-10 flex size-12 items-center justify-center rounded-full border-2 text-xl transition-all",
+                        item.status === "done"
+                          ? "border-success bg-success/10 shadow-[0_0_18px_-4px] shadow-success/50"
+                          : item.status === "active"
+                            ? "border-[#dba328] bg-[#dba328]/10 shadow-[0_0_18px_-4px] shadow-[#dba328]/60"
+                            : "border-border bg-muted/40",
+                      ].join(" ")}
+                    >
+                      {item.icon}
+                    </span>
+                  </div>
+
+                  {/* Card */}
+                  <div
+                    className={[
+                      "mb-6 flex-1 rounded-2xl border p-5 transition-shadow",
+                      item.status === "done"
+                        ? "border-success/30 bg-success/5"
+                        : item.status === "active"
+                          ? "border-[#dba328]/40 bg-[#dba328]/5 shadow-[0_0_30px_-10px] shadow-[#dba328]/30"
+                          : "border-border bg-card",
+                      i === TIMELINE.length - 1 ? "mb-0" : "",
+                    ].join(" ")}
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2.5">
+                        {/* Icon visible on mobile only */}
+                        <span className="text-xl sm:hidden">{item.icon}</span>
+                        <h3 className="text-base font-bold tracking-tight">{item.label}</h3>
+                        {item.status === "done" && (
+                          <span className="rounded-full bg-success/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-success">
+                            Done
+                          </span>
+                        )}
+                        {item.status === "active" && (
+                          <span className="flex items-center gap-1 rounded-full bg-[#dba328]/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#dba328]">
+                            <span className="size-1.5 animate-pulse rounded-full bg-[#dba328]" />
+                            Open now
+                          </span>
+                        )}
+                      </div>
+                      <span
+                        className={[
+                          "rounded-lg border px-3 py-1 text-xs font-semibold tabular-nums",
+                          item.status === "done"
+                            ? "border-success/30 text-success"
+                            : item.status === "active"
+                              ? "border-[#dba328]/40 text-[#dba328]"
+                              : "border-border text-muted-foreground",
+                        ].join(" ")}
+                      >
+                        {item.date}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{item.description}</p>
+
+                    {item.status === "active" && (
+                      <div className="mt-4">
+                        <a
+                          href="/register"
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-[#dba328] px-4 py-2 text-xs font-bold text-white transition-opacity hover:opacity-90"
+                        >
+                          Register before deadline
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="size-3.5">
+                            <path fillRule="evenodd" d="M2 8a.75.75 0 0 1 .75-.75h8.69L9.22 5.03a.75.75 0 0 1 1.06-1.06l3.5 3.5a.75.75 0 0 1 0 1.06l-3.5 3.5a.75.75 0 1 1-1.06-1.06l2.22-2.22H2.75A.75.75 0 0 1 2 8Z" clipRule="evenodd" />
+                          </svg>
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ol>
           </div>
         </section>
 

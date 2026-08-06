@@ -30,14 +30,19 @@ export default function LoginPage() {
           </div>
 
           <div className="min-h-full w-full max-w-xl mx-auto flex flex-col justify-start px-5 py-6 sm:px-6 lg:justify-center lg:py-20">
-            <div className="flex items-center justify-between">
-              <a href="/" className="flex items-center">
-                <CollegeBrand />
-              </a>
+            {/* Top bar — theme toggle only, pushed to the right */}
+            <div className="flex justify-end">
               <ThemeToggle />
             </div>
 
-            <div className="mt-14 space-y-4 lg:mt-6">
+            {/* Centered logo */}
+            <div className="mt-8 flex justify-center lg:mt-10">
+              <a href="/" className="inline-flex">
+                <CollegeBrand className="scale-[1.5] sm:scale-[1.75] origin-center" />
+              </a>
+            </div>
+
+            <div className="mt-14 space-y-4 lg:mt-12">
               <p className="font-caveat text-3xl text-[#dba328]">Welcome back</p>
               <h1 className="text-4xl font-bold leading-tight tracking-tight text-white sm:text-5xl">
                 Log in with the email you used to register for SIH 2026.

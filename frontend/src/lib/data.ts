@@ -2,7 +2,7 @@
 
 import { assertSupabase, isSupabaseConfigured } from "@/lib/supabase/client";
 import { computeStats } from "@/lib/utils";
-import type { ApiResult, EnrichedTeam, Invite, Profile, Problem, Team, TeamMember, Theme } from "@/lib/types";
+import type { ApiResult, EnrichedTeam, Invite, Profile, Problem, Team, TeamMember, Theme, TimelineEvent, Announcement } from "@/lib/types";
 
 export async function getCurrentProfile(): Promise<ApiResult<Profile>> {
   const supabase = assertSupabase();
@@ -43,6 +43,12 @@ export async function ensureProfile(uid: string, meta: Record<string, unknown>):
       languages: Array.isArray(meta.languages) ? meta.languages : [],
       linkedin: (meta.linkedin as string) ?? null,
       project_type: (meta.project_type as string) ?? null,
+      project_title: (meta.project_title as string) ?? null,
+      project_description: (meta.project_description as string) ?? null,
+      youtube_link: (meta.youtube_link as string) ?? null,
+      google_drive_ppt: (meta.google_drive_ppt as string) ?? null,
+      software_domain: (meta.software_domain as string) ?? null,
+      hardware_domain: (meta.hardware_domain as string) ?? null,
     },
     { onConflict: "id" }
   );
@@ -199,4 +205,92 @@ export async function updateAvatarUrl(userId: string, url: string): Promise<ApiR
     .eq("id", userId);
   if (error) return { data: null, error: error.message };
   return { data: null, error: null };
+}
+
+export async function fetchTimelineEvents(): Promise<ApiResult<TimelineEvent[]>> {
+  const supabase = assertSupabase();
+  const { data, error } = await supabase
+    .from("timeline_events")
+    .select("*")
+    .order("sort_order", { ascending: true });
+  if (error) return { data: null, error: error.message };
+  return { data: data as TimelineEvent[], error: null };
+}
+
+export async function fetchAnnouncements(): Promise<ApiResult<Announcement[]>> {
+  const supabase = assertSupabase();
+  const { data, error } = await supabase
+    .from("announcements")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) return { data: null, error: error.message };
+  return { data: data as Announcement[], error: null };
+}
+
+export async function upsertTimelineEvent(event: Partial<TimelineEvent>): Promise<ApiResult<TimelineEvent>> {
+  const supabase = assertSupabase();
+  const { data, error } = await supabase
+    .from("timeline_events")
+    .upsert(event)
+    .select()
+    .single();
+  if (error) return { data: null, error: error.message };
+  return { data: data as TimelineEvent, error: null };
+}
+
+export async function deleteTimelineEvent(eventId: string): Promise<ApiResult<null>> {
+  const supabase = assertSupabase();
+  const { error } = await supabase
+    .from("timeline_events")
+    .delete()
+    .eq("id", eventId);
+  if (error) return { data: null, error: error.message };
+  return { data: null, error: null };
+}
+
+export async function upsertAnnouncement(announcement: Partial<Announcement>): Promise<ApiResult<Announcement>> {
+  const supabase = assertSupabase();
+  const { data, error } = await supabase
+    .from("announcements")
+    .upsert(announcement)
+    .select()
+    .single();
+  if (error) return { data: null, error: error.message };
+  return { data: data as Announcement, error: null };
+}
+
+export async function getEmailByRegisterNo(registerNo: string): Promise<{ email: string | null; error: string | null }> {
+  const supabase = assertSupabase();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("email")
+    .ilike("register_no", registerNo.trim())
+    .maybeSingle();
+
+  if (error) return { email: null, error: error.message };
+  return { email: data?.email ?? null, error: null };
+}
+
+export async function checkRegisterNoExists(registerNo: string): Promise<{ exists: boolean; error: string | null }> {
+  const supabase = assertSupabase();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id")
+    .ilike("register_no", registerNo.trim())
+    .maybeSingle();
+
+  if (error) return { exists: false, error: error.message };
+  return { exists: !!data, error: null };
+}
+
+export async function checkEmailExists(email: string): Promise<{ exists: boolean; error: string | null }> {
+  const supabase = assertSupabase();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id")
+    .ilike("email", email.trim())
+    .maybeSingle();
+
+  if (error) return { exists: false, error: error.message };
+  return { exists: !!data, error: null };
 }

@@ -19,6 +19,12 @@ export type Profile = {
   verified: boolean;
   avatar_url: string | null;
   created_at: string;
+  project_title: string | null;
+  project_description: string | null;
+  youtube_link: string | null;
+  google_drive_ppt: string | null;
+  software_domain: string | null;
+  hardware_domain: string | null;
 };
 
 export type Team = {
@@ -69,3 +75,21 @@ export type EnrichedTeam = {
 };
 
 export type ApiResult<T> = { data: T | null; error: string | null };
+
+export type TimelineEvent = {
+  id: string;
+  step: string;
+  date: string;
+  label: string;
+  description: string;
+  status: "done" | "active" | "upcoming";
+  sort_order: number;
+  created_at?: string;
+};
+
+export type Announcement = {
+  id: string;
+  content: string;
+  active: boolean;
+  created_at: string;
+};

@@ -16,24 +16,21 @@ export default function RegisterPage() {
   }, [navigate]);
 
   return (
-    <div className="flex min-h-screen flex-col overflow-hidden">
+    <div className="page-transition flex min-h-screen flex-col overflow-hidden">
       {/* SMVEC gold top accent bar */}
       <div className="h-1 w-full bg-gradient-to-r from-transparent via-[#c9a227] to-transparent" />
 
       <div className="grow flex flex-col lg:flex-row">
-        {/* Left panel — SMVEC deep navy */}
-        <div className="relative w-full overflow-hidden lg:fixed lg:inset-y-0 lg:w-1/2 lg:rounded-r-[3rem]"
-          style={{ background: "linear-gradient(160deg, #060c1a 0%, #0b1631 55%, #0f1e40 100%)" }}>
+        {/* Left panel — Glass styled midnight panel */}
+        <div className="relative w-full overflow-hidden lg:fixed lg:inset-y-0 lg:w-1/2 lg:rounded-r-[3rem] border-r border-[rgba(147,197,253,0.08)] bg-card/60 backdrop-blur-xl">
 
           {/* Gold vertical border on rounded right edge */}
           <div className="absolute inset-y-0 right-0 hidden w-[2px] lg:block"
             style={{ background: "linear-gradient(to bottom, transparent, #c9a227 30%, #c9a227 70%, transparent)" }} />
 
-          {/* Orb backdrops */}
+          {/* Subtle grid decoration inside left panel */}
           <div aria-hidden="true" className="pointer-events-none absolute inset-0">
-            <div className="absolute -top-32 left-1/2 h-[420px] w-[560px] -translate-x-1/2 rounded-full bg-[#c9a227]/10 blur-[120px]" />
-            <div className="absolute bottom-[-15%] right-[-10%] h-[380px] w-[380px] rounded-full bg-[#0b1631]/90 blur-[100px]" />
-            <div className="bg-grid absolute inset-0" />
+            <div className="bg-grid absolute inset-0 opacity-40" />
           </div>
 
           <div className="relative min-h-full w-full max-w-xl mx-auto flex flex-col justify-start px-5 py-6 sm:px-6 lg:justify-center lg:py-20">
@@ -58,7 +55,7 @@ export default function RegisterPage() {
         </div>
 
         {/* Right panel */}
-        <main className="flex w-full flex-col bg-[#06090f] lg:ml-auto lg:w-1/2">
+        <main className="flex w-full flex-col bg-transparent lg:ml-auto lg:w-1/2">
           <div className="grow w-full max-w-xl mx-auto px-5 py-12 sm:px-6 lg:pt-20 lg:pb-24">
             {/* Home nav */}
             <div className="mb-8 flex items-center gap-3">

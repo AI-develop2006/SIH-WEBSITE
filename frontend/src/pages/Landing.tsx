@@ -8,6 +8,7 @@ import { useAnime } from "@/hooks/use-anime";
 import { CollegeBrand } from "@/components/college-brand";
 import { RuixenGradientFooter } from "@/components/ui/ruixen-gradient-footer";
 import { Button } from "@/components/unlumen-ui/button";
+import * as data from "@/lib/data";
 
 const NAV_LINKS = [
   { label: "Apply", href: "/register" },
@@ -140,11 +141,27 @@ const ICONS: Record<string, React.ReactNode> = {
 
 export default function LandingPage() {
   const navigate = useNavigate();
+  const [timelineData, setTimelineData] = useState<any[]>([]);
+  const [announcement, setAnnouncement] = useState<any | null>(null);
 
   useEffect(() => {
     supabase?.auth.getSession().then(({ data }) => {
       if (data.session) navigate("/dashboard", { replace: true });
     });
+
+    if (data.isConfigured()) {
+      data.fetchTimelineEvents().then((res) => {
+        if (res.data && res.data.length > 0) {
+          setTimelineData(res.data);
+        }
+      });
+      data.fetchAnnouncements().then((res) => {
+        if (res.data) {
+          const active = res.data.find((a: any) => a.active);
+          if (active) setAnnouncement(active);
+        }
+      });
+    }
   }, [navigate]);
 
   const heroRef = useAnime<HTMLDivElement>((el) => {
@@ -162,11 +179,20 @@ export default function LandingPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="page-transition min-h-screen bg-transparent">
       {/* SMVEC gold top accent bar */}
       <div className="h-1 w-full bg-gradient-to-r from-transparent via-[#c9a227] to-transparent" />
 
-      <header className="sticky top-0 z-40 border-b border-[rgba(201,162,39,0.18)] bg-[#06090f]/90 backdrop-blur">
+      {announcement && (
+        <div className="bg-[#dba328]/10 border-b border-[#dba328]/35 text-[#dba328] py-2 px-5 text-center text-xs font-semibold backdrop-blur-md relative z-30 flex items-center justify-center gap-2">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="animate-pulse shrink-0">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+          </svg>
+          <span>{announcement.content}</span>
+        </div>
+      )}
+
+      <header className="sticky top-0 z-40 border-b border-[rgba(201,162,39,0.18)] bg-background/80 backdrop-blur-md">
         <div className="mx-auto flex h-[4.5rem] w-full max-w-7xl items-center justify-between gap-3 px-5">
           <a href="/" className="flex items-center">
             <CollegeBrand />
@@ -197,19 +223,6 @@ export default function LandingPage() {
 
       <main>
         <section className="relative overflow-hidden">
-          {/* SMVEC navy + gold orb backdrops */}
-          <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
-            {/* Deep navy centre mass */}
-            <div className="absolute inset-0 bg-gradient-to-b from-[#060c1a] via-[#06090f] to-[#06090f]" />
-            {/* Gold glow top-centre */}
-            <div className="absolute -top-32 left-1/2 h-[500px] w-[700px] -translate-x-1/2 rounded-full bg-[#c9a227]/10 blur-[130px]" />
-            {/* Navy deep left */}
-            <div className="absolute top-1/3 -left-20 h-[400px] w-[400px] rounded-full bg-[#0b1631]/80 blur-[100px]" />
-            {/* Navy deep right */}
-            <div className="absolute -bottom-10 right-[-8%] h-[380px] w-[380px] rounded-full bg-[#0b1631]/60 blur-[100px]" />
-            {/* Grid with gold tint */}
-            <div className="bg-grid absolute inset-0" />
-          </div>
           <div className="mx-auto w-full max-w-7xl px-5 pb-16 pt-16 sm:pt-24">
             <div ref={heroRef} className="mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
               <span className="reveal inline-flex items-center gap-2 rounded-full border border-[rgba(201,162,39,0.35)] bg-[rgba(201,162,39,0.08)] px-4 py-1.5 text-sm font-semibold text-[#c9a227]">
@@ -250,8 +263,8 @@ export default function LandingPage() {
           </div>
 
           <ol className="mt-14 flex flex-col">
-            {TIMELINE.map((item, i) => {
-              const isLast = i === TIMELINE.length - 1;
+            {(timelineData.length > 0 ? timelineData : TIMELINE).map((item, i, arr) => {
+              const isLast = i === arr.length - 1;
               // colour of the connector segment below this node
               const segColor =
                 item.status === "done"
@@ -304,13 +317,13 @@ export default function LandingPage() {
                   {/* Card — bottom margin drives spacing between rows */}
                   <div
                     className={[
-                      "flex-1 rounded-2xl border p-5",
+                      "card-hover flex-1 rounded-2xl border p-5",
                       !isLast ? "mb-4" : "mb-0",
                       item.status === "done"
                         ? "border-success/25 bg-success/5"
                         : item.status === "active"
                           ? "border-[rgba(201,162,39,0.45)] bg-[rgba(201,162,39,0.05)] shadow-[0_0_36px_-14px_rgba(201,162,39,0.35)]"
-                          : "border-[rgba(180,190,215,0.12)] bg-[#0d1220] opacity-70",
+                          : "border-[rgba(180,190,215,0.12)] bg-card/50 backdrop-blur-md opacity-70",
                     ].join(" ")}
                   >
                     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -372,7 +385,7 @@ export default function LandingPage() {
           </ol>
         </section>
 
-        <section className="border-y border-[rgba(201,162,39,0.15)] bg-[#060c1a] py-6">
+        <section className="border-y border-[rgba(201,162,39,0.15)] bg-card/30 backdrop-blur-sm py-6">
           <div className="mb-4 text-center text-xs font-semibold uppercase tracking-widest text-[#c9a227]/70">
             Across every department
           </div>
@@ -412,7 +425,7 @@ export default function LandingPage() {
             {FEATURES.map((f) => (
               <div
                 key={f.title}
-                className="card-hover rounded-xl border border-[rgba(201,162,39,0.15)] bg-[#0d1220] p-6 hover:border-[rgba(201,162,39,0.45)]"
+                className="card-hover rounded-xl border border-[rgba(201,162,39,0.15)] bg-card/50 backdrop-blur-md p-6 hover:border-[rgba(201,162,39,0.45)]"
               >
                 <span className="flex size-10 items-center justify-center rounded-lg bg-[rgba(201,162,39,0.12)] text-[#c9a227]">
                   {ICONS[f.icon]}
@@ -424,7 +437,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section id="how" className="border-y border-[rgba(201,162,39,0.12)] bg-[#060c1a]">
+        <section id="how" className="border-y border-[rgba(201,162,39,0.12)] bg-card/30 backdrop-blur-sm">
           <div className="mx-auto w-full max-w-7xl px-5 py-20 sm:py-28">
             <div className="mx-auto max-w-2xl text-center">
               <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">How it works</h2>
@@ -435,7 +448,7 @@ export default function LandingPage() {
 
             <div className="mt-12 grid gap-4 md:grid-cols-3">
               {STEPS.map((s) => (
-                <div key={s.n} className="rounded-xl border border-[rgba(201,162,39,0.15)] bg-[#0d1220] p-6">
+                <div key={s.n} className="card-hover rounded-xl border border-[rgba(201,162,39,0.15)] bg-card/50 backdrop-blur-md p-6">
                   <span className="text-sm font-black tracking-widest text-[#c9a227]">{s.n}</span>
                   <h3 className="mt-3 text-lg font-bold tracking-tight">{s.title}</h3>
                   <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{s.body}</p>
@@ -455,7 +468,7 @@ export default function LandingPage() {
 
           <div className="mt-12 grid gap-4 sm:grid-cols-3">
             {RULES.map((r) => (
-              <div key={r.title} className="flex items-start gap-4 rounded-xl border border-[rgba(201,162,39,0.15)] bg-[#0d1220] p-6">
+              <div key={r.title} className="card-hover flex items-start gap-4 rounded-xl border border-[rgba(201,162,39,0.15)] bg-card/50 backdrop-blur-md p-6">
                 <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-[rgba(201,162,39,0.10)] text-lg">
                   {r.icon}
                 </span>
@@ -472,14 +485,14 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section className="border-y border-[rgba(201,162,39,0.12)] bg-[#060c1a]">
+        <section className="border-y border-[rgba(201,162,39,0.12)] bg-card/30 backdrop-blur-sm">
           <div className="mx-auto w-full max-w-7xl px-5 py-20 sm:py-24">
             <div className="mx-auto max-w-2xl text-center">
               <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Loved by teams that ship fast</h2>
             </div>
             <div className="mt-12 grid gap-4 md:grid-cols-3">
               {QUOTES.map((t) => (
-                <figure key={t.name} className="flex flex-col justify-between gap-6 rounded-xl border border-[rgba(201,162,39,0.15)] bg-[#0d1220] p-6">
+                <figure key={t.name} className="card-hover flex flex-col justify-between gap-6 rounded-xl border border-[rgba(201,162,39,0.15)] bg-card/50 backdrop-blur-md p-6">
                   <blockquote className="text-sm leading-relaxed text-foreground/90">
                     “{t.text}”
                   </blockquote>
@@ -512,8 +525,8 @@ export default function LandingPage() {
         </section>
 
         <section className="mx-auto w-full max-w-7xl px-5 pb-20">
-          <div className="relative overflow-hidden rounded-3xl px-6 py-16 text-center sm:py-20"
-            style={{background: "linear-gradient(160deg, #060c1a 0%, #0b1631 60%, #0f1e40 100%)"}}>
+          <div className="relative overflow-hidden rounded-3xl px-6 py-16 text-center sm:py-20 backdrop-blur-md"
+            style={{background: "linear-gradient(160deg, rgba(10, 18, 38, 0.9) 0%, rgba(16, 28, 63, 0.8) 60%, rgba(20, 35, 75, 0.7) 100%)"}}>
             {/* Gold top border accent */}
             <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[#c9a227] to-transparent" />
             {/* Gold glow blob */}
@@ -538,12 +551,12 @@ export default function LandingPage() {
         </section>
       </main>
 
-      <RuixenGradientFooter gradientHeight="42vh" stops={["#060c1a", "#0b1631", "#c9a227"]}>
+      <RuixenGradientFooter gradientHeight="16vh" stops={["#050b18", "#081026", "#c9a227"]}>
         <div className="mx-auto w-full max-w-7xl px-5 pt-14">
           <div className="flex flex-col gap-10 pb-14 sm:flex-row sm:justify-between">
             <div className="max-w-xs">
               <div className="flex items-center gap-3">
-                <img src="/logo.png" alt="Sri Manakula Vinayagars Engineering College" className="h-10 w-auto" />
+                <img src="/logo.png" alt="Sri Manakula Vinayagars Engineering College" className="h-16 w-auto brightness-110 contrast-125" />
               </div>
               <p className="mt-4 text-sm leading-relaxed text-white/80">
                 The internal team-formation portal for Smart India Hackathon 2026, hosted by Sri
@@ -579,10 +592,20 @@ export default function LandingPage() {
               />
             </div>
           </div>
-          <div className="border-t border-white/15 py-6">
+          <div className="border-t border-white/15 py-6 flex flex-col sm:flex-row items-center justify-between gap-4">
             <p className="text-xs text-white/70">
               © 2026 Sri Manakula Vinayagar Engineering College · SIH 2026 Team Builder
             </p>
+            <a 
+              href="/admin" 
+              className="text-xs font-semibold text-[#dba328] hover:text-[#dba328]/80 transition-colors flex items-center gap-1.5"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
+              Admin Portal
+            </a>
           </div>
         </div>
       </RuixenGradientFooter>
@@ -593,7 +616,7 @@ export default function LandingPage() {
 function FaqItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="overflow-hidden rounded-xl border border-[rgba(201,162,39,0.15)] bg-[#0d1220]">
+    <div className="card-hover overflow-hidden rounded-xl border border-[rgba(201,162,39,0.15)] bg-card/50 backdrop-blur-md">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}

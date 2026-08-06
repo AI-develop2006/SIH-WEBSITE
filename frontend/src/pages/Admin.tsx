@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase/client";
 import * as data from "@/lib/data";
 import { downloadCsv } from "@/lib/utils";
 import { DEPARTMENTS } from "@/lib/constants";
-import type { EnrichedTeam, Problem, Profile, Theme } from "@/lib/types";
+import type { EnrichedTeam, Problem, Profile, Theme, TimelineEvent, Announcement } from "@/lib/types";
 import { useToast } from "@/components/unlumen-ui/toast";
 import { Button } from "@/components/unlumen-ui/button";
 import { Card } from "@/components/unlumen-ui/card";
@@ -16,7 +16,7 @@ import { Input, Select } from "@/components/unlumen-ui/input";
 import { CollegeBrand } from "@/components/college-brand";
 import { cn } from "@/lib/utils";
 
-type Tab = "students" | "teams" | "problems";
+type Tab = "students" | "teams" | "problems" | "timeline" | "announcements";
 
 export default function AdminPage() {
   const navigate = useNavigate();
@@ -27,32 +27,61 @@ export default function AdminPage() {
   const [teams, setTeams] = useState<EnrichedTeam[]>([]);
   const [problems, setProblems] = useState<Problem[]>([]);
   const [themes, setThemes] = useState<Theme[]>([]);
+  const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [tablesMissing, setTablesMissing] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const [q, setQ] = useState("");
   const [dept, setDept] = useState("");
   const [gender, setGender] = useState("");
   const [verified, setVerified] = useState("all");
+  const [projType, setProjType] = useState("");
 
   const [promoting, setPromoting] = useState<string | null>(null);
   const [verifying, setVerifying] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const [profilesRes, teamsRes, problemsRes, themesRes] = await Promise.all([
+    const [profilesRes, teamsRes, problemsRes, themesRes, timelineRes, announcementsRes] = await Promise.all([
       data.fetchAllProfiles(),
       data.fetchEnrichedTeams(),
       data.fetchProblems(),
       data.fetchThemes(),
+      data.fetchTimelineEvents(),
+      data.fetchAnnouncements(),
     ]);
     if (profilesRes.error) toast("error", profilesRes.error);
     if (teamsRes.error) toast("error", teamsRes.error);
     if (problemsRes.error) toast("error", problemsRes.error);
     if (themesRes.error) toast("error", themesRes.error);
+
+    // If relations are missing in Supabase, show database config message
+    const isMissing = (err: string | null) => {
+      if (!err) return false;
+      const lower = err.toLowerCase();
+      return (
+        lower.includes("does not exist") ||
+        lower.includes("could not find the table") ||
+        lower.includes("schema cache")
+      );
+    };
+
+    if (isMissing(timelineRes.error) || isMissing(announcementsRes.error)) {
+      setTablesMissing(true);
+    } else {
+      if (timelineRes.error) toast("error", timelineRes.error);
+      if (announcementsRes.error) toast("error", announcementsRes.error);
+      setTablesMissing(false);
+    }
+
     setProfiles(profilesRes.data ?? []);
     setTeams(teamsRes.data ?? []);
     setProblems(problemsRes.data ?? []);
     setThemes(themesRes.data ?? []);
+    setTimeline(timelineRes.data ?? []);
+    setAnnouncements(announcementsRes.data ?? []);
   }, [toast]);
 
   useEffect(() => {
@@ -61,7 +90,8 @@ export default function AdminPage() {
         data: { session },
       } = await supabase!.auth.getSession();
       if (!session) {
-        navigate("/", { replace: true });
+        setIsAuthenticated(false);
+        setLoading(false);
         return;
       }
       const { data: me } = await data.getCurrentProfile();
@@ -70,6 +100,7 @@ export default function AdminPage() {
         navigate("/dashboard", { replace: true });
         return;
       }
+      setIsAuthenticated(true);
       await load();
       setLoading(false);
     })();
@@ -83,6 +114,7 @@ export default function AdminPage() {
       if (gender && p.gender !== gender) return false;
       if (verified === "verified" && !p.verified) return false;
       if (verified === "unverified" && p.verified) return false;
+      if (projType && p.project_type !== projType) return false;
       if (!needle) return true;
       const hay = [
         p.name,
@@ -98,7 +130,7 @@ export default function AdminPage() {
         .toLowerCase();
       return hay.includes(needle);
     });
-  }, [profiles, q, dept, gender, verified]);
+  }, [profiles, q, dept, gender, verified, projType]);
 
   const problemMap = useMemo(() => new Map(problems.map((p) => [p.id, p.title])), [problems]);
 
@@ -145,6 +177,7 @@ export default function AdminPage() {
 
   async function logout() {
     await supabase!.auth.signOut();
+    setIsAuthenticated(false);
     navigate("/", { replace: true });
   }
 
@@ -163,6 +196,14 @@ export default function AdminPage() {
         languages: s.languages.join(" | "),
         linkedin: s.linkedin ?? "",
         project_type: s.project_type ?? "",
+        project_title: s.project_title ?? "",
+        project_description: s.project_description ?? "",
+        domain: s.domain ?? "",
+        software_domain: s.software_domain ?? "",
+        hardware_domain: s.hardware_domain ?? "",
+        github: s.github ?? "",
+        youtube_link: s.youtube_link ?? "",
+        google_drive_ppt: s.google_drive_ppt ?? "",
         verified: s.verified ? "Yes" : "No",
         created_at: s.created_at,
       })),
@@ -178,6 +219,14 @@ export default function AdminPage() {
         { key: "languages", label: "Languages" },
         { key: "linkedin", label: "LinkedIn" },
         { key: "project_type", label: "Project Type" },
+        { key: "project_title", label: "Project Title" },
+        { key: "project_description", label: "Project Description" },
+        { key: "domain", label: "Domain" },
+        { key: "software_domain", label: "Software Domain" },
+        { key: "hardware_domain", label: "Hardware Domain" },
+        { key: "github", label: "GitHub URL" },
+        { key: "youtube_link", label: "YouTube Link" },
+        { key: "google_drive_ppt", label: "Google Drive PPT" },
         { key: "verified", label: "Verified" },
         { key: "created_at", label: "Registered On" },
       ]
@@ -212,6 +261,25 @@ export default function AdminPage() {
     );
   }
 
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground bg-transparent">
+        Loading…
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <AdminLoginForm
+        onLoginSuccess={() => {
+          setIsAuthenticated(true);
+          load();
+        }}
+      />
+    );
+  }
+
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-5 pb-16">
       <header className="sticky top-0 z-40 -mx-5 mb-6 border-b border-border bg-background/80 px-5 backdrop-blur">
@@ -224,8 +292,8 @@ export default function AdminPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => navigate("/dashboard")}>
-              Dashboard
+            <Button variant="outline" onClick={() => navigate("/")}>
+              View Site
             </Button>
             <Button variant="danger" onClick={logout} className="px-3 py-2">
               Log out
@@ -233,8 +301,8 @@ export default function AdminPage() {
           </div>
         </div>
 
-        <div className="flex gap-1 pb-3">
-          {(["students", "teams", "problems"] as Tab[]).map((t) => (
+        <div className="flex flex-wrap gap-1 pb-3">
+          {(["students", "teams", "problems", "timeline", "announcements"] as Tab[]).map((t) => (
             <button
               key={t}
               type="button"
@@ -246,16 +314,21 @@ export default function AdminPage() {
                   : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
               )}
             >
-              {t === "students" ? `Students (${students.length})` : t === "teams" ? `Teams (${teams.length})` : "Problems"}
+              {t === "students"
+                ? `Students (${students.length})`
+                : t === "teams"
+                ? `Teams (${teams.length})`
+                : t === "problems"
+                ? "Problems"
+                : t === "timeline"
+                ? "Timeline Dates"
+                : "Announcements"}
             </button>
           ))}
         </div>
       </header>
 
-      {loading ? (
-        <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">Loading…</div>
-      ) : (
-        <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-6">
           <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
             <StatCard label="Students" value={students.length} accent="ring" />
             <StatCard label="Verified" value={verifiedCount} accent="success" />
@@ -293,6 +366,12 @@ export default function AdminPage() {
                     <option value="all">All statuses</option>
                     <option value="verified">Verified</option>
                     <option value="unverified">Unverified</option>
+                  </Select>
+                  <Select value={projType} onChange={(e) => setProjType(e.target.value)} className="w-full sm:w-40">
+                    <option value="">All project types</option>
+                    <option value="Hardware">Hardware</option>
+                    <option value="Software">Software</option>
+                    <option value="Both">Both</option>
                   </Select>
                   <Button variant="outline" onClick={exportStudents}>
                     Export CSV
@@ -359,7 +438,38 @@ export default function AdminPage() {
                             ))}
                           </div>
                         </td>
-                        <td className="px-5 py-3 text-muted-foreground">{s.project_type ?? "—"}</td>
+                        <td className="px-5 py-3 text-muted-foreground">
+                          <div className="leading-tight max-w-[220px]">
+                            <p className="font-semibold text-xs text-foreground">{s.project_type ?? "—"}</p>
+                            {s.project_title && (
+                              <p className="text-[11px] text-muted-foreground truncate mt-0.5" title={s.project_title}>
+                                {s.project_title}
+                              </p>
+                            )}
+                            {s.domain && (
+                              <p className="text-[9px] text-muted-foreground/80 truncate" title={s.domain}>
+                                {s.domain}
+                              </p>
+                            )}
+                            <div className="flex gap-2 mt-1">
+                              {s.google_drive_ppt && (
+                                <a href={s.google_drive_ppt} target="_blank" rel="noreferrer" className="text-[9px] text-[#dba328] hover:underline">
+                                  PPT ↗
+                                </a>
+                              )}
+                              {s.github && (
+                                <a href={s.github} target="_blank" rel="noreferrer" className="text-[9px] text-[#dba328] hover:underline">
+                                  Repo/Profile ↗
+                                </a>
+                              )}
+                              {s.youtube_link && (
+                                <a href={s.youtube_link} target="_blank" rel="noreferrer" className="text-[9px] text-[#dba328] hover:underline">
+                                  Video ↗
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        </td>
                         <td className="px-5 py-3">
                           {s.verified ? (
                             <GlowingBadge variant="success" pulse={false}>
@@ -485,8 +595,69 @@ export default function AdminPage() {
           )}
 
           {tab === "problems" && <ProblemsManager problems={problems} themes={themes} onReload={load} />}
+
+          {tablesMissing && (tab === "timeline" || tab === "announcements") && (
+            <Card className="p-6 border-warning/30 bg-warning/5 text-center flex flex-col items-center gap-3">
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-warning animate-bounce">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                <line x1="12" y1="9" x2="12" y2="13" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+              <h3 className="text-base font-bold text-warning">Supabase Tables Missing</h3>
+              <p className="text-xs text-muted-foreground max-w-sm">
+                The database tables <code className="font-mono">timeline_events</code> and <code className="font-mono">announcements</code> are not created in your Supabase project yet. Click below to copy the SQL setup code to paste it into your Supabase Dashboard SQL Editor:
+              </p>
+              <Button
+                variant="outline"
+                className="text-xs border-warning/30 text-warning hover:bg-warning/10"
+                onClick={() => {
+                  const sql = `-- ---------- SQL Migration Code ----------\n\n` +
+                    `create table if not exists public.timeline_events (\n` +
+                    `  id uuid primary key default gen_random_uuid(),\n` +
+                    `  step text not null,\n` +
+                    `  date text not null,\n` +
+                    `  label text not null,\n` +
+                    `  description text not null,\n` +
+                    `  status text not null check (status in ('done', 'active', 'upcoming')),\n` +
+                    `  sort_order int not null default 0,\n` +
+                    `  created_at timestamptz not null default now()\n` +
+                    `);\n\n` +
+                    `create table if not exists public.announcements (\n` +
+                    `  id uuid primary key default gen_random_uuid(),\n` +
+                    `  content text not null,\n` +
+                    `  active boolean not null default true,\n` +
+                    `  created_at timestamptz not null default now()\n` +
+                    `);\n\n` +
+                    `alter table public.timeline_events enable row level security;\n` +
+                    `alter table public.announcements enable row level security;\n\n` +
+                    `create policy "Allow public select for timeline" on public.timeline_events for select using (true);\n` +
+                    `create policy "Allow all for admin users on timeline" on public.timeline_events for all using (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'));\n\n` +
+                    `create policy "Allow public select for announcements" on public.announcements for select using (true);\n` +
+                    `create policy "Allow all for admin users on announcements" on public.announcements for all using (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'));\n\n` +
+                    `insert into public.timeline_events (step, date, label, description, status, sort_order) values\n` +
+                    `  ('01', '6 Aug 2026', 'Portal opens', 'Registration portal goes live. Create your account and fill in your profile.', 'done', 1),\n` +
+                    `  ('02', '15 Aug 2026', 'Registration deadline', 'Last day to submit your registration form. No entries accepted after midnight.', 'active', 2),\n` +
+                    `  ('03', 'TBA', 'Team formation', 'Teams will be formed by your mentor based on skills and preferences. Date will be announced soon.', 'upcoming', 3),\n` +
+                    `  ('04', 'TBA', 'Internal hackathon', 'Present your solution to the evaluation panel. Top teams proceed to the national SIH round.', 'upcoming', 4)\n` +
+                    `on conflict do nothing;\n\n` +
+                    `insert into public.announcements (content, active) values ('Welcome to the SIH 2026 Team Builder portal! Register now and start forming your dream team.', true) on conflict do nothing;`;
+                  navigator.clipboard.writeText(sql);
+                  toast("success", "SQL code copied to clipboard!");
+                }}
+              >
+                Copy SQL Script
+              </Button>
+            </Card>
+          )}
+
+          {!tablesMissing && tab === "timeline" && (
+            <TimelineManager timeline={timeline} onReload={load} />
+          )}
+
+          {!tablesMissing && tab === "announcements" && (
+            <AnnouncementsManager announcements={announcements} onReload={load} />
+          )}
         </div>
-      )}
     </main>
   );
 }
@@ -712,5 +883,456 @@ function StatCard({ label, value, accent }: { label: string; value: number; acce
       </p>
       <p className="mt-2 text-3xl font-black tabular-nums">{value}</p>
     </Card>
+  );
+}
+
+function TimelineManager({ timeline, onReload }: { timeline: TimelineEvent[]; onReload: () => Promise<void> }) {
+  const toast = useToast();
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [form, setForm] = useState({ id: "", step: "", date: "", label: "", description: "", status: "upcoming" as "done" | "active" | "upcoming", sortOrder: 1 });
+
+  function reset() {
+    setForm({ id: "", step: "", date: "", label: "", description: "", status: "upcoming", sortOrder: timeline.length + 1 });
+  }
+
+  function startEdit(t: TimelineEvent) {
+    setForm({
+      id: t.id,
+      step: t.step,
+      date: t.date,
+      label: t.label,
+      description: t.description,
+      status: t.status,
+      sortOrder: t.sort_order,
+    });
+  }
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.step || !form.label || !form.date) {
+      toast("error", "Step, Date and Label are required");
+      return;
+    }
+    setSaving(true);
+    const res = await data.upsertTimelineEvent({
+      id: form.id || undefined,
+      step: form.step,
+      date: form.date,
+      label: form.label,
+      description: form.description,
+      status: form.status,
+      sort_order: form.sortOrder,
+    });
+    if (res.error) {
+      toast("error", res.error);
+    } else {
+      toast("success", form.id ? "Timeline step updated" : "Timeline step added");
+      reset();
+      await onReload();
+    }
+    setSaving(false);
+  }
+
+  async function remove(id: string, label: string) {
+    if (!window.confirm(`Delete timeline step "${label}"?`)) return;
+    setDeleting(id);
+    const res = await data.deleteTimelineEvent(id);
+    if (res.error) {
+      toast("error", res.error);
+    } else {
+      toast("success", "Timeline step deleted");
+      await onReload();
+    }
+    setDeleting(null);
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      <Card className="p-5">
+        <h3 className="text-base font-bold">{form.id ? "Edit Timeline Step" : "Add Timeline Step"}</h3>
+        <form onSubmit={save} className="mt-4 flex flex-col gap-4">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Input
+              label="Step ID (e.g. 01)"
+              value={form.step}
+              onChange={(e) => setForm((f) => ({ ...f, step: e.target.value }))}
+              placeholder="e.g. 01"
+              required
+            />
+            <Input
+              label="Date / Period"
+              value={form.date}
+              onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
+              placeholder="e.g. 15 Aug 2026 or TBA"
+              required
+            />
+            <Input
+              label="Sort Order"
+              type="number"
+              value={form.sortOrder}
+              onChange={(e) => setForm((f) => ({ ...f, sortOrder: parseInt(e.target.value) || 0 }))}
+              placeholder="1"
+              required
+            />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Input
+              label="Label (Title)"
+              value={form.label}
+              onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))}
+              placeholder="e.g. Internal hackathon"
+              required
+            />
+            <Select
+              label="Status"
+              value={form.status}
+              onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as any }))}
+            >
+              <option value="done">Done (Completed)</option>
+              <option value="active">Active (Current)</option>
+              <option value="upcoming">Upcoming (Future)</option>
+            </Select>
+          </div>
+          <Input
+            label="Description"
+            value={form.description}
+            onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+            placeholder="Short details explaining this step..."
+          />
+          <div className="flex gap-2">
+            <Button type="submit" loading={saving}>
+              {form.id ? "Save Step" : "Add Step"}
+            </Button>
+            {form.id && (
+              <Button type="button" variant="ghost" onClick={reset}>
+                Cancel
+              </Button>
+            )}
+          </div>
+        </form>
+      </Card>
+
+      <Card className="p-0 overflow-hidden">
+        <div className="px-5 py-4 border-b border-border">
+          <h3 className="text-base font-bold">Timeline Steps</h3>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-border text-xs uppercase tracking-wider text-muted-foreground bg-muted/20">
+                <th className="px-5 py-3 font-semibold w-16">Order</th>
+                <th className="px-5 py-3 font-semibold w-16">Step</th>
+                <th className="px-5 py-3 font-semibold">Label</th>
+                <th className="px-5 py-3 font-semibold">Date</th>
+                <th className="px-5 py-3 font-semibold">Status</th>
+                <th className="px-5 py-3 font-semibold text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {timeline.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-5 py-10 text-center text-muted-foreground">
+                    No timeline steps configured.
+                  </td>
+                </tr>
+              )}
+              {timeline.map((t) => (
+                <tr key={t.id} className="border-b border-border/60 last:border-0 hover:bg-muted/20">
+                  <td className="px-5 py-3 font-mono text-muted-foreground">{t.sort_order}</td>
+                  <td className="px-5 py-3 font-mono font-bold text-primary">{t.step}</td>
+                  <td className="px-5 py-3">
+                    <p className="font-semibold">{t.label}</p>
+                    <p className="text-xs text-muted-foreground">{t.description}</p>
+                  </td>
+                  <td className="px-5 py-3 font-semibold text-muted-foreground">{t.date}</td>
+                  <td className="px-5 py-3">
+                    {t.status === "done" && <GlowingBadge variant="success" pulse={false}>Done</GlowingBadge>}
+                    {t.status === "active" && <GlowingBadge variant="warning" pulse>Active</GlowingBadge>}
+                    {t.status === "upcoming" && <GlowingBadge variant="info" pulse={false}>Upcoming</GlowingBadge>}
+                  </td>
+                  <td className="px-5 py-3 text-right">
+                    <div className="flex justify-end gap-1.5">
+                      <Button variant="outline" className="px-2 py-1 text-xs" onClick={() => startEdit(t)}>
+                        Edit
+                      </Button>
+                      <Button variant="danger" className="px-2 py-1 text-xs" loading={deleting === t.id} onClick={() => remove(t.id, t.label)}>
+                        Delete
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function AnnouncementsManager({ announcements, onReload }: { announcements: Announcement[]; onReload: () => Promise<void> }) {
+  const toast = useToast();
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({ id: "", content: "", active: true });
+
+  function reset() {
+    setForm({ id: "", content: "", active: true });
+  }
+
+  function startEdit(a: Announcement) {
+    setForm({
+      id: a.id,
+      content: a.content,
+      active: a.active,
+    });
+  }
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.content.trim()) {
+      toast("error", "Announcement content is required");
+      return;
+    }
+    setSaving(true);
+    const res = await data.upsertAnnouncement({
+      id: form.id || undefined,
+      content: form.content.trim(),
+      active: form.active,
+    });
+    if (res.error) {
+      toast("error", res.error);
+    } else {
+      toast("success", form.id ? "Announcement updated" : "Announcement posted");
+      reset();
+      await onReload();
+    }
+    setSaving(false);
+  }
+
+  async function toggleActive(a: Announcement) {
+    const res = await data.upsertAnnouncement({
+      id: a.id,
+      content: a.content,
+      active: !a.active,
+    });
+    if (res.error) {
+      toast("error", res.error);
+    } else {
+      toast("success", `Announcement set to ${!a.active ? "Active" : "Inactive"}`);
+      await onReload();
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      <Card className="p-5">
+        <h3 className="text-base font-bold">{form.id ? "Edit System Announcement" : "Create System Announcement"}</h3>
+        <form onSubmit={save} className="mt-4 flex flex-col gap-4">
+          <div>
+            <span className="mb-1.5 block text-sm font-medium text-foreground">Message Content</span>
+            <textarea
+              value={form.content}
+              onChange={(e) => setForm((f) => ({ ...f, content: e.target.value }))}
+              placeholder="e.g. Attention Students: Team verification is now open. Make sure to complete your profile!"
+              className="w-full min-h-[100px] rounded-lg border border-border bg-input px-3.5 py-2.5 text-sm text-foreground placeholder-muted-foreground outline-none transition-all focus:border-ring/50 focus:shadow-[0_0_12px_-4px_rgba(201,162,39,0.3)]"
+              required
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="active"
+              checked={form.active}
+              onChange={(e) => setForm((f) => ({ ...f, active: e.target.checked }))}
+              className="accent-[#dba328]"
+            />
+            <label htmlFor="active" className="text-sm font-medium text-foreground cursor-pointer select-none">
+              Make this announcement active immediately (display it to students)
+            </label>
+          </div>
+          <div className="flex gap-2">
+            <Button type="submit" loading={saving}>
+              {form.id ? "Save Message" : "Post Message"}
+            </Button>
+            {form.id && (
+              <Button type="button" variant="ghost" onClick={reset}>
+                Cancel
+              </Button>
+            )}
+          </div>
+        </form>
+      </Card>
+
+      <Card className="p-0 overflow-hidden">
+        <div className="px-5 py-4 border-b border-border">
+          <h3 className="text-base font-bold">Announcement History</h3>
+        </div>
+        <div className="divide-y divide-border">
+          {announcements.length === 0 && (
+            <p className="px-5 py-10 text-center text-sm text-muted-foreground">
+              No announcements posted yet.
+            </p>
+          )}
+          {announcements.map((a) => (
+            <div key={a.id} className="p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:bg-muted/10 transition-colors">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="text-xs text-muted-foreground">
+                    {new Date(a.created_at).toLocaleDateString("en-IN", {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                  {a.active ? (
+                    <GlowingBadge variant="success" pulse>Active</GlowingBadge>
+                  ) : (
+                    <GlowingBadge variant="warning" pulse={false}>Inactive</GlowingBadge>
+                  )}
+                </div>
+                <p className="text-sm font-medium text-foreground leading-relaxed whitespace-pre-wrap">{a.content}</p>
+              </div>
+              <div className="flex shrink-0 gap-1.5">
+                <Button variant="outline" className="px-2.5 py-1 text-xs" onClick={() => toggleActive(a)}>
+                  {a.active ? "Deactivate" : "Activate"}
+                </Button>
+                <Button variant="outline" className="px-2.5 py-1 text-xs" onClick={() => startEdit(a)}>
+                  Edit
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function AdminLoginForm({ onLoginSuccess }: { onLoginSuccess: () => void }) {
+  const toast = useToast();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function handleLogin(e: React.FormEvent) {
+    e.preventDefault();
+    if (!email.trim() || !password.trim()) return;
+
+    setBusy(true);
+    try {
+      // 1. Attempt login in Supabase
+      const { error: signInError } = await supabase!.auth.signInWithPassword({
+        email: email.trim(),
+        password: password.trim(),
+      });
+
+      if (signInError) {
+        // 2. If it fails and credentials match smvecsihadmin2026@gmail.com and password sih2026, auto-register
+        if (email.trim() === "smvecsihadmin2026@gmail.com" && password.trim() === "sih2026") {
+          toast("info", "Admin account not found. Creating credentials in database...");
+          const { data: signUpData, error: signUpError } = await supabase!.auth.signUp({
+            email: email.trim(),
+            password: password.trim(),
+            options: {
+              data: {
+                name: "Admin Manager",
+                role: "admin",
+                gender: "Other",
+                phone: "admin-phone-2026",
+              },
+            },
+          });
+
+          if (signUpError) throw new Error(signUpError.message);
+
+          if (signUpData.user) {
+            await data.ensureProfile(signUpData.user.id, {
+              name: "Admin Manager",
+              email: email.trim(),
+              role: "admin",
+              gender: "Other",
+              phone: "admin-phone-2026",
+            });
+          }
+
+          if (signUpData.session) {
+            toast("success", "Admin account created and logged in!");
+            onLoginSuccess();
+          } else {
+            toast("success", "Admin account registered! Check inbox to confirm (or check Supabase settings).");
+          }
+          return;
+        } else {
+          throw new Error(signInError.message);
+        }
+      }
+
+      // 3. Login succeeded, check if user is admin
+      const { data: profile, error: profileError } = await data.getCurrentProfile();
+      if (profileError || !profile) {
+        throw new Error(profileError ?? "Profile data not found");
+      }
+
+      if (profile.role !== "admin") {
+        await supabase!.auth.signOut();
+        throw new Error("Access denied. Admin role required.");
+      }
+
+      toast("success", `Welcome back, ${profile.name}!`);
+      onLoginSuccess();
+    } catch (err) {
+      toast("error", err instanceof Error ? err.message : "Authentication failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center px-5 py-12 relative overflow-hidden bg-transparent">
+      {/* Top accent bar */}
+      <div className="fixed inset-x-0 top-0 z-50 h-[2px] bg-gradient-to-r from-transparent via-[#c9a227] to-transparent" />
+      
+      <Card className="w-full max-w-md border border-[rgba(201,162,39,0.25)] bg-card/85 p-8 backdrop-blur-xl shadow-2xl relative z-10">
+        <div className="flex flex-col items-center text-center gap-2 mb-8">
+          <CollegeBrand />
+          <h2 className="mt-4 text-2xl font-black tracking-tight text-foreground">Admin Portal Access</h2>
+          <p className="text-sm text-muted-foreground font-semibold">Authorized personnel only</p>
+        </div>
+
+        <form onSubmit={handleLogin} className="flex flex-col gap-5">
+          <Input
+            label="Email Address"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="admin@smvec.ac.in"
+            required
+            autoComplete="username"
+          />
+          <Input
+            label="Password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="••••••••"
+            required
+            autoComplete="current-password"
+          />
+
+          <Button type="submit" loading={busy} className="mt-2 w-full bg-[#c9a227] text-[#06090f] hover:bg-[#e8c058] font-bold border-0">
+            Sign In to Control Center
+          </Button>
+        </form>
+
+        <div className="mt-6 border-t border-border/60 pt-4 text-center">
+          <a href="/" className="text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors">
+            ← Back to Landing Page
+          </a>
+        </div>
+      </Card>
+    </div>
   );
 }

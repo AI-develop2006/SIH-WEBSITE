@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { assertSupabase, isSupabaseConfigured } from "@/lib/supabase/client";
+import * as data from "@/lib/data";
 import { useToast } from "@/components/unlumen-ui/toast";
 import { Button } from "@/components/unlumen-ui/button";
 import { Input } from "@/components/unlumen-ui/input";
@@ -13,18 +14,30 @@ export function AuthCard() {
   const configured = isSupabaseConfigured();
 
   const [busy, setBusy] = useState(false);
-  const [form, setForm] = useState({ email: "", password: "" });
+  const [form, setForm] = useState({ registerNo: "" });
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
+    if (!form.registerNo.trim()) return;
     setBusy(true);
     try {
+      const regNoUpper = form.registerNo.trim().toUpperCase();
+
+      // 1. Fetch email by Register Number
+      const res = await data.getEmailByRegisterNo(regNoUpper);
+      if (res.error) throw new Error(res.error);
+      if (!res.email) {
+        throw new Error("Register number not found. Please verify your inputs or register first.");
+      }
+
+      // 2. Perform supabase sign in using uppercase Register Number as password
       const supabase = assertSupabase();
       const { error } = await supabase.auth.signInWithPassword({
-        email: form.email.trim(),
-        password: form.password,
+        email: res.email,
+        password: regNoUpper,
       });
       if (error) throw new Error(error.message);
+
       toast("success", "Welcome back!");
       navigate("/dashboard");
     } catch (err) {
@@ -48,7 +61,7 @@ export function AuthCard() {
         <p className="font-caveat text-2xl text-[#dba328]">Smart India Hackathon 2026</p>
         <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">Welcome back</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Log in with the email you used to register for SIH 2026.
+          Log in with your Register Number.
         </p>
       </div>
 
@@ -64,19 +77,11 @@ export function AuthCard() {
 
             <div className="flex flex-col gap-4">
               <Input
-                label="Email"
-                type="email"
-                value={form.email}
-                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                placeholder="you@college.edu"
-                required
-              />
-              <Input
-                label="Password"
-                type="password"
-                value={form.password}
-                onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-                placeholder="••••••••"
+                label="Register Number"
+                type="text"
+                value={form.registerNo}
+                onChange={(e) => setForm((f) => ({ ...f, registerNo: e.target.value }))}
+                placeholder="e.g. 24UAI123"
                 required
               />
             </div>

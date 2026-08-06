@@ -2,7 +2,10 @@
 
 export function AuroraBackground() {
   return (
-    <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden bg-background">
+    <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden bg-background">
+      {/* Tech Dot Grid Pattern */}
+      <div className="bg-dots absolute inset-0" />
+
       {/* Grid Pattern Overlay with Radial Fade */}
       <div className="bg-grid absolute inset-0" />
 

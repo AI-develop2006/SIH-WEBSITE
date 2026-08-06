@@ -222,7 +222,7 @@ export default function LandingPage() {
             <div ref={heroRef} className="mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
               <span className="reveal inline-flex items-center gap-2 rounded-full border border-[rgba(201,162,39,0.35)] bg-[rgba(201,162,39,0.08)] px-4 py-1.5 text-sm font-semibold text-[#c9a227]">
                 <span className="size-2 rounded-full bg-[#c9a227] animate-pulse" />
-                Build your winning SIH team . not your stress
+                Build your Winning SIH team ,,Not your SStress
               </span>
 
               <h1 className="reveal text-4xl font-bold leading-[1.08] tracking-tight text-foreground sm:text-6xl">
@@ -249,7 +249,7 @@ export default function LandingPage() {
         </section>
 
         {/* ── Timeline ── */}
-        <section id="timeline" className="mx-auto w-full max-w-[1536px] px-5 py-20 sm:py-28">
+        <section id="timeline" className="relative overflow-hidden mx-auto w-full max-w-4xl px-5 py-20 sm:py-28">
           <div className="mx-auto max-w-2xl text-center">
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Key dates</h2>
             <p className="mt-3 text-muted-foreground">

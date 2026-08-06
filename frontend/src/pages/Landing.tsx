@@ -65,31 +65,31 @@ const TIMELINE = [
 
 const FEATURES = [
   {
-    title: "Smart team matching",
-    body: "Search students by department, year, section or language and invite the people who complete your squad.",
+    title: "Project Parameters Wizard",
+    body: "Enter your hardware or software project parameters, upload PPT slides, and submit video demonstration links.",
     icon: "spark",
   },
   {
-    title: "Automatic rule checks",
-    body: "Server-side validation enforces the 6-member, 2-female, 2-department rules — bad teams are blocked, not just warned.",
+    title: "Passwordless Authentication",
+    body: "Register securely and log in using your college Register Number with zero password hassle.",
     icon: "shield",
   },
   {
-    title: "Invites & join requests",
-    body: "Send invites, accept requests, and track every pending decision in one clean inbox per team.",
+    title: "Live Milestone Feed",
+    body: "Track key dates, evaluation timelines, and announcements directly on your student dashboard.",
     icon: "inbox",
   },
   {
-    title: "Live team health",
-    body: "Every team shows a competition-ready badge with member count, gender balance and department spread at a glance.",
+    title: "Mentor-Led Formations",
+    body: "Mentors analyze your project profile, skills, and department to form balanced hackathon squads.",
     icon: "pulse",
   },
 ];
 
 const STEPS = [
-  { n: "01", title: "Apply via the registration form", body: "Fill in your details — name, register no, department, year, languages, LinkedIn and project type — and create your account." },
-  { n: "02", title: "Find or build your team", body: "Your team will be formed by Your mentor based on skills shortly the date will be announed later " },
-  { n: "03", title: "Compete together", body: "Keep your squad rule-valid, accept join requests, and walk into SIH 2026 ready." },
+  { n: "01", title: "Apply via registration form", body: "Fill in your details, select your project type, provide links to your repositories/PPT, and submit the form." },
+  { n: "02", title: "Team formation by mentors", body: "Your team will be formed by your mentors based on project types and skills. The final date will be announced soon." },
+  { n: "03", title: "Await final announcement", body: "Wait for mentor evaluations and check your dashboard timeline for team assignments." },
 ];
 
 const RULES = [
@@ -99,9 +99,9 @@ const RULES = [
 ];
 
 const QUOTES = [
-  { text: "I built my whole team in one evening — the stack filter found exactly the backend and ML folks I needed.", name: "Ananya S.", role: "CSE · Team Leader" },
-  { text: "The rule checks caught a 7th member invite before I even sent it. Saved us an embarrassing correction on day one.", name: "Rahul M.", role: "ECE · Member" },
-  { text: "Joining a team used to mean group-chat roulette. Now it's browse, request, accept — done.", name: "Divya K.", role: "IT · Member" },
+  { text: "The registration was completely frictionless. Registering hardware details and linking our PPT took less than five minutes.", name: "Ananya S.", role: "CSE · Registrant" },
+  { text: "Using my Register Number directly as the login password meant I didn't have to remember another account credential.", name: "Rahul M.", role: "ECE · Registrant" },
+  { text: "It's great to see a live timeline update. We know exactly when the mentor review starts and when teams are announced.", name: "Vijay K.", role: "IT · Registrant" },
 ];
 
 const FAQS = [
@@ -414,10 +414,10 @@ export default function LandingPage() {
         <section id="features" className="mx-auto w-full max-w-7xl px-5 py-20 sm:py-28">
           <div className="mx-auto max-w-2xl text-center">
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-              Everything around your team, in one place
+              Everything for your registration, in one place
             </h2>
             <p className="mt-3 text-muted-foreground">
-              Real-time rule checks, invites, and matching — Folio-style polish for the SIH 2026 team pool.
+              Dynamic project details, passwordless logins, and real-time timeline feeds for the SIH 2026 registration.
             </p>
           </div>
 
@@ -460,9 +460,9 @@ export default function LandingPage() {
 
         <section id="rules" className="mx-auto w-full max-w-7xl px-5 py-20 sm:py-28">
           <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Rules that can't be bent</h2>
+            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">National SIH Team Guidelines</h2>
             <p className="mt-3 text-muted-foreground">
-              Enforced in the database, not just the UI — no accidental invalid teams.
+              Mentors will structure teams matching these official parameters.
             </p>
           </div>
 
@@ -481,7 +481,7 @@ export default function LandingPage() {
           </div>
 
           <div className="mx-auto mt-10 max-w-2xl rounded-xl border border-[rgba(201,162,39,0.18)] bg-[rgba(201,162,39,0.05)] px-5 py-4 text-center text-sm text-[#c9a227]/80">
-            Team rule violations are rejected by the server with a clear message — check any team's live badge for its status.
+            Mentors will dynamically construct optimal teams mapping to these conditions after the registration window closes.
           </div>
         </section>
 

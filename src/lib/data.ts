@@ -43,6 +43,11 @@ export async function ensureProfile(uid: string, meta: Record<string, unknown>):
       languages: Array.isArray(meta.languages) ? meta.languages : [],
       linkedin: (meta.linkedin as string) ?? null,
       project_type: (meta.project_type as string) ?? null,
+      // ── New project detail fields ──
+      project_title: (meta.project_title as string) ?? null,
+      project_desc: (meta.project_desc as string) ?? null,
+      drive_link: (meta.drive_link as string) ?? null,
+      youtube: (meta.youtube as string) ?? null,
     },
     { onConflict: "id" }
   );

@@ -16,6 +16,10 @@ export type Profile = {
   languages: string[];
   linkedin: string | null;
   project_type: "Hardware" | "Software" | "Both" | null;
+  project_title: string | null;
+  project_desc: string | null;
+  drive_link: string | null;
+  youtube: string | null;
   verified: boolean;
   avatar_url: string | null;
   created_at: string;

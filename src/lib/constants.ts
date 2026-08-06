@@ -20,3 +20,21 @@ export const YEARS = ["I", "II", "III", "IV"] as const;
 export const LANGUAGE_OPTIONS = ["English", "Hindi"] as const;
 
 export const PROJECT_TYPES = ["Hardware", "Software", "Both"] as const;
+
+export const HARDWARE_DOMAINS = [
+  "IoT & Sensors",
+  "Embedded Systems & Microcontrollers",
+  "Circuit Design & PCB Layout",
+  "Smart Automation & Industrial Control",
+  "Robotics & Drones",
+] as const;
+
+export const SOFTWARE_DOMAINS = [
+  "Frontend",
+  "Backend",
+  "AI/ML",
+  "Cybersecurity / Blockchain",
+  "Full Stack",
+  "Cloud / DevOps",
+  "Mobile App Development",
+] as const;

@@ -55,6 +55,22 @@ export default function RegisterPage() {
         {/* Right side — content */}
         <main className="flex w-full flex-col lg:ml-auto lg:w-1/2">
           <div className="grow w-full max-w-xl mx-auto px-5 py-12 sm:px-6 lg:pt-20 lg:pb-24">
+            {/* Home nav button */}
+            <div className="mb-8 flex items-center gap-3">
+              <a
+                href="/"
+                className="inline-flex items-center gap-2 rounded-xl border border-border bg-muted/40 px-3.5 py-2 text-sm font-medium text-muted-foreground transition-colors hover:border-ring/40 hover:bg-muted hover:text-foreground"
+                title="Back to home"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="size-4 shrink-0">
+                  <path fillRule="evenodd" d="M9.293 2.293a1 1 0 0 1 1.414 0l7 7A1 1 0 0 1 17 11h-1v6a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-6H3a1 1 0 0 1-.707-1.707l7-7Z" clipRule="evenodd" />
+                </svg>
+                Home
+              </a>
+              <span className="text-xs text-muted-foreground">Already registered?{" "}
+                <a href="/login" className="font-semibold text-ring hover:underline">Log in</a>
+              </span>
+            </div>
             <RegisterForm />
           </div>
         </main>

@@ -9,10 +9,10 @@ import { CollegeBrand } from "@/components/college-brand";
 import { RuixenGradientFooter } from "@/components/ui/ruixen-gradient-footer";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/unlumen-ui/button";
-import { GlowingBadge } from "@/components/unlumen-ui/glowing-badge";
 
 const NAV_LINKS = [
   { label: "Apply", href: "/register" },
+  { label: "Timeline", href: "#timeline" },
   { label: "Features", href: "#features" },
   { label: "How it works", href: "#how" },
   { label: "Rules", href: "#rules" },
@@ -57,7 +57,7 @@ const FEATURES = [
 
 const STEPS = [
   { n: "01", title: "Apply via the registration form", body: "Fill in your details — name, register no, department, year, languages, LinkedIn and project type — and create your account." },
-  { n: "02", title: "Find or build your team", body: "Create a team and become its leader, or browse existing teams and request a spot." },
+  { n: "02", title: "Find or build your team", body: "Your team will be formed by Your mentor based on skills shortly the date will be announed later " },
   { n: "03", title: "Compete together", body: "Keep your squad rule-valid, accept join requests, and walk into SIH 2026 ready." },
 ];
 
@@ -126,15 +126,6 @@ export default function LandingPage() {
         duration: 750,
         ease: "outExpo",
         delay: stagger(110),
-      })
-    );
-    anims.push(
-      animate(el.querySelectorAll(".reveal-frame"), {
-        translateY: [40, 0],
-        opacity: [0, 1],
-        duration: 900,
-        ease: "outExpo",
-        delay: 300,
       })
     );
     return () => anims.forEach((a) => a.revert());
@@ -218,10 +209,6 @@ export default function LandingPage() {
                   Log in
                 </Button>
               </div>
-            </div>
-
-            <div className="reveal-frame mx-auto mt-14 max-w-5xl">
-              <DashboardMockup />
             </div>
           </div>
         </section>
@@ -477,98 +464,3 @@ function FooterCol({ title, links }: { title: string; links: { label: string; hr
   );
 }
 
-function DashboardMockup() {
-  const teams = [
-    { name: "CodeSprint", leader: "Ananya S.", count: 4, valid: true, deps: 2, girls: 2, members: ["AS", "RM", "DK", "PM"] },
-    { name: "Byte Brigade", leader: "Rahul M.", count: 3, valid: true, deps: 2, girls: 2, members: ["RM", "JT", "KS"] },
-    { name: "Circuit Breakers", leader: "Divya K.", count: 5, valid: true, deps: 3, girls: 3, members: ["DK", "VL", "NP", "SR", "AG"] },
-    { name: "Neural Knights", leader: "Vikram L.", count: 2, valid: false, deps: 1, girls: 0, members: ["VL", "SB"] },
-  ];
-
-  return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_24px_60px_-24px_rgba(16,24,40,0.28)]">
-      <div className="flex items-center gap-2 border-b border-border bg-muted/50 px-4 py-3">
-        <span className="size-2.5 rounded-full bg-[#f87171]" />
-        <span className="size-2.5 rounded-full bg-[#fbbf24]" />
-        <span className="size-2.5 rounded-full bg-[#34d399]" />
-        <span className="ml-3 rounded-md border border-border bg-card px-3 py-1 text-[11px] text-muted-foreground">
-          sih.app/dashboard
-        </span>
-        <div className="ml-auto flex gap-1.5">
-          <span className="rounded-md border border-border bg-card px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
-            Admin
-          </span>
-          <span className="rounded-md bg-accent px-2.5 py-1 text-[11px] font-medium text-primary">
-            + Create team
-          </span>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 p-5 sm:grid-cols-[1fr_1.4fr]">
-        <div className="flex flex-col gap-4">
-          <div className="flex gap-2">
-            <span className="flex-1 rounded-lg border border-border bg-muted/40 px-3 py-2">
-              <span className="block text-[10px] uppercase tracking-wider text-muted-foreground">Teams</span>
-              <span className="text-xl font-bold">12</span>
-            </span>
-            <span className="flex-1 rounded-lg border border-border bg-muted/40 px-3 py-2">
-              <span className="block text-[10px] uppercase tracking-wider text-muted-foreground">Valid</span>
-              <span className="text-xl font-bold text-success">9</span>
-            </span>
-            <span className="flex-1 rounded-lg border border-border bg-muted/40 px-3 py-2">
-              <span className="block text-[10px] uppercase tracking-wider text-muted-foreground">Students</span>
-              <span className="text-xl font-bold">48</span>
-            </span>
-          </div>
-
-          <div className="rounded-lg border border-border bg-card p-4">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Rule status
-            </p>
-            <div className="mt-3 flex flex-col gap-2 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Members</span>
-                <span className="font-semibold">4 / 6</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Female</span>
-                <span className="font-semibold text-success">2 ✓</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Departments</span>
-                <span className="font-semibold text-success">2 ✓</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between px-1">
-            <p className="text-sm font-bold">All teams</p>
-            <span className="text-[11px] text-muted-foreground">sorted by size</span>
-          </div>
-          {teams.map((t) => (
-            <div key={t.name} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-3.5 py-3">
-              <div className="flex items-center gap-3">
-                <span className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">
-                  {t.name.slice(0, 2).toUpperCase()}
-                </span>
-                <div>
-                  <p className="text-sm font-semibold leading-tight">{t.name}</p>
-                  <p className="text-[11px] text-muted-foreground">
-                    {t.members.length} members · {t.deps} depts · {t.girls} female
-                  </p>
-                </div>
-              </div>
-              {t.valid ? (
-                <GlowingBadge variant="success">Valid</GlowingBadge>
-              ) : (
-                <GlowingBadge variant="warning">Needs dept</GlowingBadge>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}

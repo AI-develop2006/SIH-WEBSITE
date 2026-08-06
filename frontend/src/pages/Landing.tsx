@@ -249,7 +249,7 @@ export default function LandingPage() {
         </section>
 
         {/* ── Timeline ── */}
-        <section id="timeline" className="mx-auto w-full max-w-4xl px-5 py-20 sm:py-28">
+        <section id="timeline" className="mx-auto w-full max-w-[1536px] px-5 py-20 sm:py-28">
           <div className="mx-auto max-w-2xl text-center">
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Key dates</h2>
             <p className="mt-3 text-muted-foreground">
@@ -257,7 +257,7 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <ol className="mt-14 flex flex-col">
+          <ol className="mt-14 flex flex-col gap-6">
             {(timelineData.length > 0 ? timelineData : TIMELINE).map((item, i, arr) => {
               const isLast = i === arr.length - 1;
               // colour of the connector segment below this node
@@ -269,112 +269,14 @@ export default function LandingPage() {
                     : "from-border/40 to-border/20";
 
               return (
-                <li key={item.label} className="relative flex items-start gap-5 sm:gap-7">
-                  {/* Left column: node + connector */}
-                  <div className="hidden shrink-0 flex-col items-center sm:flex">
-                    {/* Node */}
-                    <div
-                      className={[
-                        "relative z-10 flex size-14 items-center justify-center rounded-2xl border-2 transition-all",
-                        item.status === "done"
-                          ? "border-success bg-success/10 text-success"
-                          : item.status === "active"
-                            ? "border-[#c9a227] bg-[rgba(201,162,39,0.10)] text-[#c9a227] shadow-[0_0_28px_-6px_rgba(201,162,39,0.55)]"
-                            : "border-border bg-card text-muted-foreground",
-                      ].join(" ")}
-                    >
-                      {item.status === "done" && (
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="size-6">
-                          <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clipRule="evenodd" />
-                        </svg>
-                      )}
-                      {item.status === "active" && (
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="size-5">
-                          <path d="M2.695 14.763l-1.262 3.154a.5.5 0 0 0 .65.65l3.155-1.262a4 4 0 0 0 1.343-.885L17.5 5.5a2.121 2.121 0 0 0-3-3L3.58 13.42a4 4 0 0 0-.885 1.343Z" />
-                        </svg>
-                      )}
-                      {item.status === "upcoming" && (
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="size-5">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm.75-13a.75.75 0 0 0-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 0 0 0-1.5h-3.25V5Z" clipRule="evenodd" />
-                        </svg>
-                      )}
-                    </div>
-
-                    {/* Connector segment — only between nodes, never after last */}
-                    {!isLast && (
-                      <div
-                        className={`w-px flex-1 bg-gradient-to-b ${segColor} my-1 min-h-[2rem]`}
-                        aria-hidden="true"
-                      />
-                    )}
-                  </div>
-
-                  {/* Card — bottom margin drives spacing between rows */}
-                  <div
-                    className={[
-                      "card-hover flex-1 rounded-2xl border p-5",
-                      !isLast ? "mb-4" : "mb-0",
-                      item.status === "done"
-                        ? "border-success/25 bg-success/5"
-                        : item.status === "active"
-                          ? "border-[rgba(201,162,39,0.45)] bg-[rgba(201,162,39,0.05)] shadow-[0_0_36px_-14px_rgba(201,162,39,0.35)]"
-                          : "border-[rgba(180,190,215,0.12)] bg-card/50 backdrop-blur-md opacity-70",
-                    ].join(" ")}
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-3">
-                        {/* Step number — mobile only */}
-                        <span className={[
-                          "text-xs font-black tracking-widest sm:hidden",
-                          item.status === "done" ? "text-success" : item.status === "active" ? "text-[#c9a227]" : "text-muted-foreground",
-                        ].join(" ")}>
-                          {item.step}
-                        </span>
-                        <h3 className="text-base font-bold tracking-tight">{item.label}</h3>
-                        {item.status === "done" && (
-                          <span className="rounded-full border border-success/30 bg-success/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-success">
-                            Completed
-                          </span>
-                        )}
-                        {item.status === "active" && (
-                          <span className="flex items-center gap-1.5 rounded-full border border-[rgba(201,162,39,0.35)] bg-[rgba(201,162,39,0.08)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-[#c9a227]">
-                            <span className="size-1.5 animate-pulse rounded-full bg-[#c9a227]" />
-                            Open now
-                          </span>
-                        )}
-                      </div>
-
-                      <span
-                        className={[
-                          "rounded-lg border px-3 py-1 text-xs font-semibold tabular-nums",
-                          item.status === "done"
-                            ? "border-success/30 text-success"
-                            : item.status === "active"
-                              ? "border-[rgba(201,162,39,0.45)] text-[#c9a227]"
-                              : "border-border text-muted-foreground",
-                        ].join(" ")}
-                      >
-                        {item.date}
-                      </span>
-                    </div>
-
-                    <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{item.description}</p>
-
-                    {item.status === "active" && (
-                      <div className="mt-4">
-                        <a
-                          href="/register"
-                          className="inline-flex items-center gap-1.5 rounded-xl bg-[#c9a227] px-4 py-2 text-xs font-bold text-[#06090f] transition-opacity hover:opacity-90"
-                        >
-                          Register before deadline
-                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="size-3.5">
-                            <path fillRule="evenodd" d="M2 8a.75.75 0 0 1 .75-.75h8.69L9.22 5.03a.75.75 0 0 1 1.06-1.06l3.5 3.5a.75.75 0 0 1 0 1.06l-3.5 3.5a.75.75 0 1 1-1.06-1.06l2.22-2.22H2.75A.75.75 0 0 1 2 8Z" clipRule="evenodd" />
-                          </svg>
-                        </a>
-                      </div>
-                    )}
-                  </div>
-                </li>
+                <TimelineItem
+                  key={item.label}
+                  item={item}
+                  isLast={isLast}
+                  segColor={segColor}
+                  index={i}
+                  navigate={navigate}
+                />
               );
             })}
           </ol>
@@ -581,6 +483,147 @@ export default function LandingPage() {
         </div>
       </RuixenGradientFooter>
     </div>
+  );
+}
+
+function TimelineItem({ item, isLast, segColor, index, navigate }: { item: any; isLast: boolean; segColor: string; index: number; navigate: (p: string) => void }) {
+  const [inView, setInView] = useState(false);
+  const [ref, setRef] = useState<HTMLLIElement | null>(null);
+
+  useEffect(() => {
+    if (!ref) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setInView(true);
+          observer.unobserve(ref);
+        }
+      },
+      { threshold: 0.05, rootMargin: "0px 0px -60px 0px" }
+    );
+    observer.observe(ref);
+    return () => observer.disconnect();
+  }, [ref]);
+
+  return (
+    <li
+      ref={setRef}
+      style={{
+        transitionDelay: `${index * 120}ms`,
+      }}
+      className={`relative flex items-start gap-6 sm:gap-10 transition-all duration-[800ms] ease-out ${
+        inView ? "opacity-100 translate-y-0" : "opacity-0 translate-y-12"
+      }`}
+    >
+      {/* Left column: node + connector */}
+      <div className="hidden shrink-0 flex-col items-center sm:flex">
+        {/* Node */}
+        <div
+          className={[
+            "relative z-10 flex size-14 items-center justify-center rounded-2xl border-2 transition-all",
+            item.status === "done"
+              ? "border-success bg-success/10 text-success"
+              : item.status === "active"
+                ? "border-[#c9a227] bg-[rgba(201,162,39,0.10)] text-[#c9a227] shadow-[0_0_28px_-6px_rgba(201,162,39,0.55)]"
+                : "border-border bg-card text-muted-foreground",
+          ].join(" ")}
+        >
+          {item.status === "done" && (
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="size-6">
+              <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clipRule="evenodd" />
+            </svg>
+          )}
+          {item.status === "active" && (
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="size-5">
+              <path d="M2.695 14.763l-1.262 3.154a.5.5 0 0 0 .65.65l3.155-1.262a4 4 0 0 0 1.343-.885L17.5 5.5a2.121 2.121 0 0 0-3-3L3.58 13.42a4 4 0 0 0-.885 1.343Z" />
+            </svg>
+          )}
+          {item.status === "upcoming" && (
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="size-5">
+              <path fillRule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm.75-13a.75.75 0 0 0-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 0 0 0-1.5h-3.25V5Z" clipRule="evenodd" />
+            </svg>
+          )}
+        </div>
+
+        {/* Connector segment */}
+        {!isLast && (
+          <div
+            className={`w-px flex-1 bg-gradient-to-b ${segColor} my-1 min-h-[3rem]`}
+            aria-hidden="true"
+          />
+        )}
+      </div>
+
+      {/* Card */}
+      <div
+        className={[
+          "card-hover flex-1 rounded-2xl border p-6 sm:p-7",
+          !isLast ? "mb-6" : "mb-0",
+          item.status === "done"
+            ? "border-success/25 bg-success/5"
+            : item.status === "active"
+              ? "border-[rgba(201,162,39,0.45)] bg-[rgba(201,162,39,0.05)] shadow-[0_0_36px_-14px_rgba(201,162,39,0.35)]"
+              : "border-[rgba(180,190,215,0.12)] bg-card/50 backdrop-blur-md opacity-70",
+        ].join(" ")}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            {/* Step number — mobile only */}
+            <span className={[
+              "text-xs font-black tracking-widest sm:hidden",
+              item.status === "done" ? "text-success" : item.status === "active" ? "text-[#c9a227]" : "text-muted-foreground",
+            ].join(" ")}>
+              {item.step}
+            </span>
+            <h3 className="text-lg sm:text-xl font-bold tracking-tight">{item.label}</h3>
+            {item.status === "done" && (
+              <span className="rounded-full border border-success/30 bg-success/10 px-2 py-0.5 text-xs font-bold uppercase tracking-widest text-success">
+                Completed
+              </span>
+            )}
+            {item.status === "active" && (
+              <span className="flex items-center gap-1.5 rounded-full border border-[rgba(201,162,39,0.35)] bg-[rgba(201,162,39,0.08)] px-2 py-0.5 text-xs font-bold uppercase tracking-widest text-[#c9a227]">
+                <span className="size-1.5 animate-pulse rounded-full bg-[#c9a227]" />
+                Open now
+              </span>
+            )}
+          </div>
+
+          <span
+            className={[
+              "rounded-lg border px-3 py-1 text-sm font-semibold tabular-nums",
+              item.status === "done"
+                ? "border-success/30 text-success"
+                : item.status === "active"
+                  ? "border-[rgba(201,162,39,0.45)] text-[#c9a227]"
+                  : "border-border text-muted-foreground",
+            ].join(" ")}
+          >
+            {item.date}
+          </span>
+        </div>
+
+        <p className="mt-2.5 text-sm sm:text-base leading-relaxed text-muted-foreground">{item.description}</p>
+
+        {item.status === "active" && (
+          <div className="mt-4">
+            <a
+              href="/register"
+              onClick={(e) => {
+                e.preventDefault();
+                navigate("/register");
+              }}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-[#c9a227] px-4 py-2 text-xs font-bold text-[#06090f] transition-opacity hover:opacity-90"
+            >
+              Register before deadline
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="size-3.5">
+                <path fillRule="evenodd" d="M2 8a.75.75 0 0 1 .75-.75h8.69L9.22 5.03a.75.75 0 0 1 1.06-1.06l3.5 3.5a.75.75 0 0 1 0 1.06l-3.5 3.5a.75.75 0 1 1-1.06-1.06l2.22-2.22H2.75A.75.75 0 0 1 2 8Z" clipRule="evenodd" />
+              </svg>
+            </a>
+          </div>
+        )}
+      </div>
+    </li>
   );
 }
 

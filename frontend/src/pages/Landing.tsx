@@ -98,11 +98,7 @@ const RULES = [
   { icon: "🏛", title: "2 departments", body: "Every team must span at least two departments." },
 ];
 
-const QUOTES = [
-  { text: "The registration was completely frictionless. Registering hardware details and linking our PPT took less than five minutes.", name: "Ananya S.", role: "CSE · Registrant" },
-  { text: "Using my Register Number directly as the login password meant I didn't have to remember another account credential.", name: "Rahul M.", role: "ECE · Registrant" },
-  { text: "It's great to see a live timeline update. We know exactly when the mentor review starts and when teams are announced.", name: "Vijay K.", role: "IT · Registrant" },
-];
+
 
 const FAQS = [
   { q: "What are the official team rules?", a: "Each team must have at most 6 members, at least 2 female members, and members from at least 2 different departments. Violations are blocked automatically by the backend." },
@@ -485,31 +481,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section className="border-y border-[rgba(201,162,39,0.12)] bg-card/30 backdrop-blur-sm">
-          <div className="mx-auto w-full max-w-7xl px-5 py-20 sm:py-24">
-            <div className="mx-auto max-w-2xl text-center">
-              <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Loved by teams that ship fast</h2>
-            </div>
-            <div className="mt-12 grid gap-4 md:grid-cols-3">
-              {QUOTES.map((t) => (
-                <figure key={t.name} className="card-hover flex flex-col justify-between gap-6 rounded-xl border border-[rgba(201,162,39,0.15)] bg-card/50 backdrop-blur-md p-6">
-                  <blockquote className="text-sm leading-relaxed text-foreground/90">
-                    “{t.text}”
-                  </blockquote>
-                  <figcaption className="flex items-center gap-3">
-                    <span className="flex size-9 items-center justify-center rounded-full bg-[rgba(201,162,39,0.12)] text-xs font-bold text-[#c9a227]">
-                      {t.name.split(" ").map((w) => w[0]).join("")}
-                    </span>
-                    <div className="leading-tight">
-                      <p className="text-sm font-semibold">{t.name}</p>
-                      <p className="text-xs text-muted-foreground">{t.role}</p>
-                    </div>
-                  </figcaption>
-                </figure>
-              ))}
-            </div>
-          </div>
-        </section>
+
 
         <section id="faq" className="mx-auto w-full max-w-3xl px-5 py-20 sm:py-28">
           <h2 className="text-center text-3xl font-bold tracking-tight sm:text-4xl">FAQ</h2>

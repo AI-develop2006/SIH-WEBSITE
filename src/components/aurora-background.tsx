@@ -2,13 +2,19 @@
 
 import { useEffect, useRef } from "react";
 import { animate, stagger } from "animejs";
+import { useLocation } from "react-router-dom";
 
 export function AuroraBackground() {
   const ref = useRef<HTMLDivElement>(null);
+  const location = useLocation();
+
+  // Only run on the landing page — other pages have their own backgrounds
+  // and the animation loops cause scroll/typing jank everywhere else
+  const isLanding = location.pathname === "/";
 
   useEffect(() => {
     const el = ref.current;
-    if (!el) return;
+    if (!el || !isLanding) return;
 
     const drift = animate(el.querySelectorAll("[data-orb]"), {
       translateX: [0, 70],
@@ -35,7 +41,10 @@ export function AuroraBackground() {
       drift.revert();
       float.revert();
     };
-  }, []);
+  }, [isLanding]);
+
+  // Don't render at all on non-landing pages
+  if (!isLanding) return null;
 
   return (
     <div ref={ref} aria-hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">

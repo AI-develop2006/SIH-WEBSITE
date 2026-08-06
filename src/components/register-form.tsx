@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { assertSupabase, isSupabaseConfigured } from "@/lib/supabase/client";
 import { ensureProfile } from "@/lib/data";
@@ -123,23 +123,27 @@ export function RegisterForm() {
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState<FormState>(INIT);
 
-  const set = <K extends keyof FormState>(k: K, v: FormState[K]) =>
-    setForm((f) => ({ ...f, [k]: v }));
+  const set = useCallback(<K extends keyof FormState>(k: K, v: FormState[K]) =>
+    setForm((f) => ({ ...f, [k]: v })), []);
 
-  const toggleLang = (lang: string) =>
-    set("languages", form.languages.includes(lang)
-      ? form.languages.filter((l) => l !== lang)
-      : [...form.languages, lang]);
+  const toggleLang = useCallback((lang: string) =>
+    setForm((f) => ({
+      ...f,
+      languages: f.languages.includes(lang)
+        ? f.languages.filter((l) => l !== lang)
+        : [...f.languages, lang],
+    })), []);
 
-  const steps = getSteps(form.projectType);
+  const steps = useMemo(() => getSteps(form.projectType), [form.projectType]);
   const progress = ((step + 1) / steps.length) * 100;
 
-  function next() {
+  const next = useCallback(() => {
     const err = validate(step, form);
     if (err) return toast("error", err);
     setStep((s) => Math.min(s + 1, steps.length - 1));
-  }
-  function back() { setStep((s) => Math.max(s - 1, 0)); }
+  }, [step, form, steps.length, toast]);
+
+  const back = useCallback(() => { setStep((s) => Math.max(s - 1, 0)); }, []);
 
   // ── Submit — passwordless: Register No is the password ──────────────────────
   async function submit(e: React.FormEvent) {

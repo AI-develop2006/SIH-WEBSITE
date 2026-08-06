@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import { animate, stagger, type JSAnimation } from "animejs";
 import { supabase } from "@/lib/supabase/client";
@@ -175,11 +175,15 @@ export default function LandingPage() {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
             entry.target.classList.add("in-view");
-            observer.unobserve(entry.target); // fire once
+            observer.unobserve(entry.target);
           }
         });
       },
-      { threshold: 0.12 }
+      {
+        threshold: 0.08,
+        // Pre-trigger 80px before element enters viewport — no pop-in during fast scroll
+        rootMargin: "0px 0px -80px 0px",
+      }
     );
 
     targets.forEach((el) => observer.observe(el));
@@ -224,38 +228,58 @@ export default function LandingPage() {
 
       <main>
         {/* ── Hero ── */}
-        <section className="relative overflow-hidden bg-white dark:bg-[#06090f]">
-          {/* Soft gold orb backdrops on white */}
-          <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
-            <div className="absolute -top-32 left-1/2 h-[500px] w-[700px] -translate-x-1/2 rounded-full bg-[#c9a227]/10 blur-[130px]" />
-            <div className="absolute top-1/3 -left-20 h-[380px] w-[380px] rounded-full bg-[#c9a227]/06 blur-[100px]" />
-            <div className="absolute -bottom-10 right-[-8%] h-[340px] w-[340px] rounded-full bg-[#0b1631]/04 blur-[100px]" />
-            <div className="bg-grid absolute inset-0" />
-          </div>
+        <section className="relative overflow-hidden bg-[#06090f]">
+          {/* SMVEC campus background image */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0"
+            style={{
+              backgroundImage: "url('/SMVEC Background.jpeg')",
+              backgroundSize: "cover",
+              backgroundPosition: "center top",
+              backgroundRepeat: "no-repeat",
+            }}
+          />
+          {/* Dark overlay so text stays readable */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0"
+            style={{
+              background:
+                "linear-gradient(to bottom, rgba(6,9,15,0.62) 0%, rgba(6,9,15,0.72) 60%, rgba(6,9,15,0.92) 100%)",
+            }}
+          />
+          {/* Subtle gold tint at top-centre */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -top-32 left-1/2 h-[500px] w-[700px] -translate-x-1/2 rounded-full blur-[130px]"
+            style={{ background: "rgba(201,162,39,0.10)" }}
+          />
+          <div className="bg-grid absolute inset-0 pointer-events-none" />
 
-          <div className="mx-auto w-full max-w-7xl px-5 pb-16 pt-16 sm:pt-24">
+          <div className="relative mx-auto w-full max-w-7xl px-5 pb-16 pt-16 sm:pt-24">
             <div ref={heroRef} className="mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
-              <span className="reveal inline-flex items-center gap-2 rounded-full border border-[rgba(201,162,39,0.40)] bg-[rgba(201,162,39,0.08)] px-4 py-1.5 text-sm font-semibold text-[#a07c10]">
+              <span className="reveal inline-flex items-center gap-2 rounded-full border border-[rgba(201,162,39,0.45)] bg-[rgba(6,9,15,0.55)] px-4 py-1.5 text-sm font-semibold text-[#e8c058] backdrop-blur-sm">
                 <span className="size-2 rounded-full bg-[#c9a227] animate-pulse" />
                 Build your winning SIH team — not your stress
               </span>
 
-              <h1 className="reveal text-4xl font-bold leading-[1.08] tracking-tight text-[#0f1520] dark:text-[#eef1f8] sm:text-6xl">
+              <h1 className="reveal text-4xl font-bold leading-[1.08] tracking-tight text-white sm:text-6xl drop-shadow-lg">
                 Smart India Hackathon 2026
                 <br />
                 <span className="text-gradient">SMVEC Internal</span>
               </h1>
 
-              <p className="reveal max-w-xl text-base leading-relaxed text-[#5a6680] dark:text-[#8fa0c0] sm:text-lg">
+              <p className="reveal max-w-xl text-base leading-relaxed text-white/75 sm:text-lg drop-shadow">
                 Apply once, match with teammates by department and language, form balanced
                 teams, and keep every squad competition-ready with automatic rule checks.
               </p>
 
               <div className="reveal flex flex-wrap items-center justify-center gap-3">
-                <Button onClick={() => navigate("/register")} className="bg-[#c9a227] text-white hover:bg-[#a07c10] font-bold border-0 px-6 py-2.5">
+                <Button onClick={() => navigate("/register")} className="bg-[#c9a227] text-[#06090f] hover:bg-[#e8c058] font-bold border-0 px-6 py-2.5 shadow-lg">
                   Apply Now
                 </Button>
-                <Button variant="outline" className="border-[rgba(201,162,39,0.45)] text-[#a07c10] hover:bg-[rgba(201,162,39,0.08)] px-6 py-2.5" onClick={() => navigate("/login")}>
+                <Button variant="outline" className="border-white/40 text-white bg-white/10 hover:bg-white/20 backdrop-blur-sm px-6 py-2.5" onClick={() => navigate("/login")}>
                   Log in
                 </Button>
               </div>
@@ -565,14 +589,14 @@ export default function LandingPage() {
   );
 }
 
-function FaqItem({ q, a }: { q: string; a: string }) {
+const FaqItem = memo(function FaqItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="scroll-reveal overflow-hidden rounded-xl border border-[rgba(201,162,39,0.18)] bg-white dark:bg-[#0d1220] dark:border-[rgba(201,162,39,0.15)] shadow-sm">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left text-sm font-semibold text-[#0f1520] dark:text-[#eef1f8] hover:text-[#c9a227] dark:hover:text-[#c9a227] transition-colors"
+        className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left text-sm font-semibold text-[#0f1520] dark:text-[#eef1f8] hover:text-[#c9a227] dark:hover:text-[#c9a227]"
       >
         {q}
         <span className={`text-[#c9a227] transition-transform duration-200 ${open ? "rotate-45" : ""}`}>
@@ -586,7 +610,7 @@ function FaqItem({ q, a }: { q: string; a: string }) {
       )}
     </div>
   );
-}
+});
 
 function FooterCol({ title, links }: { title: string; links: { label: string; href: string }[] }) {
   return (

@@ -14,7 +14,6 @@ import { GlowingBadge } from "@/components/unlumen-ui/glowing-badge";
 import { Avatar } from "@/components/unlumen-ui/avatar";
 import { Input, Select } from "@/components/unlumen-ui/input";
 import { CollegeBrand } from "@/components/college-brand";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/utils";
 
 type Tab = "students" | "teams" | "problems";
@@ -225,7 +224,6 @@ export default function AdminPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <ThemeToggle />
             <Button variant="outline" onClick={() => navigate("/dashboard")}>
               Dashboard
             </Button>

@@ -1,11 +1,7 @@
 "use client";
 
-import { ThemeProvider as NextThemesProvider } from "next-themes";
-
+// Theme is permanently dark — no toggling. Provider kept as a passthrough
+// so existing imports don't break.
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  return (
-    <NextThemesProvider attribute="class" defaultTheme="light" enableSystem={false} disableTransitionOnChange>
-      {children}
-    </NextThemesProvider>
-  );
+  return <>{children}</>;
 }

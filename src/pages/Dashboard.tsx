@@ -154,7 +154,14 @@ export default function DashboardPage() {
     invites.incoming.filter((i) => i.kind === "request" && myTeam?.team.id === i.team_id).length;
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-5 pb-16">
+    <main className="relative mx-auto flex min-h-screen w-full max-w-6xl flex-col px-5 pb-16">
+      {/* Glowing orb backdrops */}
+      <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+        <div className="orb orb-a absolute -top-32 left-1/4 size-[520px] opacity-60" />
+        <div className="orb orb-b absolute bottom-0 right-1/4 size-[420px] opacity-50" />
+        <div className="orb orb-c absolute top-1/2 left-1/2 size-[360px] -translate-x-1/2 opacity-40" />
+        <div className="bg-grid absolute inset-0" />
+      </div>
       <header className="sticky top-0 z-40 -mx-5 mb-6 border-b border-border bg-background/80 px-5 backdrop-blur">
         <div className="flex h-16 items-center justify-between gap-3">
           <button onClick={() => navigate("/")} className="flex items-center">
@@ -226,7 +233,7 @@ export default function DashboardPage() {
             className={cn(
               "flex items-center gap-2 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold transition-all",
               tab === t.id
-                ? "bg-accent text-primary dark:bg-primary dark:text-primary-foreground shadow-sm"
+                ? "bg-primary text-primary-foreground shadow-sm"
                 : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
             )}
           >

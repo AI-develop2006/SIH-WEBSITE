@@ -5,7 +5,6 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase/client";
 import { RegisterForm } from "@/components/register-form";
 import { CollegeBrand } from "@/components/college-brand";
-import { ThemeToggle } from "@/components/theme-toggle";
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -19,43 +18,37 @@ export default function RegisterPage() {
   return (
     <div className="flex min-h-screen flex-col overflow-hidden">
       <div className="grow flex flex-col lg:flex-row">
-        {/* Left side — quote panel */}
+        {/* Left panel */}
         <div className="relative w-full overflow-hidden bg-[#0b1120] lg:fixed lg:inset-y-0 lg:w-1/2 lg:rounded-r-[3rem]">
-          {/* Background illustration */}
-          <div className="pointer-events-none absolute -top-64 left-1/2 -translate-x-1/2 blur-3xl" aria-hidden="true">
-            <div className="size-[720px] rounded-full" style={{ background: "radial-gradient(circle, rgba(54,66,155,0.55), transparent 65%)" }} />
-          </div>
-          <div className="pointer-events-none absolute bottom-[-30%] right-[-15%] blur-3xl" aria-hidden="true">
-            <div className="size-[420px] rounded-full" style={{ background: "radial-gradient(circle, rgba(219,163,40,0.35), transparent 65%)" }} />
+          {/* Orb backdrops */}
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+            <div className="orb orb-a absolute -top-40 left-1/2 size-[600px] -translate-x-1/2 opacity-70" />
+            <div className="orb orb-b absolute bottom-[-20%] right-[-10%] size-[380px] opacity-60" />
+            <div className="bg-grid absolute inset-0" />
           </div>
 
-          <div className="min-h-full w-full max-w-xl mx-auto flex flex-col justify-start px-5 py-6 sm:px-6 lg:justify-center lg:py-20">
-            {/* Top bar — theme toggle only, pushed to the right */}
-            <div className="flex justify-end">
-              <ThemeToggle />
-            </div>
-
+          <div className="relative min-h-full w-full max-w-xl mx-auto flex flex-col justify-start px-5 py-6 sm:px-6 lg:justify-center lg:py-20">
             {/* Centered logo */}
-            <div className="mt-8 flex justify-center lg:mt-10">
+            <div className="mt-8 flex justify-center lg:mt-0">
               <a href="/" className="inline-flex">
                 <CollegeBrand className="scale-[1.5] sm:scale-[1.75] origin-center" />
               </a>
             </div>
 
             <div className="mt-14 space-y-4 lg:mt-12">
-              <p className="font-caveat text-3xl text-[#dba328]">Registration for</p>
+              <p className="font-caveat text-3xl text-accent">Registration for</p>
               <h1 className="text-4xl font-bold leading-tight tracking-tight text-white sm:text-5xl">
                 SIH Internal Hackathon Registration-2026
               </h1>
-              <p className="block font-caveat text-xl text-slate-400">— 06 August, 2026</p>
+              <p className="block font-caveat text-xl text-muted-foreground">— 06 August, 2026</p>
             </div>
           </div>
         </div>
 
-        {/* Right side — content */}
+        {/* Right panel */}
         <main className="flex w-full flex-col lg:ml-auto lg:w-1/2">
           <div className="grow w-full max-w-xl mx-auto px-5 py-12 sm:px-6 lg:pt-20 lg:pb-24">
-            {/* Home nav button */}
+            {/* Home nav */}
             <div className="mb-8 flex items-center gap-3">
               <a
                 href="/"
@@ -68,7 +61,7 @@ export default function RegisterPage() {
                 Home
               </a>
               <span className="text-xs text-muted-foreground">Already registered?{" "}
-                <a href="/login" className="font-semibold text-ring hover:underline">Log in</a>
+                <a href="/login" className="font-semibold text-primary hover:underline">Log in</a>
               </span>
             </div>
             <RegisterForm />

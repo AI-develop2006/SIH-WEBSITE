@@ -7,7 +7,6 @@ import { supabase } from "@/lib/supabase/client";
 import { useAnime } from "@/hooks/use-anime";
 import { CollegeBrand } from "@/components/college-brand";
 import { RuixenGradientFooter } from "@/components/ui/ruixen-gradient-footer";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/unlumen-ui/button";
 
 const NAV_LINKS = [
@@ -38,28 +37,28 @@ const TIMELINE = [
     label: "Portal opens",
     description: "Registration portal goes live. Create your account and fill in your profile.",
     status: "done",
-    icon: "🚀",
+    step: "01",
   },
   {
     date: "15 Aug 2026",
     label: "Registration deadline",
     description: "Last day to submit your registration form. No entries accepted after midnight.",
     status: "active",
-    icon: "📋",
+    step: "02",
   },
   {
     date: "TBA",
     label: "Team formation",
     description: "Teams will be formed by your mentor based on skills and preferences. Date will be announced soon.",
     status: "upcoming",
-    icon: "👥",
+    step: "03",
   },
   {
     date: "TBA",
     label: "Internal hackathon",
     description: "Present your solution to the evaluation panel. Top teams proceed to the national SIH round.",
     status: "upcoming",
-    icon: "🏆",
+    step: "04",
   },
 ];
 
@@ -164,26 +163,6 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="bg-[#36429b] text-white">
-        <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-5 py-2 text-[11px] font-medium">
-          <span className="flex items-center gap-1.5">
-            <span className="hidden size-1.5 rounded-full bg-accent sm:inline-block" />
-            Sri Manakula Vinayagar Engineering College
-          </span>
-          <div className="flex items-center gap-4">
-            <span className="hidden sm:inline">Smart India Hackathon 2026 · Internal</span>
-            <a
-              href="https://smvec.ac.in"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline-offset-2 hover:underline"
-            >
-              smvec.ac.in ↗
-            </a>
-          </div>
-        </div>
-      </div>
-
       <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur">
         <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-3 px-5">
           <a href="/" className="flex items-center">
@@ -203,7 +182,6 @@ export default function LandingPage() {
           </nav>
 
           <div className="flex items-center gap-2">
-            <ThemeToggle />
             <Button variant="ghost" className="hidden sm:inline-flex" onClick={() => navigate("/login")}>
               Log in
             </Button>
@@ -214,17 +192,24 @@ export default function LandingPage() {
 
       <main>
         <section className="relative overflow-hidden">
+          {/* Orb backdrops */}
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
+            <div className="orb orb-a absolute -top-40 left-1/2 size-[700px] -translate-x-1/2 opacity-70" />
+            <div className="orb orb-b absolute -bottom-20 right-[-10%] size-[500px] opacity-50" />
+            <div className="orb orb-c absolute top-1/3 left-[-5%] size-[400px] opacity-40" />
+            <div className="bg-grid absolute inset-0" />
+          </div>
           <div className="mx-auto w-full max-w-7xl px-5 pb-16 pt-16 sm:pt-24">
             <div ref={heroRef} className="mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
-              <span className="reveal inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
-                <span className="size-1.5 rounded-full bg-success animate-pulse" />
-                Smart India Hackathon 2026 · SMVEC Internal
+              <span className="reveal inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-sm font-semibold text-muted-foreground">
+                <span className="size-2 rounded-full bg-success animate-pulse" />
+                Build your winning SIH team . not your stress
               </span>
 
               <h1 className="reveal text-4xl font-bold leading-[1.08] tracking-tight text-foreground sm:text-6xl">
-                Build your winning SIH team,
+                Smart India Hackathon 2026 
                 <br />
-                <span className="text-gradient">not your stress.</span>
+                <span className="text-gradient">SMVEC Internal</span>
               </h1>
 
               <p className="reveal max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
@@ -253,78 +238,114 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="relative mt-14">
-            {/* Vertical line */}
-            <div className="absolute left-6 top-0 hidden h-full w-px bg-border sm:block" aria-hidden="true" />
+          <ol className="mt-14 flex flex-col">
+            {TIMELINE.map((item, i) => {
+              const isLast = i === TIMELINE.length - 1;
+              // colour of the connector segment below this node
+              const segColor =
+                item.status === "done"
+                  ? "from-success/60 to-success/20"
+                  : item.status === "active"
+                    ? "from-accent/50 to-border/40"
+                    : "from-border/40 to-border/20";
 
-            <ol className="flex flex-col gap-0">
-              {TIMELINE.map((item, i) => (
-                <li key={item.label} className="relative flex gap-6 sm:gap-8">
-                  {/* Node on the line */}
-                  <div className="relative hidden shrink-0 flex-col items-center sm:flex">
-                    <span
+              return (
+                <li key={item.label} className="relative flex items-start gap-5 sm:gap-7">
+                  {/* Left column: node + connector */}
+                  <div className="hidden shrink-0 flex-col items-center sm:flex">
+                    {/* Node */}
+                    <div
                       className={[
-                        "relative z-10 flex size-12 items-center justify-center rounded-full border-2 text-xl transition-all",
+                        "relative z-10 flex size-14 items-center justify-center rounded-2xl border-2 transition-all",
                         item.status === "done"
-                          ? "border-success bg-success/10 shadow-[0_0_18px_-4px] shadow-success/50"
+                          ? "border-success bg-success/10 text-success"
                           : item.status === "active"
-                            ? "border-[#dba328] bg-[#dba328]/10 shadow-[0_0_18px_-4px] shadow-[#dba328]/60"
-                            : "border-border bg-muted/40",
+                            ? "border-accent bg-accent/10 text-accent shadow-[0_0_28px_-6px] shadow-accent/60"
+                            : "border-border bg-card text-muted-foreground",
                       ].join(" ")}
                     >
-                      {item.icon}
-                    </span>
+                      {item.status === "done" && (
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="size-6">
+                          <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clipRule="evenodd" />
+                        </svg>
+                      )}
+                      {item.status === "active" && (
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="size-5">
+                          <path d="M2.695 14.763l-1.262 3.154a.5.5 0 0 0 .65.65l3.155-1.262a4 4 0 0 0 1.343-.885L17.5 5.5a2.121 2.121 0 0 0-3-3L3.58 13.42a4 4 0 0 0-.885 1.343Z" />
+                        </svg>
+                      )}
+                      {item.status === "upcoming" && (
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="size-5">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm.75-13a.75.75 0 0 0-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 0 0 0-1.5h-3.25V5Z" clipRule="evenodd" />
+                        </svg>
+                      )}
+                    </div>
+
+                    {/* Connector segment — only between nodes, never after last */}
+                    {!isLast && (
+                      <div
+                        className={`w-px flex-1 bg-gradient-to-b ${segColor} my-1 min-h-[2rem]`}
+                        aria-hidden="true"
+                      />
+                    )}
                   </div>
 
-                  {/* Card */}
+                  {/* Card — bottom margin drives spacing between rows */}
                   <div
                     className={[
-                      "mb-6 flex-1 rounded-2xl border p-5 transition-shadow",
+                      "flex-1 rounded-2xl border p-5",
+                      !isLast ? "mb-4" : "mb-0",
                       item.status === "done"
-                        ? "border-success/30 bg-success/5"
+                        ? "border-success/25 bg-success/5"
                         : item.status === "active"
-                          ? "border-[#dba328]/40 bg-[#dba328]/5 shadow-[0_0_30px_-10px] shadow-[#dba328]/30"
-                          : "border-border bg-card",
-                      i === TIMELINE.length - 1 ? "mb-0" : "",
+                          ? "border-accent/35 bg-accent/5 shadow-[0_0_36px_-14px] shadow-accent/30"
+                          : "border-border bg-card opacity-70",
                     ].join(" ")}
                   >
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-2.5">
-                        {/* Icon visible on mobile only */}
-                        <span className="text-xl sm:hidden">{item.icon}</span>
+                      <div className="flex items-center gap-3">
+                        {/* Step number — mobile only */}
+                        <span className={[
+                          "text-xs font-black tracking-widest sm:hidden",
+                          item.status === "done" ? "text-success" : item.status === "active" ? "text-accent" : "text-muted-foreground",
+                        ].join(" ")}>
+                          {item.step}
+                        </span>
                         <h3 className="text-base font-bold tracking-tight">{item.label}</h3>
                         {item.status === "done" && (
-                          <span className="rounded-full bg-success/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-success">
-                            Done
+                          <span className="rounded-full border border-success/30 bg-success/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-success">
+                            Completed
                           </span>
                         )}
                         {item.status === "active" && (
-                          <span className="flex items-center gap-1 rounded-full bg-[#dba328]/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#dba328]">
-                            <span className="size-1.5 animate-pulse rounded-full bg-[#dba328]" />
+                          <span className="flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-accent">
+                            <span className="size-1.5 animate-pulse rounded-full bg-accent" />
                             Open now
                           </span>
                         )}
                       </div>
+
                       <span
                         className={[
                           "rounded-lg border px-3 py-1 text-xs font-semibold tabular-nums",
                           item.status === "done"
                             ? "border-success/30 text-success"
                             : item.status === "active"
-                              ? "border-[#dba328]/40 text-[#dba328]"
+                              ? "border-accent/40 text-accent"
                               : "border-border text-muted-foreground",
                         ].join(" ")}
                       >
                         {item.date}
                       </span>
                     </div>
+
                     <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{item.description}</p>
 
                     {item.status === "active" && (
                       <div className="mt-4">
                         <a
                           href="/register"
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-[#dba328] px-4 py-2 text-xs font-bold text-white transition-opacity hover:opacity-90"
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground transition-opacity hover:opacity-90"
                         >
                           Register before deadline
                           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="size-3.5">
@@ -335,9 +356,9 @@ export default function LandingPage() {
                     )}
                   </div>
                 </li>
-              ))}
-            </ol>
-          </div>
+              );
+            })}
+          </ol>
         </section>
 
         <section className="border-y border-border bg-muted/40 py-6">
@@ -380,7 +401,7 @@ export default function LandingPage() {
             {FEATURES.map((f) => (
               <div
                 key={f.title}
-                className="rounded-xl border border-border bg-card p-6 transition-shadow hover:shadow-[0_10px_30px_-12px_rgba(16,24,40,0.18)]"
+                className="card-hover rounded-xl border border-border bg-card p-6"
               >
                 <span className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
                   {ICONS[f.icon]}

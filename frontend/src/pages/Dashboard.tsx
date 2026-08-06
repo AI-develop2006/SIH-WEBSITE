@@ -261,7 +261,7 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Academic details */}
-                <div className="grid grid-cols-2 gap-4 pt-4">
+                <div className="grid gap-4 pt-4 grid-cols-1 sm:grid-cols-2">
                   <div>
                     <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Department</span>
                     <p className="text-sm font-semibold text-foreground mt-0.5">{profile.department || "—"}</p>
@@ -275,7 +275,7 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Contact details */}
-                <div className="grid grid-cols-2 gap-4 pt-4">
+                <div className="grid gap-4 pt-4 grid-cols-1 sm:grid-cols-2">
                   <div>
                     <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Email Address</span>
                     <p className="text-sm font-semibold text-foreground mt-0.5 truncate" title={profile.email ?? undefined}>{profile.email || "—"}</p>
@@ -287,7 +287,7 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Coding Profiles & Project Preferences */}
-                <div className="grid grid-cols-2 gap-4 pt-4">
+                <div className="grid gap-4 pt-4 grid-cols-1 sm:grid-cols-2">
                   <div>
                     <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Project Type</span>
                     <p className="text-sm font-semibold text-foreground mt-0.5">
@@ -318,7 +318,7 @@ export default function DashboardPage() {
                         <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed whitespace-pre-wrap">{profile.project_description}</p>
                       </div>
                     )}
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
                       {profile.software_domain && (
                         <div>
                           <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Software Domain</span>
@@ -332,7 +332,7 @@ export default function DashboardPage() {
                         </div>
                       )}
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
                       {profile.google_drive_ppt && (
                         <div>
                           <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">PPT (Google Drive)</span>
@@ -390,7 +390,7 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Social links */}
-                <div className="grid grid-cols-2 gap-4 pt-4">
+                <div className="grid gap-4 pt-4 grid-cols-1 sm:grid-cols-2">
                   <div>
                     <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">GitHub Profile</span>
                     <p className="text-sm font-semibold mt-0.5 truncate">

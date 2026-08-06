@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "outline";
 
 const variantClasses: Record<ButtonVariant, string> = {
-  primary: "bg-accent text-primary shadow-sm hover:bg-accent/90 dark:bg-primary dark:text-primary-foreground dark:hover:bg-primary/90",
+  primary: "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90",
   secondary: "bg-muted text-foreground hover:bg-muted/80",
   ghost: "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
   danger: "bg-danger text-white shadow-sm hover:bg-danger/90",

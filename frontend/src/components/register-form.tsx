@@ -24,7 +24,7 @@ const HARDWARE_DOMAINS = [
   "Circuit Design & PCB Layout",
   "Smart Automation & Industrial Control",
   "Robotics & Drones",
-  "Edge AI / All Hardware Domain"
+  "Edge AI "
 ];
 
 const SOFTWARE_DOMAINS = [

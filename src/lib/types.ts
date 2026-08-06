@@ -17,6 +17,7 @@ export type Profile = {
   linkedin: string | null;
   project_type: "Hardware" | "Software" | "Both" | null;
   verified: boolean;
+  avatar_url: string | null;
   created_at: string;
 };
 

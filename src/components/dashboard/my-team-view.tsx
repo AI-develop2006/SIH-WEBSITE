@@ -177,7 +177,7 @@ export function MyTeamView({
             {myTeam.members.map((m) => (
               <li key={m.id} className="glass flex items-center justify-between gap-3 rounded-xl px-3 py-2">
                 <div className="flex items-center gap-2.5">
-                  <Avatar name={m.name} />
+                  <Avatar name={m.name} src={m.avatar_url} />
                   <div className="leading-tight">
                     <p className="text-sm font-semibold">
                       {m.name}
@@ -210,7 +210,7 @@ export function MyTeamView({
                 {joinRequests.map((inv) => (
                   <li key={inv.id} className="flex items-center justify-between gap-3 rounded-xl border border-border bg-background/40 px-3 py-2">
                     <div className="flex items-center gap-2.5">
-                      <Avatar name={profilesMap.get(inv.sender_id)?.name ?? "?"} className="size-8" />
+                      <Avatar name={profilesMap.get(inv.sender_id)?.name ?? "?"} src={profilesMap.get(inv.sender_id)?.avatar_url} className="size-8" />
                       <div>
                         <p className="text-sm font-medium">
                           {profilesMap.get(inv.sender_id)?.name ?? "Unknown member"}

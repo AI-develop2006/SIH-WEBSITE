@@ -49,7 +49,7 @@ export function TeamCard({
             key={m.id}
             className="glass inline-flex items-center gap-2 rounded-full py-1 pl-1 pr-3 text-xs font-medium"
           >
-            <Avatar name={m.name} className="size-6 text-[9px]" />
+            <Avatar name={m.name} src={m.avatar_url} className="size-6 text-[9px]" />
             {m.name}
             {m.id === team.team.leader_id && <span className="text-ring">· L</span>}
           </span>

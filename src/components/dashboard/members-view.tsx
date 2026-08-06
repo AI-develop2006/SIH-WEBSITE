@@ -140,7 +140,7 @@ export function MembersView({
             <Card key={m.id} className="p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <Avatar name={m.name} />
+                  <Avatar name={m.name} src={m.avatar_url} />
                   <div>
                     <p className="text-sm font-bold">{m.name}</p>
                     <p className="text-xs text-muted-foreground">

@@ -10,23 +10,35 @@ const palettes = [
 
 export function Avatar({
   name,
+  src,
   className,
   ...props
-}: React.HTMLAttributes<HTMLDivElement> & { name: string }) {
+}: React.HTMLAttributes<HTMLDivElement> & { name: string; src?: string | null }) {
   const hash = name.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
   const palette = palettes[hash % palettes.length];
 
   return (
     <div
       className={cn(
-        "flex size-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-xs font-bold text-white",
+        "relative flex shrink-0 size-9 items-center justify-center rounded-full bg-gradient-to-br text-xs font-bold text-white overflow-hidden",
         palette,
         className
       )}
       title={name}
       {...props}
     >
-      {initials(name)}
+      {src ? (
+        <img
+          src={src}
+          alt={name}
+          className="absolute inset-0 size-full object-cover"
+          onError={(e) => {
+            // hide broken image so initials show through
+            (e.currentTarget as HTMLImageElement).style.display = "none";
+          }}
+        />
+      ) : null}
+      <span className={src ? "opacity-0" : ""}>{initials(name)}</span>
     </div>
   );
 }

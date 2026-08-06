@@ -190,3 +190,13 @@ export const api = {
 export function isConfigured(): boolean {
   return isSupabaseConfigured();
 }
+
+export async function updateAvatarUrl(userId: string, url: string): Promise<ApiResult<null>> {
+  const supabase = assertSupabase();
+  const { error } = await supabase
+    .from("profiles")
+    .update({ avatar_url: url })
+    .eq("id", userId);
+  if (error) return { data: null, error: error.message };
+  return { data: null, error: null };
+}

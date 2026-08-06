@@ -20,42 +20,42 @@
   --font-caveat: "Caveat", cursive;
 }
 
-/* ── SMVEC brand theme — deep navy + gold ── */
+/* ── SMVEC brand theme — white/light + gold ── */
 :root {
   --font-roboto: "Roboto", ui-sans-serif, system-ui, sans-serif;
   --font-geist-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  /* SMVEC Colours: deep navy background, gold accent */
-  --background: #06090f;
-  --foreground: #eef1f8;
-  --card: #0d1220;
-  --card-foreground: #eef1f8;
-  --muted: rgba(180, 190, 215, 0.08);
-  --muted-foreground: #8fa0c0;
-  --border: rgba(180, 190, 215, 0.14);
+  /* Light background, dark text */
+  --background: #ffffff;
+  --foreground: #0f1520;
+  --card: #f8f9fc;
+  --card-foreground: #0f1520;
+  --muted: rgba(15, 21, 32, 0.05);
+  --muted-foreground: #5a6680;
+  --border: rgba(15, 21, 32, 0.10);
   --ring: #c9a227;
   --primary: #c9a227;          /* SMVEC gold */
-  --primary-foreground: #06090f;
-  --accent: #e8c058;           /* lighter gold highlight */
-  --danger: #f87171;
-  --warning: #fbbf24;
-  --success: #34d399;
+  --primary-foreground: #ffffff;
+  --accent: #a07c10;           /* darker gold for text on light bg */
+  --danger: #dc2626;
+  --warning: #d97706;
+  --success: #16a34a;
 
-  /* Orb glow colours — navy + gold */
-  --orb-a: rgba(10, 25, 65, 0.90);
-  --orb-b: rgba(201, 162, 39, 0.18);
-  --orb-c: rgba(15, 35, 80, 0.70);
+  /* Orb colours — soft gold/navy tints on white */
+  --orb-a: rgba(201, 162, 39, 0.12);
+  --orb-b: rgba(11, 22, 49, 0.06);
+  --orb-c: rgba(201, 162, 39, 0.07);
 
-  /* SMVEC specific brand colours for structural elements */
+  /* SMVEC structural colours */
   --navy-deep:  #060c1a;
   --navy-mid:   #0b1631;
   --navy-light: #132045;
   --gold-rich:  #c9a227;
   --gold-light: #e8c058;
-  --gold-dim:   rgba(201, 162, 39, 0.25);
+  --gold-dim:   rgba(201, 162, 39, 0.20);
 }
 
-/* Keep .dark class tokens identical so any existing dark: classes still resolve */
+/* Dark mode overrides — full deep navy theme */
 .dark {
   --background: #06090f;
   --foreground: #eef1f8;
@@ -86,11 +86,29 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Smooth transition when the theme class is toggled on <html> */
+*, *::before, *::after {
+  transition-property: background-color, border-color, color, fill, stroke;
+  transition-duration: 0.25s;
+  transition-timing-function: ease;
+}
+
+/* Exclude elements where transitions cause layout jank */
+*:where(button, a, [role="button"]) {
+  transition-property: background-color, border-color, color, opacity, transform, box-shadow;
+  transition-duration: 0.18s;
+}
+
 body {
   color: var(--foreground);
   font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Dark mode body background */
+.dark body {
+  background: #06090f;
 }
 
 ::selection {
@@ -101,36 +119,28 @@ body {
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: rgba(180, 190, 215, 0.18);
+  background: rgba(15, 21, 32, 0.18);
   border-radius: 999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(180, 190, 215, 0.32);
+  background: rgba(15, 21, 32, 0.32);
 }
 
-/* ── SMVEC navy background with subtle diagonal stripe texture ── */
+/* ── White background ── */
 body {
-  background: var(--background);
-  background-image:
-    repeating-linear-gradient(
-      135deg,
-      rgba(255,255,255,0.012) 0px,
-      rgba(255,255,255,0.012) 1px,
-      transparent 1px,
-      transparent 60px
-    );
+  background: #ffffff;
 }
 
-/* ── Background grid overlay ── */
+/* ── Background grid overlay — light gold tint ── */
 .bg-grid {
   background-image:
-    linear-gradient(to right,  rgba(201, 162, 39, 0.04) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(201, 162, 39, 0.04) 1px, transparent 1px);
+    linear-gradient(to right,  rgba(201, 162, 39, 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(201, 162, 39, 0.06) 1px, transparent 1px);
   background-size: 60px 60px;
   mask-image: radial-gradient(ellipse 85% 70% at 50% 0%, black 40%, transparent 100%);
 }
 
-/* ── Glowing orb backdrop ── */
+/* ── Soft orb backdrops (light mode) ── */
 .orb {
   position: absolute;
   border-radius: 50%;
@@ -138,23 +148,24 @@ body {
   pointer-events: none;
   animation: orb-float 9s ease-in-out infinite;
 }
-/* Deep navy centre orb */
-.orb-a { background: radial-gradient(circle, rgba(19,32,69,0.95) 0%, rgba(6,9,15,0) 70%); animation-delay: 0s; animation-duration: 11s; }
-/* Gold glow accent */
-.orb-b { background: radial-gradient(circle, rgba(201,162,39,0.22) 0%, rgba(201,162,39,0) 70%); animation-delay: -4s; animation-duration: 9s; }
-/* Subtle navy side */
-.orb-c { background: radial-gradient(circle, rgba(11,22,49,0.80) 0%, rgba(6,9,15,0) 70%); animation-delay: -7s; animation-duration: 13s; }
+.orb-a { background: radial-gradient(circle, rgba(201,162,39,0.14) 0%, rgba(201,162,39,0) 70%); animation-delay: 0s;  animation-duration: 11s; }
+.orb-b { background: radial-gradient(circle, rgba(11,22,49,0.06)   0%, rgba(11,22,49,0)   70%); animation-delay: -4s; animation-duration: 9s;  }
+.orb-c { background: radial-gradient(circle, rgba(201,162,39,0.08) 0%, rgba(201,162,39,0) 70%); animation-delay: -7s; animation-duration: 13s; }
 
 @keyframes orb-float {
-  0%, 100% { transform: translate3d(0,  0px, 0) scale(1);    }
+  0%, 100% { transform: translate3d(0,   0px, 0) scale(1);    }
   33%       { transform: translate3d(12px, -20px, 0) scale(1.04); }
-  66%       { transform: translate3d(-8px, 14px,  0) scale(0.97); }
+  66%       { transform: translate3d(-8px,  14px, 0) scale(0.97); }
 }
 
 /* ── Glass card ── */
 .glass {
-  background: var(--card);
-  border: 1px solid var(--border);
+  background: #f8f9fc;
+  border: 1px solid rgba(15, 21, 32, 0.10);
+}
+.dark .glass {
+  background: #0d1220;
+  border-color: rgba(180, 190, 215, 0.14);
 }
 
 /* ── Card interactive hover ── */
@@ -164,18 +175,24 @@ body {
 .card-hover:hover {
   transform: translateY(-3px);
   box-shadow: 0 12px 32px -8px rgba(201, 162, 39, 0.22);
-  border-color: rgba(201, 162, 39, 0.45);
+  border-color: rgba(201, 162, 39, 0.50);
 }
 
-/* ── Text gradient (gold → light gold) ── */
+/* ── Text gradient — light mode: deep gold; dark mode: bright gold ── */
 .text-gradient {
-  background: linear-gradient(120deg, var(--gold-rich, #c9a227), var(--gold-light, #e8c058));
+  background: linear-gradient(120deg, #a07c10, #c9a227);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.dark .text-gradient {
+  background: linear-gradient(120deg, #c9a227, #e8c058);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
 
-/* ── SMVEC navy panel background ── */
+/* ── SMVEC navy panel background (login/register left panels) ── */
 .smvec-panel {
   background: linear-gradient(160deg, #060c1a 0%, #0b1631 50%, #0f1e40 100%);
 }
@@ -185,6 +202,47 @@ body {
   height: 3px;
   background: linear-gradient(90deg, transparent, var(--gold-rich, #c9a227), transparent);
   border-radius: 999px;
+}
+
+/* ────────────────────────────────────────────
+   Scroll-reveal animations
+   Elements get .scroll-reveal added by default.
+   When they enter the viewport, JS adds .in-view.
+─────────────────────────────────────────────*/
+.scroll-reveal {
+  opacity: 0;
+  transform: translateY(36px);
+  transition: opacity 0.65s cubic-bezier(0.22, 1, 0.36, 1),
+              transform 0.65s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.scroll-reveal.in-view {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Stagger children inside a reveal container */
+.scroll-reveal-group > * {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+              transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.scroll-reveal-group.in-view > *:nth-child(1) { opacity: 1; transform: none; transition-delay: 0.05s; }
+.scroll-reveal-group.in-view > *:nth-child(2) { opacity: 1; transform: none; transition-delay: 0.13s; }
+.scroll-reveal-group.in-view > *:nth-child(3) { opacity: 1; transform: none; transition-delay: 0.21s; }
+.scroll-reveal-group.in-view > *:nth-child(4) { opacity: 1; transform: none; transition-delay: 0.29s; }
+.scroll-reveal-group.in-view > *:nth-child(n+5) { opacity: 1; transform: none; transition-delay: 0.35s; }
+
+/* Fade-up from left variant */
+.scroll-reveal-left {
+  opacity: 0;
+  transform: translateX(-28px);
+  transition: opacity 0.60s cubic-bezier(0.22, 1, 0.36, 1),
+              transform 0.60s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.scroll-reveal-left.in-view {
+  opacity: 1;
+  transform: translateX(0);
 }
 
 /* ── Marquee ── */

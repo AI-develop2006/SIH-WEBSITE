@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { animate, stagger, type JSAnimation } from "animejs";
 import { supabase } from "@/lib/supabase/client";
@@ -8,6 +8,7 @@ import { useAnime } from "@/hooks/use-anime";
 import { CollegeBrand } from "@/components/college-brand";
 import { RuixenGradientFooter } from "@/components/ui/ruixen-gradient-footer";
 import { Button } from "@/components/unlumen-ui/button";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const NAV_LINKS = [
   { label: "Apply", href: "/register" },
@@ -87,8 +88,8 @@ const FEATURES = [
 
 const STEPS = [
   { n: "01", title: "Apply via the registration form", body: "Fill in your details — name, register no, department, year, languages, LinkedIn and project type — and create your account." },
-  { n: "02", title: "Find or build your team", body: "Your team will be formed by Your mentor based on skills shortly the date will be announed later " },
-  { n: "03", title: "Compete together", body: "Keep your squad rule-valid, accept join requests, and walk into SIH 2026 ready." },
+  { n: "02", title: "Find or build your team", body: "Your team will be formed by your mentor based on skills. Date will be announced later." },
+  { n: "03", title: "Compete together", body: "Keep your squad rule-valid, accept join requests, and walk into SIH 2026 ready to build." },
 ];
 
 const RULES = [
@@ -147,6 +148,7 @@ export default function LandingPage() {
     });
   }, [navigate]);
 
+  // ── Hero entrance animation ──
   const heroRef = useAnime<HTMLDivElement>((el) => {
     const anims: JSAnimation[] = [];
     anims.push(
@@ -161,12 +163,36 @@ export default function LandingPage() {
     return () => anims.forEach((a) => a.revert());
   }, []);
 
+  // ── Scroll-reveal IntersectionObserver ──
+  useEffect(() => {
+    const targets = document.querySelectorAll<HTMLElement>(
+      ".scroll-reveal, .scroll-reveal-group, .scroll-reveal-left"
+    );
+    if (!targets.length) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("in-view");
+            observer.unobserve(entry.target); // fire once
+          }
+        });
+      },
+      { threshold: 0.12 }
+    );
+
+    targets.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-white dark:bg-[#06090f] transition-colors duration-300">
       {/* SMVEC gold top accent bar */}
       <div className="h-1 w-full bg-gradient-to-r from-transparent via-[#c9a227] to-transparent" />
 
-      <header className="sticky top-0 z-40 border-b border-[rgba(201,162,39,0.18)] bg-[#06090f]/90 backdrop-blur">
+      {/* ── Header — dark navy blue ── */}
+      <header className="sticky top-0 z-40 border-b border-[rgba(201,162,39,0.25)] bg-[#0b1631] shadow-lg backdrop-blur">
         <div className="mx-auto flex h-[4.5rem] w-full max-w-7xl items-center justify-between gap-3 px-5">
           <a href="/" className="flex items-center">
             <CollegeBrand />
@@ -177,7 +203,7 @@ export default function LandingPage() {
               <a
                 key={l.href}
                 href={l.href}
-                className="rounded-lg px-3 py-2 text-sm font-medium text-[#8fa0c0] transition-colors hover:text-[#e8c058]"
+                className="rounded-lg px-3 py-2 text-sm font-medium text-white/70 transition-colors hover:text-[#e8c058]"
               >
                 {l.label}
               </a>
@@ -185,7 +211,8 @@ export default function LandingPage() {
           </nav>
 
           <div className="flex items-center gap-2">
-            <Button variant="ghost" className="hidden sm:inline-flex text-[#8fa0c0] hover:text-[#e8c058]" onClick={() => navigate("/login")}>
+            <ThemeToggle />
+            <Button variant="ghost" className="hidden sm:inline-flex text-white/70 hover:text-[#e8c058] hover:bg-white/5" onClick={() => navigate("/login")}>
               Log in
             </Button>
             <Button onClick={() => navigate("/register")} className="bg-[#c9a227] text-[#06090f] hover:bg-[#e8c058] font-bold border-0">
@@ -196,43 +223,39 @@ export default function LandingPage() {
       </header>
 
       <main>
-        <section className="relative overflow-hidden">
-          {/* SMVEC navy + gold orb backdrops */}
+        {/* ── Hero ── */}
+        <section className="relative overflow-hidden bg-white dark:bg-[#06090f]">
+          {/* Soft gold orb backdrops on white */}
           <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
-            {/* Deep navy centre mass */}
-            <div className="absolute inset-0 bg-gradient-to-b from-[#060c1a] via-[#06090f] to-[#06090f]" />
-            {/* Gold glow top-centre */}
             <div className="absolute -top-32 left-1/2 h-[500px] w-[700px] -translate-x-1/2 rounded-full bg-[#c9a227]/10 blur-[130px]" />
-            {/* Navy deep left */}
-            <div className="absolute top-1/3 -left-20 h-[400px] w-[400px] rounded-full bg-[#0b1631]/80 blur-[100px]" />
-            {/* Navy deep right */}
-            <div className="absolute -bottom-10 right-[-8%] h-[380px] w-[380px] rounded-full bg-[#0b1631]/60 blur-[100px]" />
-            {/* Grid with gold tint */}
+            <div className="absolute top-1/3 -left-20 h-[380px] w-[380px] rounded-full bg-[#c9a227]/06 blur-[100px]" />
+            <div className="absolute -bottom-10 right-[-8%] h-[340px] w-[340px] rounded-full bg-[#0b1631]/04 blur-[100px]" />
             <div className="bg-grid absolute inset-0" />
           </div>
+
           <div className="mx-auto w-full max-w-7xl px-5 pb-16 pt-16 sm:pt-24">
             <div ref={heroRef} className="mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
-              <span className="reveal inline-flex items-center gap-2 rounded-full border border-[rgba(201,162,39,0.35)] bg-[rgba(201,162,39,0.08)] px-4 py-1.5 text-sm font-semibold text-[#c9a227]">
+              <span className="reveal inline-flex items-center gap-2 rounded-full border border-[rgba(201,162,39,0.40)] bg-[rgba(201,162,39,0.08)] px-4 py-1.5 text-sm font-semibold text-[#a07c10]">
                 <span className="size-2 rounded-full bg-[#c9a227] animate-pulse" />
-                Build your winning SIH team . not your stress
+                Build your winning SIH team — not your stress
               </span>
 
-              <h1 className="reveal text-4xl font-bold leading-[1.08] tracking-tight text-foreground sm:text-6xl">
-                Smart India Hackathon 2026 
+              <h1 className="reveal text-4xl font-bold leading-[1.08] tracking-tight text-[#0f1520] dark:text-[#eef1f8] sm:text-6xl">
+                Smart India Hackathon 2026
                 <br />
                 <span className="text-gradient">SMVEC Internal</span>
               </h1>
 
-              <p className="reveal max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
+              <p className="reveal max-w-xl text-base leading-relaxed text-[#5a6680] dark:text-[#8fa0c0] sm:text-lg">
                 Apply once, match with teammates by department and language, form balanced
                 teams, and keep every squad competition-ready with automatic rule checks.
               </p>
 
               <div className="reveal flex flex-wrap items-center justify-center gap-3">
-                <Button onClick={() => navigate("/register")} className="bg-[#c9a227] text-[#06090f] hover:bg-[#e8c058] font-bold border-0 px-6 py-2.5">
+                <Button onClick={() => navigate("/register")} className="bg-[#c9a227] text-white hover:bg-[#a07c10] font-bold border-0 px-6 py-2.5">
                   Apply Now
                 </Button>
-                <Button variant="outline" className="border-[rgba(201,162,39,0.40)] text-[#c9a227] hover:bg-[rgba(201,162,39,0.08)] px-6 py-2.5" onClick={() => navigate("/login")}>
+                <Button variant="outline" className="border-[rgba(201,162,39,0.45)] text-[#a07c10] hover:bg-[rgba(201,162,39,0.08)] px-6 py-2.5" onClick={() => navigate("/login")}>
                   Log in
                 </Button>
               </div>
@@ -242,9 +265,9 @@ export default function LandingPage() {
 
         {/* ── Timeline ── */}
         <section id="timeline" className="mx-auto w-full max-w-4xl px-5 py-20 sm:py-28">
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Key dates</h2>
-            <p className="mt-3 text-muted-foreground">
+          <div className="scroll-reveal mx-auto max-w-2xl text-center">
+            <h2 className="text-3xl font-bold tracking-tight text-[#0f1520] dark:text-[#eef1f8] sm:text-4xl">Key dates</h2>
+            <p className="mt-3 text-[#5a6680] dark:text-[#8fa0c0]">
               Mark these on your calendar — especially the registration deadline.
             </p>
           </div>
@@ -252,29 +275,25 @@ export default function LandingPage() {
           <ol className="mt-14 flex flex-col">
             {TIMELINE.map((item, i) => {
               const isLast = i === TIMELINE.length - 1;
-              // colour of the connector segment below this node
               const segColor =
                 item.status === "done"
                   ? "from-success/60 to-success/20"
                   : item.status === "active"
-                    ? "from-accent/50 to-border/40"
-                    : "from-border/40 to-border/20";
+                    ? "from-[#c9a227]/50 to-[#c9a227]/10"
+                    : "from-[rgba(15,21,32,0.12)] to-[rgba(15,21,32,0.04)]";
 
               return (
-                <li key={item.label} className="relative flex items-start gap-5 sm:gap-7">
-                  {/* Left column: node + connector */}
+                <li key={item.label} className="scroll-reveal relative flex items-start gap-5 sm:gap-7">
+                  {/* Node + connector */}
                   <div className="hidden shrink-0 flex-col items-center sm:flex">
-                    {/* Node */}
-                    <div
-                      className={[
-                        "relative z-10 flex size-14 items-center justify-center rounded-2xl border-2 transition-all",
-                        item.status === "done"
-                          ? "border-success bg-success/10 text-success"
-                          : item.status === "active"
-                            ? "border-[#c9a227] bg-[rgba(201,162,39,0.10)] text-[#c9a227] shadow-[0_0_28px_-6px_rgba(201,162,39,0.55)]"
-                            : "border-border bg-card text-muted-foreground",
-                      ].join(" ")}
-                    >
+                    <div className={[
+                      "relative z-10 flex size-14 items-center justify-center rounded-2xl border-2 transition-all",
+                      item.status === "done"
+                        ? "border-success bg-success/10 text-success"
+                        : item.status === "active"
+                          ? "border-[#c9a227] bg-[rgba(201,162,39,0.10)] text-[#c9a227] shadow-[0_0_28px_-6px_rgba(201,162,39,0.40)]"
+                          : "border-[rgba(15,21,32,0.15)] bg-[#f8f9fc] dark:bg-[#0d1220] dark:border-[rgba(180,190,215,0.14)] text-[#5a6680] dark:text-[#8fa0c0]",
+                    ].join(" ")}>
                       {item.status === "done" && (
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="size-6">
                           <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clipRule="evenodd" />
@@ -291,73 +310,47 @@ export default function LandingPage() {
                         </svg>
                       )}
                     </div>
-
-                    {/* Connector segment — only between nodes, never after last */}
                     {!isLast && (
-                      <div
-                        className={`w-px flex-1 bg-gradient-to-b ${segColor} my-1 min-h-[2rem]`}
-                        aria-hidden="true"
-                      />
+                      <div className={`w-px flex-1 bg-gradient-to-b ${segColor} my-1 min-h-[2rem]`} aria-hidden="true" />
                     )}
                   </div>
 
-                  {/* Card — bottom margin drives spacing between rows */}
-                  <div
-                    className={[
-                      "flex-1 rounded-2xl border p-5",
-                      !isLast ? "mb-4" : "mb-0",
-                      item.status === "done"
-                        ? "border-success/25 bg-success/5"
-                        : item.status === "active"
-                          ? "border-[rgba(201,162,39,0.45)] bg-[rgba(201,162,39,0.05)] shadow-[0_0_36px_-14px_rgba(201,162,39,0.35)]"
-                          : "border-[rgba(180,190,215,0.12)] bg-[#0d1220] opacity-70",
-                    ].join(" ")}
-                  >
+                  {/* Card */}
+                  <div className={[
+                    "flex-1 rounded-2xl border p-5",
+                    !isLast ? "mb-4" : "mb-0",
+                    item.status === "done"
+                      ? "border-success/25 bg-success/5"
+                      : item.status === "active"
+                        ? "border-[rgba(201,162,39,0.40)] bg-[rgba(201,162,39,0.04)] shadow-[0_0_36px_-14px_rgba(201,162,39,0.25)]"
+                        : "border-[rgba(15,21,32,0.08)] bg-[#f8f9fc] dark:bg-[#0d1220] dark:border-[rgba(180,190,215,0.10)] opacity-70",
+                  ].join(" ")}>
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center gap-3">
-                        {/* Step number — mobile only */}
-                        <span className={[
-                          "text-xs font-black tracking-widest sm:hidden",
-                          item.status === "done" ? "text-success" : item.status === "active" ? "text-[#c9a227]" : "text-muted-foreground",
-                        ].join(" ")}>
-                          {item.step}
-                        </span>
-                        <h3 className="text-base font-bold tracking-tight">{item.label}</h3>
+                        <span className={["text-xs font-black tracking-widest sm:hidden",
+                          item.status === "done" ? "text-success" : item.status === "active" ? "text-[#c9a227]" : "text-[#5a6680]",
+                        ].join(" ")}>{item.step}</span>
+                        <h3 className="text-base font-bold tracking-tight text-[#0f1520] dark:text-[#eef1f8]">{item.label}</h3>
                         {item.status === "done" && (
-                          <span className="rounded-full border border-success/30 bg-success/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-success">
-                            Completed
-                          </span>
+                          <span className="rounded-full border border-success/30 bg-success/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-success">Completed</span>
                         )}
                         {item.status === "active" && (
-                          <span className="flex items-center gap-1.5 rounded-full border border-[rgba(201,162,39,0.35)] bg-[rgba(201,162,39,0.08)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-[#c9a227]">
+                          <span className="flex items-center gap-1.5 rounded-full border border-[rgba(201,162,39,0.35)] bg-[rgba(201,162,39,0.08)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-[#a07c10]">
                             <span className="size-1.5 animate-pulse rounded-full bg-[#c9a227]" />
                             Open now
                           </span>
                         )}
                       </div>
-
-                      <span
-                        className={[
-                          "rounded-lg border px-3 py-1 text-xs font-semibold tabular-nums",
-                          item.status === "done"
-                            ? "border-success/30 text-success"
-                            : item.status === "active"
-                              ? "border-[rgba(201,162,39,0.45)] text-[#c9a227]"
-                              : "border-border text-muted-foreground",
-                        ].join(" ")}
-                      >
-                        {item.date}
-                      </span>
+                      <span className={["rounded-lg border px-3 py-1 text-xs font-semibold tabular-nums",
+                        item.status === "done" ? "border-success/30 text-success"
+                          : item.status === "active" ? "border-[rgba(201,162,39,0.45)] text-[#a07c10]"
+                          : "border-[rgba(15,21,32,0.12)] text-[#5a6680]",
+                      ].join(" ")}>{item.date}</span>
                     </div>
-
-                    <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{item.description}</p>
-
+                    <p className="mt-2 text-sm leading-relaxed text-[#5a6680] dark:text-[#8fa0c0]">{item.description}</p>
                     {item.status === "active" && (
                       <div className="mt-4">
-                        <a
-                          href="/register"
-                          className="inline-flex items-center gap-1.5 rounded-xl bg-[#c9a227] px-4 py-2 text-xs font-bold text-[#06090f] transition-opacity hover:opacity-90"
-                        >
+                        <a href="/register" className="inline-flex items-center gap-1.5 rounded-xl bg-[#c9a227] px-4 py-2 text-xs font-bold text-white transition-opacity hover:opacity-90">
                           Register before deadline
                           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="size-3.5">
                             <path fillRule="evenodd" d="M2 8a.75.75 0 0 1 .75-.75h8.69L9.22 5.03a.75.75 0 0 1 1.06-1.06l3.5 3.5a.75.75 0 0 1 0 1.06l-3.5 3.5a.75.75 0 1 1-1.06-1.06l2.22-2.22H2.75A.75.75 0 0 1 2 8Z" clipRule="evenodd" />
@@ -372,8 +365,9 @@ export default function LandingPage() {
           </ol>
         </section>
 
-        <section className="border-y border-[rgba(201,162,39,0.15)] bg-[#060c1a] py-6">
-          <div className="mb-4 text-center text-xs font-semibold uppercase tracking-widest text-[#c9a227]/70">
+        {/* ── Departments marquee ── */}
+        <section className="border-y border-[rgba(201,162,39,0.20)] bg-[#fdf9f0] dark:bg-[#0d1220] py-6">
+          <div className="mb-4 text-center text-xs font-semibold uppercase tracking-widest text-[#a07c10] dark:text-[#c9a227]/70">
             Across every department
           </div>
           <div className="marquee">
@@ -381,16 +375,16 @@ export default function LandingPage() {
               <div className="marquee-group">
                 {DEPARTMENTS.map((d) => (
                   <span key={d} className="flex items-center gap-3 whitespace-nowrap">
-                    <span className="size-1.5 rounded-full bg-[#c9a227]/60" />
-                    <span className="text-sm font-semibold text-[#8fa0c0]/70">{d}</span>
+                    <span className="size-1.5 rounded-full bg-[#c9a227]/70" />
+                    <span className="text-sm font-semibold text-[#5a6680] dark:text-[#8fa0c0]/80">{d}</span>
                   </span>
                 ))}
               </div>
               <div className="marquee-group" aria-hidden="true">
                 {DEPARTMENTS.map((d) => (
                   <span key={d} className="flex items-center gap-3 whitespace-nowrap">
-                    <span className="size-1.5 rounded-full bg-[#c9a227]/60" />
-                    <span className="text-sm font-semibold text-[#8fa0c0]/70">{d}</span>
+                    <span className="size-1.5 rounded-full bg-[#c9a227]/70" />
+                    <span className="text-sm font-semibold text-[#5a6680] dark:text-[#8fa0c0]/80">{d}</span>
                   </span>
                 ))}
               </div>
@@ -398,98 +392,93 @@ export default function LandingPage() {
           </div>
         </section>
 
+        {/* ── Features ── */}
         <section id="features" className="mx-auto w-full max-w-7xl px-5 py-20 sm:py-28">
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+          <div className="scroll-reveal mx-auto max-w-2xl text-center">
+            <h2 className="text-3xl font-bold tracking-tight text-[#0f1520] dark:text-[#eef1f8] sm:text-4xl">
               Everything around your team, in one place
             </h2>
-            <p className="mt-3 text-muted-foreground">
-              Real-time rule checks, invites, and matching — Folio-style polish for the SIH 2026 team pool.
+            <p className="mt-3 text-[#5a6680] dark:text-[#8fa0c0]">
+              Real-time rule checks, invites, and matching — built for the SIH 2026 team pool.
             </p>
           </div>
 
-          <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="scroll-reveal-group mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {FEATURES.map((f) => (
-              <div
-                key={f.title}
-                className="card-hover rounded-xl border border-[rgba(201,162,39,0.15)] bg-[#0d1220] p-6 hover:border-[rgba(201,162,39,0.45)]"
-              >
+              <div key={f.title} className="card-hover rounded-xl border border-[rgba(201,162,39,0.18)] bg-white dark:bg-[#0d1220] dark:border-[rgba(201,162,39,0.15)] p-6 shadow-sm">
                 <span className="flex size-10 items-center justify-center rounded-lg bg-[rgba(201,162,39,0.12)] text-[#c9a227]">
                   {ICONS[f.icon]}
                 </span>
-                <h3 className="mt-4 text-base font-bold tracking-tight">{f.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{f.body}</p>
+                <h3 className="mt-4 text-base font-bold tracking-tight text-[#0f1520] dark:text-[#eef1f8]">{f.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-[#5a6680] dark:text-[#8fa0c0]">{f.body}</p>
               </div>
             ))}
           </div>
         </section>
 
-        <section id="how" className="border-y border-[rgba(201,162,39,0.12)] bg-[#060c1a]">
+        {/* ── How it works ── */}
+        <section id="how" className="border-y border-[rgba(201,162,39,0.15)] bg-[#fdf9f0] dark:bg-[#0d1220]">
           <div className="mx-auto w-full max-w-7xl px-5 py-20 sm:py-28">
-            <div className="mx-auto max-w-2xl text-center">
-              <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">How it works</h2>
-              <p className="mt-3 text-muted-foreground">
-                From first login to final presentation in three steps.
-              </p>
+            <div className="scroll-reveal mx-auto max-w-2xl text-center">
+              <h2 className="text-3xl font-bold tracking-tight text-[#0f1520] dark:text-[#eef1f8] sm:text-4xl">How it works</h2>
+              <p className="mt-3 text-[#5a6680] dark:text-[#8fa0c0]">From first login to final presentation in three steps.</p>
             </div>
 
-            <div className="mt-12 grid gap-4 md:grid-cols-3">
+            <div className="scroll-reveal-group mt-12 grid gap-4 md:grid-cols-3">
               {STEPS.map((s) => (
-                <div key={s.n} className="rounded-xl border border-[rgba(201,162,39,0.15)] bg-[#0d1220] p-6">
+                <div key={s.n} className="rounded-xl border border-[rgba(201,162,39,0.18)] bg-white dark:bg-[#0b1631] dark:border-[rgba(201,162,39,0.15)] p-6 shadow-sm">
                   <span className="text-sm font-black tracking-widest text-[#c9a227]">{s.n}</span>
-                  <h3 className="mt-3 text-lg font-bold tracking-tight">{s.title}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{s.body}</p>
+                  <h3 className="mt-3 text-lg font-bold tracking-tight text-[#0f1520] dark:text-[#eef1f8]">{s.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-[#5a6680] dark:text-[#8fa0c0]">{s.body}</p>
                 </div>
               ))}
             </div>
           </div>
         </section>
 
+        {/* ── Rules ── */}
         <section id="rules" className="mx-auto w-full max-w-7xl px-5 py-20 sm:py-28">
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Rules that can't be bent</h2>
-            <p className="mt-3 text-muted-foreground">
-              Enforced in the database, not just the UI — no accidental invalid teams.
-            </p>
+          <div className="scroll-reveal mx-auto max-w-2xl text-center">
+            <h2 className="text-3xl font-bold tracking-tight text-[#0f1520] dark:text-[#eef1f8] sm:text-4xl">Rules that can't be bent</h2>
+            <p className="mt-3 text-[#5a6680] dark:text-[#8fa0c0]">Enforced in the database, not just the UI — no accidental invalid teams.</p>
           </div>
 
-          <div className="mt-12 grid gap-4 sm:grid-cols-3">
+          <div className="scroll-reveal-group mt-12 grid gap-4 sm:grid-cols-3">
             {RULES.map((r) => (
-              <div key={r.title} className="flex items-start gap-4 rounded-xl border border-[rgba(201,162,39,0.15)] bg-[#0d1220] p-6">
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-[rgba(201,162,39,0.10)] text-lg">
-                  {r.icon}
-                </span>
+              <div key={r.title} className="flex items-start gap-4 rounded-xl border border-[rgba(201,162,39,0.18)] bg-white dark:bg-[#0d1220] dark:border-[rgba(201,162,39,0.15)] p-6 shadow-sm">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-[rgba(201,162,39,0.10)] text-lg">{r.icon}</span>
                 <div>
-                  <h3 className="text-base font-bold tracking-tight">{r.title}</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">{r.body}</p>
+                  <h3 className="text-base font-bold tracking-tight text-[#0f1520] dark:text-[#eef1f8]">{r.title}</h3>
+                  <p className="mt-1 text-sm text-[#5a6680] dark:text-[#8fa0c0]">{r.body}</p>
                 </div>
               </div>
             ))}
           </div>
 
-          <div className="mx-auto mt-10 max-w-2xl rounded-xl border border-[rgba(201,162,39,0.18)] bg-[rgba(201,162,39,0.05)] px-5 py-4 text-center text-sm text-[#c9a227]/80">
+          <div className="scroll-reveal mx-auto mt-10 max-w-2xl rounded-xl border border-[rgba(201,162,39,0.25)] bg-[rgba(201,162,39,0.05)] px-5 py-4 text-center text-sm text-[#a07c10] dark:text-[#c9a227]/80">
             Team rule violations are rejected by the server with a clear message — check any team's live badge for its status.
           </div>
         </section>
 
-        <section className="border-y border-[rgba(201,162,39,0.12)] bg-[#060c1a]">
+        {/* ── Testimonials ── */}
+        <section className="border-y border-[rgba(201,162,39,0.15)] bg-[#fdf9f0] dark:bg-[#0d1220]">
           <div className="mx-auto w-full max-w-7xl px-5 py-20 sm:py-24">
-            <div className="mx-auto max-w-2xl text-center">
-              <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Loved by teams that ship fast</h2>
+            <div className="scroll-reveal mx-auto max-w-2xl text-center">
+              <h2 className="text-3xl font-bold tracking-tight text-[#0f1520] dark:text-[#eef1f8] sm:text-4xl">Loved by teams that ship fast</h2>
             </div>
-            <div className="mt-12 grid gap-4 md:grid-cols-3">
+            <div className="scroll-reveal-group mt-12 grid gap-4 md:grid-cols-3">
               {QUOTES.map((t) => (
-                <figure key={t.name} className="flex flex-col justify-between gap-6 rounded-xl border border-[rgba(201,162,39,0.15)] bg-[#0d1220] p-6">
-                  <blockquote className="text-sm leading-relaxed text-foreground/90">
-                    “{t.text}”
+                <figure key={t.name} className="flex flex-col justify-between gap-6 rounded-xl border border-[rgba(201,162,39,0.18)] bg-white dark:bg-[#0b1631] dark:border-[rgba(201,162,39,0.15)] p-6 shadow-sm">
+                  <blockquote className="text-sm leading-relaxed text-[#0f1520]/80 dark:text-[#eef1f8]/80">
+                    "{t.text}"
                   </blockquote>
                   <figcaption className="flex items-center gap-3">
                     <span className="flex size-9 items-center justify-center rounded-full bg-[rgba(201,162,39,0.12)] text-xs font-bold text-[#c9a227]">
-                      {t.name.split(" ").map((w) => w[0]).join("")}
+                      {t.name.split(" ").map((w: string) => w[0]).join("")}
                     </span>
                     <div className="leading-tight">
-                      <p className="text-sm font-semibold">{t.name}</p>
-                      <p className="text-xs text-muted-foreground">{t.role}</p>
+                      <p className="text-sm font-semibold text-[#0f1520] dark:text-[#eef1f8]">{t.name}</p>
+                      <p className="text-xs text-[#5a6680] dark:text-[#8fa0c0]">{t.role}</p>
                     </div>
                   </figcaption>
                 </figure>
@@ -498,11 +487,12 @@ export default function LandingPage() {
           </div>
         </section>
 
+        {/* ── FAQ ── */}
         <section id="faq" className="mx-auto w-full max-w-3xl px-5 py-20 sm:py-28">
-          <h2 className="text-center text-3xl font-bold tracking-tight sm:text-4xl">FAQ</h2>
-          <p className="mt-3 text-center text-muted-foreground">
-            Everything you need to know about forming a team.
-          </p>
+          <div className="scroll-reveal text-center">
+            <h2 className="text-3xl font-bold tracking-tight text-[#0f1520] dark:text-[#eef1f8] sm:text-4xl">FAQ</h2>
+            <p className="mt-3 text-[#5a6680] dark:text-[#8fa0c0]">Everything you need to know about forming a team.</p>
+          </div>
 
           <div className="mt-10 flex flex-col gap-3">
             {FAQS.map((f) => (
@@ -511,12 +501,11 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section className="mx-auto w-full max-w-7xl px-5 pb-20">
+        {/* ── CTA ── */}
+        <section className="scroll-reveal mx-auto w-full max-w-7xl px-5 pb-20">
           <div className="relative overflow-hidden rounded-3xl px-6 py-16 text-center sm:py-20"
-            style={{background: "linear-gradient(160deg, #060c1a 0%, #0b1631 60%, #0f1e40 100%)"}}>
-            {/* Gold top border accent */}
+            style={{ background: "linear-gradient(160deg, #060c1a 0%, #0b1631 60%, #0f1e40 100%)" }}>
             <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[#c9a227] to-transparent" />
-            {/* Gold glow blob */}
             <div className="pointer-events-none absolute inset-0">
               <div className="absolute -top-24 left-1/2 h-64 w-[600px] -translate-x-1/2 rounded-full bg-[#c9a227]/12 blur-[110px]" />
             </div>
@@ -529,7 +518,7 @@ export default function LandingPage() {
               </p>
               <Button
                 onClick={() => navigate("/register")}
-                className="mt-8 bg-[#c9a227] text-[#06090f] hover:bg-[#e8c058] font-bold border-0 px-6 py-2.5"
+                className="mt-8 bg-[#c9a227] text-white hover:bg-[#e8c058] hover:text-[#06090f] font-bold border-0 px-6 py-2.5"
               >
                 Apply Now
               </Button>
@@ -542,47 +531,33 @@ export default function LandingPage() {
         <div className="mx-auto w-full max-w-7xl px-5 pt-14">
           <div className="flex flex-col gap-10 pb-14 sm:flex-row sm:justify-between">
             <div className="max-w-xs">
-              <div className="flex items-center gap-3">
-                <img src="/logo.png" alt="Sri Manakula Vinayagars Engineering College" className="h-10 w-auto" />
-              </div>
+              <img src="/logo.png" alt="Sri Manakula Vinayagar Engineering College" className="h-10 w-auto" />
               <p className="mt-4 text-sm leading-relaxed text-white/80">
                 The internal team-formation portal for Smart India Hackathon 2026, hosted by Sri
                 Manakula Vinayagar Engineering College, Puducherry.
               </p>
             </div>
-
             <div className="grid grid-cols-2 gap-10 sm:grid-cols-3">
-              <FooterCol
-                title="Product"
-                links={[
-                  { label: "Features", href: "#features" },
-                  { label: "How it works", href: "#how" },
-                  { label: "Rules", href: "#rules" },
-                  { label: "FAQ", href: "#faq" },
-                ]}
-              />
-              <FooterCol
-                title="Get started"
-                links={[
-                  { label: "Apply now", href: "/register" },
-                  { label: "Log in", href: "/login" },
-                  { label: "Dashboard", href: "/dashboard" },
-                ]}
-              />
-              <FooterCol
-                title="Resources"
-                links={[
-                  { label: "Rules", href: "#rules" },
-                  { label: "Departments", href: "#features" },
-                  { label: "smvec.ac.in", href: "https://smvec.ac.in" },
-                ]}
-              />
+              <FooterCol title="Product" links={[
+                { label: "Features", href: "#features" },
+                { label: "How it works", href: "#how" },
+                { label: "Rules", href: "#rules" },
+                { label: "FAQ", href: "#faq" },
+              ]} />
+              <FooterCol title="Get started" links={[
+                { label: "Apply now", href: "/register" },
+                { label: "Log in", href: "/login" },
+                { label: "Dashboard", href: "/dashboard" },
+              ]} />
+              <FooterCol title="Resources" links={[
+                { label: "Rules", href: "#rules" },
+                { label: "Departments", href: "#features" },
+                { label: "smvec.ac.in", href: "https://smvec.ac.in" },
+              ]} />
             </div>
           </div>
           <div className="border-t border-white/15 py-6">
-            <p className="text-xs text-white/70">
-              © 2026 Sri Manakula Vinayagar Engineering College · SIH 2026 Team Builder
-            </p>
+            <p className="text-xs text-white/70">© 2026 Sri Manakula Vinayagar Engineering College · SIH 2026 Team Builder</p>
           </div>
         </div>
       </RuixenGradientFooter>
@@ -593,21 +568,21 @@ export default function LandingPage() {
 function FaqItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="overflow-hidden rounded-xl border border-[rgba(201,162,39,0.15)] bg-[#0d1220]">
+    <div className="scroll-reveal overflow-hidden rounded-xl border border-[rgba(201,162,39,0.18)] bg-white dark:bg-[#0d1220] dark:border-[rgba(201,162,39,0.15)] shadow-sm">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left text-sm font-semibold hover:text-[#c9a227] transition-colors"
+        className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left text-sm font-semibold text-[#0f1520] dark:text-[#eef1f8] hover:text-[#c9a227] dark:hover:text-[#c9a227] transition-colors"
       >
         {q}
-        <span className={`text-[#c9a227]/70 transition-transform duration-200 ${open ? "rotate-45" : ""}`}>
+        <span className={`text-[#c9a227] transition-transform duration-200 ${open ? "rotate-45" : ""}`}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <path d="M12 5v14M5 12h14" />
           </svg>
         </span>
       </button>
       {open && (
-        <p className="px-5 pb-5 text-sm leading-relaxed text-muted-foreground">{a}</p>
+        <p className="px-5 pb-5 text-sm leading-relaxed text-[#5a6680] dark:text-[#8fa0c0]">{a}</p>
       )}
     </div>
   );
@@ -629,4 +604,3 @@ function FooterCol({ title, links }: { title: string; links: { label: string; hr
     </div>
   );
 }
-

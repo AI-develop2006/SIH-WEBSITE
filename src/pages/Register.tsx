@@ -17,18 +17,27 @@ export default function RegisterPage() {
 
   return (
     <div className="flex min-h-screen flex-col overflow-hidden">
+      {/* SMVEC gold top accent bar */}
+      <div className="h-1 w-full bg-gradient-to-r from-transparent via-[#c9a227] to-transparent" />
+
       <div className="grow flex flex-col lg:flex-row">
-        {/* Left panel */}
-        <div className="relative w-full overflow-hidden bg-[#0b1120] lg:fixed lg:inset-y-0 lg:w-1/2 lg:rounded-r-[3rem]">
+        {/* Left panel — SMVEC deep navy */}
+        <div className="relative w-full overflow-hidden lg:fixed lg:inset-y-0 lg:w-1/2 lg:rounded-r-[3rem]"
+          style={{ background: "linear-gradient(160deg, #060c1a 0%, #0b1631 55%, #0f1e40 100%)" }}>
+
+          {/* Gold vertical border on rounded right edge */}
+          <div className="absolute inset-y-0 right-0 hidden w-[2px] lg:block"
+            style={{ background: "linear-gradient(to bottom, transparent, #c9a227 30%, #c9a227 70%, transparent)" }} />
+
           {/* Orb backdrops */}
           <div aria-hidden="true" className="pointer-events-none absolute inset-0">
-            <div className="orb orb-a absolute -top-40 left-1/2 size-[600px] -translate-x-1/2 opacity-70" />
-            <div className="orb orb-b absolute bottom-[-20%] right-[-10%] size-[380px] opacity-60" />
+            <div className="absolute -top-32 left-1/2 h-[420px] w-[560px] -translate-x-1/2 rounded-full bg-[#c9a227]/10 blur-[120px]" />
+            <div className="absolute bottom-[-15%] right-[-10%] h-[380px] w-[380px] rounded-full bg-[#0b1631]/90 blur-[100px]" />
             <div className="bg-grid absolute inset-0" />
           </div>
 
           <div className="relative min-h-full w-full max-w-xl mx-auto flex flex-col justify-start px-5 py-6 sm:px-6 lg:justify-center lg:py-20">
-            {/* Centered logo */}
+            {/* Logo */}
             <div className="mt-8 flex justify-center lg:mt-0">
               <a href="/" className="inline-flex">
                 <CollegeBrand className="scale-[1.5] sm:scale-[1.75] origin-center" />
@@ -36,23 +45,26 @@ export default function RegisterPage() {
             </div>
 
             <div className="mt-14 space-y-4 lg:mt-12">
-              <p className="font-caveat text-3xl text-accent">Registration for</p>
+              <p className="font-caveat text-3xl text-[#e8c058]">Registration for</p>
               <h1 className="text-4xl font-bold leading-tight tracking-tight text-white sm:text-5xl">
                 SIH Internal Hackathon Registration-2026
               </h1>
-              <p className="block font-caveat text-xl text-muted-foreground">— 06 August, 2026</p>
+              <p className="block font-caveat text-xl text-[#8fa0c0]">— 06 August, 2026</p>
             </div>
+
+            {/* Gold divider line */}
+            <div className="mt-10 gold-bar w-24" />
           </div>
         </div>
 
         {/* Right panel */}
-        <main className="flex w-full flex-col lg:ml-auto lg:w-1/2">
+        <main className="flex w-full flex-col bg-[#06090f] lg:ml-auto lg:w-1/2">
           <div className="grow w-full max-w-xl mx-auto px-5 py-12 sm:px-6 lg:pt-20 lg:pb-24">
             {/* Home nav */}
             <div className="mb-8 flex items-center gap-3">
               <a
                 href="/"
-                className="inline-flex items-center gap-2 rounded-xl border border-border bg-muted/40 px-3.5 py-2 text-sm font-medium text-muted-foreground transition-colors hover:border-ring/40 hover:bg-muted hover:text-foreground"
+                className="inline-flex items-center gap-2 rounded-xl border border-[rgba(201,162,39,0.20)] bg-[rgba(201,162,39,0.05)] px-3.5 py-2 text-sm font-medium text-[#8fa0c0] transition-colors hover:border-[rgba(201,162,39,0.45)] hover:bg-[rgba(201,162,39,0.10)] hover:text-[#e8c058]"
                 title="Back to home"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="size-4 shrink-0">
@@ -61,7 +73,7 @@ export default function RegisterPage() {
                 Home
               </a>
               <span className="text-xs text-muted-foreground">Already registered?{" "}
-                <a href="/login" className="font-semibold text-primary hover:underline">Log in</a>
+                <a href="/login" className="font-semibold text-[#c9a227] hover:underline">Log in</a>
               </span>
             </div>
             <RegisterForm />

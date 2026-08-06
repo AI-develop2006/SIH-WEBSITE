@@ -163,8 +163,11 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur">
-        <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-3 px-5">
+      {/* SMVEC gold top accent bar */}
+      <div className="h-1 w-full bg-gradient-to-r from-transparent via-[#c9a227] to-transparent" />
+
+      <header className="sticky top-0 z-40 border-b border-[rgba(201,162,39,0.18)] bg-[#06090f]/90 backdrop-blur">
+        <div className="mx-auto flex h-[4.5rem] w-full max-w-7xl items-center justify-between gap-3 px-5">
           <a href="/" className="flex items-center">
             <CollegeBrand />
           </a>
@@ -174,7 +177,7 @@ export default function LandingPage() {
               <a
                 key={l.href}
                 href={l.href}
-                className="rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+                className="rounded-lg px-3 py-2 text-sm font-medium text-[#8fa0c0] transition-colors hover:text-[#e8c058]"
               >
                 {l.label}
               </a>
@@ -182,27 +185,35 @@ export default function LandingPage() {
           </nav>
 
           <div className="flex items-center gap-2">
-            <Button variant="ghost" className="hidden sm:inline-flex" onClick={() => navigate("/login")}>
+            <Button variant="ghost" className="hidden sm:inline-flex text-[#8fa0c0] hover:text-[#e8c058]" onClick={() => navigate("/login")}>
               Log in
             </Button>
-            <Button onClick={() => navigate("/register")}>Apply Now</Button>
+            <Button onClick={() => navigate("/register")} className="bg-[#c9a227] text-[#06090f] hover:bg-[#e8c058] font-bold border-0">
+              Apply Now
+            </Button>
           </div>
         </div>
       </header>
 
       <main>
         <section className="relative overflow-hidden">
-          {/* Orb backdrops */}
+          {/* SMVEC navy + gold orb backdrops */}
           <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
-            <div className="orb orb-a absolute -top-40 left-1/2 size-[700px] -translate-x-1/2 opacity-70" />
-            <div className="orb orb-b absolute -bottom-20 right-[-10%] size-[500px] opacity-50" />
-            <div className="orb orb-c absolute top-1/3 left-[-5%] size-[400px] opacity-40" />
+            {/* Deep navy centre mass */}
+            <div className="absolute inset-0 bg-gradient-to-b from-[#060c1a] via-[#06090f] to-[#06090f]" />
+            {/* Gold glow top-centre */}
+            <div className="absolute -top-32 left-1/2 h-[500px] w-[700px] -translate-x-1/2 rounded-full bg-[#c9a227]/10 blur-[130px]" />
+            {/* Navy deep left */}
+            <div className="absolute top-1/3 -left-20 h-[400px] w-[400px] rounded-full bg-[#0b1631]/80 blur-[100px]" />
+            {/* Navy deep right */}
+            <div className="absolute -bottom-10 right-[-8%] h-[380px] w-[380px] rounded-full bg-[#0b1631]/60 blur-[100px]" />
+            {/* Grid with gold tint */}
             <div className="bg-grid absolute inset-0" />
           </div>
           <div className="mx-auto w-full max-w-7xl px-5 pb-16 pt-16 sm:pt-24">
             <div ref={heroRef} className="mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
-              <span className="reveal inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-sm font-semibold text-muted-foreground">
-                <span className="size-2 rounded-full bg-success animate-pulse" />
+              <span className="reveal inline-flex items-center gap-2 rounded-full border border-[rgba(201,162,39,0.35)] bg-[rgba(201,162,39,0.08)] px-4 py-1.5 text-sm font-semibold text-[#c9a227]">
+                <span className="size-2 rounded-full bg-[#c9a227] animate-pulse" />
                 Build your winning SIH team . not your stress
               </span>
 
@@ -218,10 +229,10 @@ export default function LandingPage() {
               </p>
 
               <div className="reveal flex flex-wrap items-center justify-center gap-3">
-                <Button onClick={() => navigate("/register")} className="px-6 py-2.5">
+                <Button onClick={() => navigate("/register")} className="bg-[#c9a227] text-[#06090f] hover:bg-[#e8c058] font-bold border-0 px-6 py-2.5">
                   Apply Now
                 </Button>
-                <Button variant="outline" className="px-6 py-2.5" onClick={() => navigate("/login")}>
+                <Button variant="outline" className="border-[rgba(201,162,39,0.40)] text-[#c9a227] hover:bg-[rgba(201,162,39,0.08)] px-6 py-2.5" onClick={() => navigate("/login")}>
                   Log in
                 </Button>
               </div>
@@ -260,7 +271,7 @@ export default function LandingPage() {
                         item.status === "done"
                           ? "border-success bg-success/10 text-success"
                           : item.status === "active"
-                            ? "border-accent bg-accent/10 text-accent shadow-[0_0_28px_-6px] shadow-accent/60"
+                            ? "border-[#c9a227] bg-[rgba(201,162,39,0.10)] text-[#c9a227] shadow-[0_0_28px_-6px_rgba(201,162,39,0.55)]"
                             : "border-border bg-card text-muted-foreground",
                       ].join(" ")}
                     >
@@ -298,8 +309,8 @@ export default function LandingPage() {
                       item.status === "done"
                         ? "border-success/25 bg-success/5"
                         : item.status === "active"
-                          ? "border-accent/35 bg-accent/5 shadow-[0_0_36px_-14px] shadow-accent/30"
-                          : "border-border bg-card opacity-70",
+                          ? "border-[rgba(201,162,39,0.45)] bg-[rgba(201,162,39,0.05)] shadow-[0_0_36px_-14px_rgba(201,162,39,0.35)]"
+                          : "border-[rgba(180,190,215,0.12)] bg-[#0d1220] opacity-70",
                     ].join(" ")}
                   >
                     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -307,7 +318,7 @@ export default function LandingPage() {
                         {/* Step number — mobile only */}
                         <span className={[
                           "text-xs font-black tracking-widest sm:hidden",
-                          item.status === "done" ? "text-success" : item.status === "active" ? "text-accent" : "text-muted-foreground",
+                          item.status === "done" ? "text-success" : item.status === "active" ? "text-[#c9a227]" : "text-muted-foreground",
                         ].join(" ")}>
                           {item.step}
                         </span>
@@ -318,8 +329,8 @@ export default function LandingPage() {
                           </span>
                         )}
                         {item.status === "active" && (
-                          <span className="flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-accent">
-                            <span className="size-1.5 animate-pulse rounded-full bg-accent" />
+                          <span className="flex items-center gap-1.5 rounded-full border border-[rgba(201,162,39,0.35)] bg-[rgba(201,162,39,0.08)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-[#c9a227]">
+                            <span className="size-1.5 animate-pulse rounded-full bg-[#c9a227]" />
                             Open now
                           </span>
                         )}
@@ -331,7 +342,7 @@ export default function LandingPage() {
                           item.status === "done"
                             ? "border-success/30 text-success"
                             : item.status === "active"
-                              ? "border-accent/40 text-accent"
+                              ? "border-[rgba(201,162,39,0.45)] text-[#c9a227]"
                               : "border-border text-muted-foreground",
                         ].join(" ")}
                       >
@@ -345,7 +356,7 @@ export default function LandingPage() {
                       <div className="mt-4">
                         <a
                           href="/register"
-                          className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground transition-opacity hover:opacity-90"
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-[#c9a227] px-4 py-2 text-xs font-bold text-[#06090f] transition-opacity hover:opacity-90"
                         >
                           Register before deadline
                           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="size-3.5">
@@ -361,8 +372,8 @@ export default function LandingPage() {
           </ol>
         </section>
 
-        <section className="border-y border-border bg-muted/40 py-6">
-          <div className="mb-4 text-center text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+        <section className="border-y border-[rgba(201,162,39,0.15)] bg-[#060c1a] py-6">
+          <div className="mb-4 text-center text-xs font-semibold uppercase tracking-widest text-[#c9a227]/70">
             Across every department
           </div>
           <div className="marquee">
@@ -370,16 +381,16 @@ export default function LandingPage() {
               <div className="marquee-group">
                 {DEPARTMENTS.map((d) => (
                   <span key={d} className="flex items-center gap-3 whitespace-nowrap">
-                    <span className="size-1.5 rounded-full bg-accent/70" />
-                    <span className="text-sm font-semibold text-muted-foreground/70">{d}</span>
+                    <span className="size-1.5 rounded-full bg-[#c9a227]/60" />
+                    <span className="text-sm font-semibold text-[#8fa0c0]/70">{d}</span>
                   </span>
                 ))}
               </div>
               <div className="marquee-group" aria-hidden="true">
                 {DEPARTMENTS.map((d) => (
                   <span key={d} className="flex items-center gap-3 whitespace-nowrap">
-                    <span className="size-1.5 rounded-full bg-accent/70" />
-                    <span className="text-sm font-semibold text-muted-foreground/70">{d}</span>
+                    <span className="size-1.5 rounded-full bg-[#c9a227]/60" />
+                    <span className="text-sm font-semibold text-[#8fa0c0]/70">{d}</span>
                   </span>
                 ))}
               </div>
@@ -401,9 +412,9 @@ export default function LandingPage() {
             {FEATURES.map((f) => (
               <div
                 key={f.title}
-                className="card-hover rounded-xl border border-border bg-card p-6"
+                className="card-hover rounded-xl border border-[rgba(201,162,39,0.15)] bg-[#0d1220] p-6 hover:border-[rgba(201,162,39,0.45)]"
               >
-                <span className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <span className="flex size-10 items-center justify-center rounded-lg bg-[rgba(201,162,39,0.12)] text-[#c9a227]">
                   {ICONS[f.icon]}
                 </span>
                 <h3 className="mt-4 text-base font-bold tracking-tight">{f.title}</h3>
@@ -413,7 +424,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section id="how" className="border-y border-border bg-muted/40">
+        <section id="how" className="border-y border-[rgba(201,162,39,0.12)] bg-[#060c1a]">
           <div className="mx-auto w-full max-w-7xl px-5 py-20 sm:py-28">
             <div className="mx-auto max-w-2xl text-center">
               <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">How it works</h2>
@@ -424,8 +435,8 @@ export default function LandingPage() {
 
             <div className="mt-12 grid gap-4 md:grid-cols-3">
               {STEPS.map((s) => (
-                <div key={s.n} className="rounded-xl border border-border bg-card p-6">
-                  <span className="text-sm font-black tracking-widest text-primary">{s.n}</span>
+                <div key={s.n} className="rounded-xl border border-[rgba(201,162,39,0.15)] bg-[#0d1220] p-6">
+                  <span className="text-sm font-black tracking-widest text-[#c9a227]">{s.n}</span>
                   <h3 className="mt-3 text-lg font-bold tracking-tight">{s.title}</h3>
                   <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{s.body}</p>
                 </div>
@@ -444,8 +455,8 @@ export default function LandingPage() {
 
           <div className="mt-12 grid gap-4 sm:grid-cols-3">
             {RULES.map((r) => (
-              <div key={r.title} className="flex items-start gap-4 rounded-xl border border-border bg-card p-6">
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted text-lg">
+              <div key={r.title} className="flex items-start gap-4 rounded-xl border border-[rgba(201,162,39,0.15)] bg-[#0d1220] p-6">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-[rgba(201,162,39,0.10)] text-lg">
                   {r.icon}
                 </span>
                 <div>
@@ -456,24 +467,24 @@ export default function LandingPage() {
             ))}
           </div>
 
-          <div className="mx-auto mt-10 max-w-2xl rounded-xl border border-border bg-muted/40 px-5 py-4 text-center text-sm text-muted-foreground">
+          <div className="mx-auto mt-10 max-w-2xl rounded-xl border border-[rgba(201,162,39,0.18)] bg-[rgba(201,162,39,0.05)] px-5 py-4 text-center text-sm text-[#c9a227]/80">
             Team rule violations are rejected by the server with a clear message — check any team's live badge for its status.
           </div>
         </section>
 
-        <section className="border-y border-border bg-muted/40">
+        <section className="border-y border-[rgba(201,162,39,0.12)] bg-[#060c1a]">
           <div className="mx-auto w-full max-w-7xl px-5 py-20 sm:py-24">
             <div className="mx-auto max-w-2xl text-center">
               <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Loved by teams that ship fast</h2>
             </div>
             <div className="mt-12 grid gap-4 md:grid-cols-3">
               {QUOTES.map((t) => (
-                <figure key={t.name} className="flex flex-col justify-between gap-6 rounded-xl border border-border bg-card p-6">
+                <figure key={t.name} className="flex flex-col justify-between gap-6 rounded-xl border border-[rgba(201,162,39,0.15)] bg-[#0d1220] p-6">
                   <blockquote className="text-sm leading-relaxed text-foreground/90">
                     “{t.text}”
                   </blockquote>
                   <figcaption className="flex items-center gap-3">
-                    <span className="flex size-9 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                    <span className="flex size-9 items-center justify-center rounded-full bg-[rgba(201,162,39,0.12)] text-xs font-bold text-[#c9a227]">
                       {t.name.split(" ").map((w) => w[0]).join("")}
                     </span>
                     <div className="leading-tight">
@@ -501,18 +512,25 @@ export default function LandingPage() {
         </section>
 
         <section className="mx-auto w-full max-w-7xl px-5 pb-20">
-          <div className="relative overflow-hidden rounded-3xl bg-[#0b1120] px-6 py-16 text-center sm:py-20">
+          <div className="relative overflow-hidden rounded-3xl px-6 py-16 text-center sm:py-20"
+            style={{background: "linear-gradient(160deg, #060c1a 0%, #0b1631 60%, #0f1e40 100%)"}}>
+            {/* Gold top border accent */}
+            <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[#c9a227] to-transparent" />
+            {/* Gold glow blob */}
             <div className="pointer-events-none absolute inset-0">
-              <div className="absolute -top-24 left-1/2 h-64 w-[600px] -translate-x-1/2 rounded-full bg-blue-500/25 blur-[110px]" />
+              <div className="absolute -top-24 left-1/2 h-64 w-[600px] -translate-x-1/2 rounded-full bg-[#c9a227]/12 blur-[110px]" />
             </div>
             <div className="relative">
               <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
                 Stop scrambling for teammates.
               </h2>
-              <p className="mx-auto mt-3 max-w-xl text-slate-300">
+              <p className="mx-auto mt-3 max-w-xl text-[#8fa0c0]">
                 Fill in the one-minute registration form, find your squad, and show up to SIH 2026 ready to build.
               </p>
-              <Button onClick={() => navigate("/register")} className="mt-8 px-6 py-2.5">
+              <Button
+                onClick={() => navigate("/register")}
+                className="mt-8 bg-[#c9a227] text-[#06090f] hover:bg-[#e8c058] font-bold border-0 px-6 py-2.5"
+              >
                 Apply Now
               </Button>
             </div>
@@ -520,12 +538,12 @@ export default function LandingPage() {
         </section>
       </main>
 
-      <RuixenGradientFooter gradientHeight="42vh" stops={["#36429B", "#7C3AED", "#DBA328"]}>
+      <RuixenGradientFooter gradientHeight="42vh" stops={["#060c1a", "#0b1631", "#c9a227"]}>
         <div className="mx-auto w-full max-w-7xl px-5 pt-14">
           <div className="flex flex-col gap-10 pb-14 sm:flex-row sm:justify-between">
             <div className="max-w-xs">
               <div className="flex items-center gap-3">
-                <img src="/logo.png" alt="Sri Manakula Vinayagar Engineering College" className="h-10 w-auto" />
+                <img src="/logo.png" alt="Sri Manakula Vinayagars Engineering College" className="h-10 w-auto" />
               </div>
               <p className="mt-4 text-sm leading-relaxed text-white/80">
                 The internal team-formation portal for Smart India Hackathon 2026, hosted by Sri
@@ -575,14 +593,14 @@ export default function LandingPage() {
 function FaqItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-card">
+    <div className="overflow-hidden rounded-xl border border-[rgba(201,162,39,0.15)] bg-[#0d1220]">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left text-sm font-semibold"
+        className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left text-sm font-semibold hover:text-[#c9a227] transition-colors"
       >
         {q}
-        <span className={`text-muted-foreground transition-transform duration-200 ${open ? "rotate-45" : ""}`}>
+        <span className={`text-[#c9a227]/70 transition-transform duration-200 ${open ? "rotate-45" : ""}`}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <path d="M12 5v14M5 12h14" />
           </svg>

@@ -6,7 +6,7 @@ export function CollegeBrand({ className }: { className?: string }) {
       <img
         src="/logo.png"
         alt="Sri Manakula Vinayagar Engineering College"
-        className="h-9 w-auto dark:brightness-110 dark:contrast-125 sm:h-11"
+        className="h-12 w-auto dark:brightness-110 dark:contrast-125 sm:h-30"
       />
     </span>
   );

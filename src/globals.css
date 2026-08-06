@@ -20,52 +20,66 @@
   --font-caveat: "Caveat", cursive;
 }
 
-/* ── Single fixed dark theme ── */
+/* ── SMVEC brand theme — deep navy + gold ── */
 :root {
   --font-roboto: "Roboto", ui-sans-serif, system-ui, sans-serif;
   --font-geist-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  /* Colours */
-  --background: #0c1024;
-  --foreground: #e8ecf7;
-  --card: #12172f;
-  --card-foreground: #e8ecf7;
-  --muted: rgba(148, 163, 184, 0.1);
-  --muted-foreground: #9aa6c7;
-  --border: rgba(148, 163, 184, 0.18);
-  --ring: #6d7bdd;
-  --primary: #7d8cf0;
-  --primary-foreground: #0c1024;
-  --accent: #e5b94a;
+  /* SMVEC Colours: deep navy background, gold accent */
+  --background: #06090f;
+  --foreground: #eef1f8;
+  --card: #0d1220;
+  --card-foreground: #eef1f8;
+  --muted: rgba(180, 190, 215, 0.08);
+  --muted-foreground: #8fa0c0;
+  --border: rgba(180, 190, 215, 0.14);
+  --ring: #c9a227;
+  --primary: #c9a227;          /* SMVEC gold */
+  --primary-foreground: #06090f;
+  --accent: #e8c058;           /* lighter gold highlight */
   --danger: #f87171;
   --warning: #fbbf24;
   --success: #34d399;
 
-  /* Orb glow colours */
-  --orb-a: rgba(109, 123, 221, 0.22);
-  --orb-b: rgba(229, 185, 74, 0.16);
-  --orb-c: rgba(109, 123, 221, 0.10);
+  /* Orb glow colours — navy + gold */
+  --orb-a: rgba(10, 25, 65, 0.90);
+  --orb-b: rgba(201, 162, 39, 0.18);
+  --orb-c: rgba(15, 35, 80, 0.70);
+
+  /* SMVEC specific brand colours for structural elements */
+  --navy-deep:  #060c1a;
+  --navy-mid:   #0b1631;
+  --navy-light: #132045;
+  --gold-rich:  #c9a227;
+  --gold-light: #e8c058;
+  --gold-dim:   rgba(201, 162, 39, 0.25);
 }
 
 /* Keep .dark class tokens identical so any existing dark: classes still resolve */
 .dark {
-  --background: #0c1024;
-  --foreground: #e8ecf7;
-  --card: #12172f;
-  --card-foreground: #e8ecf7;
-  --muted: rgba(148, 163, 184, 0.1);
-  --muted-foreground: #9aa6c7;
-  --border: rgba(148, 163, 184, 0.18);
-  --ring: #6d7bdd;
-  --primary: #7d8cf0;
-  --primary-foreground: #0c1024;
-  --accent: #e5b94a;
+  --background: #06090f;
+  --foreground: #eef1f8;
+  --card: #0d1220;
+  --card-foreground: #eef1f8;
+  --muted: rgba(180, 190, 215, 0.08);
+  --muted-foreground: #8fa0c0;
+  --border: rgba(180, 190, 215, 0.14);
+  --ring: #c9a227;
+  --primary: #c9a227;
+  --primary-foreground: #06090f;
+  --accent: #e8c058;
   --danger: #f87171;
   --warning: #fbbf24;
   --success: #34d399;
-  --orb-a: rgba(109, 123, 221, 0.22);
-  --orb-b: rgba(229, 185, 74, 0.16);
-  --orb-c: rgba(109, 123, 221, 0.10);
+  --orb-a: rgba(10, 25, 65, 0.90);
+  --orb-b: rgba(201, 162, 39, 0.18);
+  --orb-c: rgba(15, 35, 80, 0.70);
+  --navy-deep:  #060c1a;
+  --navy-mid:   #0b1631;
+  --navy-light: #132045;
+  --gold-rich:  #c9a227;
+  --gold-light: #e8c058;
+  --gold-dim:   rgba(201, 162, 39, 0.25);
 }
 
 html {
@@ -73,7 +87,6 @@ html {
 }
 
 body {
-  background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
   min-height: 100vh;
@@ -81,26 +94,39 @@ body {
 }
 
 ::selection {
-  background: color-mix(in srgb, var(--primary) 28%, transparent);
+  background: rgba(201, 162, 39, 0.28);
 }
 
 /* ── Scrollbar ── */
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--foreground) 14%, transparent);
+  background: rgba(180, 190, 215, 0.18);
   border-radius: 999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in srgb, var(--foreground) 26%, transparent);
+  background: rgba(180, 190, 215, 0.32);
+}
+
+/* ── SMVEC navy background with subtle diagonal stripe texture ── */
+body {
+  background: var(--background);
+  background-image:
+    repeating-linear-gradient(
+      135deg,
+      rgba(255,255,255,0.012) 0px,
+      rgba(255,255,255,0.012) 1px,
+      transparent 1px,
+      transparent 60px
+    );
 }
 
 /* ── Background grid overlay ── */
 .bg-grid {
   background-image:
-    linear-gradient(to right,  color-mix(in srgb, var(--foreground) 5%, transparent) 1px, transparent 1px),
-    linear-gradient(to bottom, color-mix(in srgb, var(--foreground) 5%, transparent) 1px, transparent 1px);
-  background-size: 56px 56px;
+    linear-gradient(to right,  rgba(201, 162, 39, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(201, 162, 39, 0.04) 1px, transparent 1px);
+  background-size: 60px 60px;
   mask-image: radial-gradient(ellipse 85% 70% at 50% 0%, black 40%, transparent 100%);
 }
 
@@ -108,13 +134,16 @@ body {
 .orb {
   position: absolute;
   border-radius: 50%;
-  filter: blur(110px);
+  filter: blur(120px);
   pointer-events: none;
   animation: orb-float 9s ease-in-out infinite;
 }
-.orb-a { background: var(--orb-a); animation-delay: 0s;    animation-duration: 11s; }
-.orb-b { background: var(--orb-b); animation-delay: -4s;   animation-duration: 9s;  }
-.orb-c { background: var(--orb-c); animation-delay: -7s;   animation-duration: 13s; }
+/* Deep navy centre orb */
+.orb-a { background: radial-gradient(circle, rgba(19,32,69,0.95) 0%, rgba(6,9,15,0) 70%); animation-delay: 0s; animation-duration: 11s; }
+/* Gold glow accent */
+.orb-b { background: radial-gradient(circle, rgba(201,162,39,0.22) 0%, rgba(201,162,39,0) 70%); animation-delay: -4s; animation-duration: 9s; }
+/* Subtle navy side */
+.orb-c { background: radial-gradient(circle, rgba(11,22,49,0.80) 0%, rgba(6,9,15,0) 70%); animation-delay: -7s; animation-duration: 13s; }
 
 @keyframes orb-float {
   0%, 100% { transform: translate3d(0,  0px, 0) scale(1);    }
@@ -134,16 +163,28 @@ body {
 }
 .card-hover:hover {
   transform: translateY(-3px);
-  box-shadow: 0 12px 32px -8px color-mix(in srgb, var(--primary) 25%, transparent);
-  border-color: color-mix(in srgb, var(--primary) 40%, transparent);
+  box-shadow: 0 12px 32px -8px rgba(201, 162, 39, 0.22);
+  border-color: rgba(201, 162, 39, 0.45);
 }
 
-/* ── Text gradient (primary → accent) ── */
+/* ── Text gradient (gold → light gold) ── */
 .text-gradient {
-  background: linear-gradient(120deg, var(--primary), var(--accent));
+  background: linear-gradient(120deg, var(--gold-rich, #c9a227), var(--gold-light, #e8c058));
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+}
+
+/* ── SMVEC navy panel background ── */
+.smvec-panel {
+  background: linear-gradient(160deg, #060c1a 0%, #0b1631 50%, #0f1e40 100%);
+}
+
+/* ── Gold shimmer bar for decorative dividers ── */
+.gold-bar {
+  height: 3px;
+  background: linear-gradient(90deg, transparent, var(--gold-rich, #c9a227), transparent);
+  border-radius: 999px;
 }
 
 /* ── Marquee ── */
@@ -174,7 +215,7 @@ body {
   background: linear-gradient(
     100deg,
     transparent 20%,
-    color-mix(in srgb, var(--primary) 18%, transparent) 50%,
+    rgba(201, 162, 39, 0.18) 50%,
     transparent 80%
   );
   background-size: 200% 100%;

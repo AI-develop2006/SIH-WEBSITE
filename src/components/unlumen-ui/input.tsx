@@ -48,7 +48,7 @@ export function Select({
       )}
       <select
         className={cn(
-          "w-full appearance-none rounded-xl border border-border bg-background/60 px-3.5 py-2.5 text-sm text-foreground outline-none transition-all focus:border-ring/70 focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--ring)_18%,transparent)]",
+          "w-full appearance-none rounded-xl border border-border bg-background/60 px-3.5 py-2.5 text-sm text-foreground outline-none transition-all focus:border-ring/70 focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--ring)_18%,transparent)] [&>option]:bg-[#0d1220] [&>option]:text-[#eef1f8]",
           error && "border-danger/70",
           className
         )}

@@ -16,7 +16,7 @@ export default function RegisterPage() {
   }, [navigate]);
 
   return (
-    <div className="flex min-h-screen flex-col overflow-hidden">
+    <div className="flex min-h-screen flex-col overflow-hidden bg-[#06090f]">
       {/* SMVEC gold top accent bar */}
       <div className="h-1 w-full bg-gradient-to-r from-transparent via-[#c9a227] to-transparent" />
 
@@ -57,8 +57,8 @@ export default function RegisterPage() {
           </div>
         </div>
 
-        {/* Right panel */}
-        <main className="flex w-full flex-col bg-[#06090f] lg:ml-auto lg:w-1/2">
+        {/* Right panel — always dark, so scope dark CSS vars with class="dark" */}
+        <main className="dark flex w-full flex-col bg-[#06090f] lg:ml-auto lg:w-1/2">
           <div className="grow w-full max-w-xl mx-auto px-5 py-12 sm:px-6 lg:pt-20 lg:pb-24">
             {/* Home nav */}
             <div className="mb-8 flex items-center gap-3">
@@ -72,7 +72,7 @@ export default function RegisterPage() {
                 </svg>
                 Home
               </a>
-              <span className="text-xs text-muted-foreground">Already registered?{" "}
+              <span className="text-xs text-[#8fa0c0]">Already registered?{" "}
                 <a href="/login" className="font-semibold text-[#c9a227] hover:underline">Log in</a>
               </span>
             </div>

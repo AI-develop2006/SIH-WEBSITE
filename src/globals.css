@@ -245,6 +245,12 @@ body {
   transform: translateX(0);
 }
 
+/* ── Select option dark mode fix ── */
+.dark select option {
+  background-color: #0d1220;
+  color: #eef1f8;
+}
+
 /* ── Marquee ── */
 .marquee {
   overflow: hidden;

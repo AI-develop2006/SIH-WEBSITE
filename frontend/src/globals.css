@@ -96,14 +96,6 @@ body {
   -webkit-mask-image: radial-gradient(ellipse 100% 90% at 50% 0%, black 70%, transparent 100%);
 }
 
-/* ── Tech Dot Grid Pattern ── */
-.bg-dots {
-  background-image: radial-gradient(rgba(201, 162, 39, 0.15) 1.5px, transparent 1.5px);
-  background-size: 24px 24px;
-  mask-image: radial-gradient(ellipse 100% 90% at 50% 30%, black 75%, transparent 100%);
-  -webkit-mask-image: radial-gradient(ellipse 100% 90% at 50% 30%, black 75%, transparent 100%);
-  opacity: 0.6;
-}
 
 /* ── Glowing orb backdrop (slow drifting float animations) ── */
 .orb {

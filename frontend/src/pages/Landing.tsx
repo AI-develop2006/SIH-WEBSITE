@@ -101,12 +101,11 @@ const RULES = [
 
 
 const FAQS = [
-  { q: "What are the official team rules?", a: "Each team must have at most 6 members, at least 2 female members, and members from at least 2 different departments. Violations are blocked automatically by the backend." },
-  { q: "How do I join an existing team?", a: "Open the Teams tab, pick a team, and send a join request. The team leader sees it under My Team and can accept or reject it." },
-  { q: "How do I become a team leader?", a: "If you're not already in a team, use My Team to create one — you become the leader automatically and can invite members or accept requests." },
-  { q: "How does teammate matching work?", a: "Every profile carries a department, year, section and preferred languages. Find Members lets you search and filter across all of them." },
-  { q: "Who can use this portal?", a: "It's built for the internal SIH 2026 participant pool — students apply with their email, register number and department, then join or form teams." },
-  { q: "How do I register?", a: "Hit Apply and fill in the registration form — name, register no, email, phone, department, year, section, gender, languages, LinkedIn and project type. Your email is used to log in." },
+  { q: "What are the official team constraints?", a: "Each formed team must have at most 6 members, at least 2 female members, and members spanning at least 2 different departments. The evaluation mentors will ensure these rules are strictly met during team allocation." },
+  { q: "How are teams formed for the hackathon?", a: "Teams are constructed dynamically by our college review mentors based on your department, project type (Hardware/Software/Both), and coding skills. You do not need to form teams manually." },
+  { q: "What credentials do I use to log in?", a: "You do not need to create or remember a password. Simply enter your college Register Number (e.g. 24UAI123) to log in directly to your student dashboard." },
+  { q: "Who can use this portal?", a: "It is built exclusively for the internal SIH 2026 participant pool of Sri Manakula Vinayagar Engineering College. Students apply with their project preferences and wait for team matching." },
+  { q: "How do I register?", a: "Click 'Apply Now' and fill out the form steps: basic details, academic department, coding stack, project title/description, PPT link, and repository URL." },
 ];
 
 const ICONS: Record<string, React.ReactNode> = {
@@ -189,7 +188,7 @@ export default function LandingPage() {
       )}
 
       <header className="sticky top-0 z-40 border-b border-[rgba(201,162,39,0.18)] bg-background/80 backdrop-blur-md">
-        <div className="mx-auto flex h-[4.5rem] w-full max-w-7xl items-center justify-between gap-3 px-5">
+        <div className="mx-auto flex h-[4.5rem] w-full max-w-[1536px] items-center justify-between gap-3 px-5">
           <a href="/" className="flex items-center">
             <CollegeBrand />
           </a>
@@ -206,11 +205,11 @@ export default function LandingPage() {
             ))}
           </nav>
 
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" className="hidden sm:inline-flex text-[#8fa0c0] hover:text-[#e8c058]" onClick={() => navigate("/login")}>
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <Button variant="ghost" className="hidden sm:inline-flex text-[#8fa0c0] hover:text-[#e8c058] px-2.5 py-1.5 text-xs sm:px-3 sm:py-2 sm:text-sm" onClick={() => navigate("/login")}>
               Log in
             </Button>
-            <Button onClick={() => navigate("/register")} className="bg-[#c9a227] text-[#06090f] hover:bg-[#e8c058] font-bold border-0">
+            <Button onClick={() => navigate("/register")} className="bg-[#c9a227] text-[#06090f] hover:bg-[#e8c058] font-bold border-0 px-2.5 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm">
               Apply Now
             </Button>
           </div>
@@ -219,7 +218,7 @@ export default function LandingPage() {
 
       <main>
         <section className="relative overflow-hidden">
-          <div className="mx-auto w-full max-w-7xl px-5 pb-16 pt-16 sm:pt-24">
+          <div className="mx-auto w-full max-w-[1536px] px-5 pb-16 pt-16 sm:pt-24">
             <div ref={heroRef} className="mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
               <span className="reveal inline-flex items-center gap-2 rounded-full border border-[rgba(201,162,39,0.35)] bg-[rgba(201,162,39,0.08)] px-4 py-1.5 text-sm font-semibold text-[#c9a227]">
                 <span className="size-2 rounded-full bg-[#c9a227] animate-pulse" />
@@ -407,7 +406,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section id="features" className="mx-auto w-full max-w-7xl px-5 py-20 sm:py-28">
+        <section id="features" className="mx-auto w-full max-w-[1536px] px-5 py-20 sm:py-28">
           <div className="mx-auto max-w-2xl text-center">
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
               Everything for your registration, in one place
@@ -434,7 +433,7 @@ export default function LandingPage() {
         </section>
 
         <section id="how" className="border-y border-[rgba(201,162,39,0.12)] bg-card/30 backdrop-blur-sm">
-          <div className="mx-auto w-full max-w-7xl px-5 py-20 sm:py-28">
+          <div className="mx-auto w-full max-w-[1536px] px-5 py-20 sm:py-28">
             <div className="mx-auto max-w-2xl text-center">
               <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">How it works</h2>
               <p className="mt-3 text-muted-foreground">
@@ -454,7 +453,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section id="rules" className="mx-auto w-full max-w-7xl px-5 py-20 sm:py-28">
+        <section id="rules" className="mx-auto w-full max-w-[1536px] px-5 py-20 sm:py-28">
           <div className="mx-auto max-w-2xl text-center">
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">National SIH Team Guidelines</h2>
             <p className="mt-3 text-muted-foreground">
@@ -496,7 +495,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section className="mx-auto w-full max-w-7xl px-5 pb-20">
+        <section className="mx-auto w-full max-w-[1536px] px-5 pb-20">
           <div className="relative overflow-hidden rounded-3xl px-6 py-16 text-center sm:py-20 backdrop-blur-md"
             style={{background: "linear-gradient(160deg, rgba(10, 18, 38, 0.9) 0%, rgba(16, 28, 63, 0.8) 60%, rgba(20, 35, 75, 0.7) 100%)"}}>
             {/* Gold top border accent */}
@@ -507,10 +506,10 @@ export default function LandingPage() {
             </div>
             <div className="relative">
               <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-                Stop scrambling for teammates.
+                Register for SIH 2026 Today
               </h2>
               <p className="mx-auto mt-3 max-w-xl text-[#8fa0c0]">
-                Fill in the one-minute registration form, find your squad, and show up to SIH 2026 ready to build.
+                Fill in the registration form, enter your project details, and prepare to build your hackathon solution.
               </p>
               <Button
                 onClick={() => navigate("/register")}
@@ -524,7 +523,7 @@ export default function LandingPage() {
       </main>
 
       <RuixenGradientFooter gradientHeight="16vh" stops={["#050b18", "#081026", "#c9a227"]}>
-        <div className="mx-auto w-full max-w-7xl px-5 pt-14">
+        <div className="mx-auto w-full max-w-[1536px] px-5 pt-14">
           <div className="flex flex-col gap-10 pb-14 sm:flex-row sm:justify-between">
             <div className="max-w-xs">
               <div className="flex items-center gap-3">

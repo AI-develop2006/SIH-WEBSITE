@@ -57,8 +57,8 @@ type FormState = {
   projectDescription: string;
   githubProfile: string;
   youtubeLink: string;
-  hardwareDomain: string;
-  softwareDomain: string;
+  hardwareDomain: string[];
+  softwareDomain: string[];
   googleDrivePpt: string;
   githubRepo: string;
   declared: boolean;
@@ -83,8 +83,8 @@ const INITIAL: FormState = {
   projectDescription: "",
   githubProfile: "",
   youtubeLink: "",
-  hardwareDomain: "",
-  softwareDomain: "",
+  hardwareDomain: [],
+  softwareDomain: [],
   googleDrivePpt: "",
   githubRepo: "",
   declared: false,
@@ -142,7 +142,7 @@ export function RegisterForm() {
       if (!/^https?:\/\/[\w.-]/.test(form.googleDrivePpt.trim())) return "Enter a valid Google Drive link for PPT";
 
       if (form.projectType === "Hardware") {
-        if (!form.hardwareDomain) return "Select your hardware domain";
+        if (form.hardwareDomain.length === 0) return "Select at least one hardware domain";
         if (form.githubProfile.trim() && !/^https?:\/\/[\w.-]/.test(form.githubProfile.trim())) {
           return "Enter a valid GitHub profile URL";
         }
@@ -151,7 +151,7 @@ export function RegisterForm() {
         }
       }
       if (form.projectType === "Software") {
-        if (!form.softwareDomain) return "Select your software domain";
+        if (form.softwareDomain.length === 0) return "Select at least one software domain";
         if (!/^https?:\/\/[\w.-]/.test(form.githubProfile.trim())) {
           return "Enter a valid GitHub profile URL";
         }
@@ -159,9 +159,9 @@ export function RegisterForm() {
           return "Enter a valid GitHub repository URL";
         }
       }
-      if (form.projectType === "Both") {
-        if (!form.softwareDomain) return "Select your software domain";
-        if (!form.hardwareDomain) return "Select your hardware domain";
+      if (form.projectType === "Hardware & Software") {
+        if (form.softwareDomain.length === 0) return "Select at least one software domain";
+        if (form.hardwareDomain.length === 0) return "Select at least one hardware domain";
         if (!/^https?:\/\/[\w.-]/.test(form.githubRepo.trim())) {
           return "Enter a valid GitHub repository URL";
         }
@@ -224,13 +224,13 @@ export function RegisterForm() {
       let finalGithub = "";
 
       if (form.projectType === "Hardware") {
-        finalDomain = form.hardwareDomain;
+        finalDomain = form.hardwareDomain.join(", ");
         finalGithub = form.githubProfile.trim();
       } else if (form.projectType === "Software") {
-        finalDomain = form.softwareDomain;
+        finalDomain = form.softwareDomain.join(", ");
         finalGithub = form.githubProfile.trim();
-      } else if (form.projectType === "Both") {
-        finalDomain = `${form.softwareDomain} & ${form.hardwareDomain}`;
+      } else if (form.projectType === "Hardware & Software") {
+        finalDomain = `SW: ${form.softwareDomain.join(", ")} | HW: ${form.hardwareDomain.join(", ")}`;
         finalGithub = form.githubRepo.trim();
       }
 
@@ -252,8 +252,8 @@ export function RegisterForm() {
         project_description: form.projectDescription.trim(),
         youtube_link: form.youtubeLink.trim() || null,
         google_drive_ppt: form.googleDrivePpt.trim(),
-        software_domain: form.softwareDomain || null,
-        hardware_domain: form.hardwareDomain || null,
+        software_domain: form.softwareDomain.join(", ") || null,
+        hardware_domain: form.hardwareDomain.join(", ") || null,
         domain: finalDomain,
         github: finalGithub || null,
       };
@@ -666,15 +666,29 @@ export function RegisterForm() {
                   </Field>
 
                   {/* Conditional hardware fields */}
-                  {(form.projectType === "Hardware" || form.projectType === "Both") && (
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <Field label="Hardware Domain" required>
-                        <Select value={form.hardwareDomain} onChange={(e) => set("hardwareDomain", e.target.value)} required={step === 3 && (form.projectType === "Hardware" || form.projectType === "Both")}>
-                          <option value="">Choose</option>
+                  {(form.projectType === "Hardware" || form.projectType === "Hardware & Software") && (
+                    <div className="flex flex-col gap-3">
+                      <Field label="Hardware Domain" required hint="Select all that apply">
+                        <div className="flex flex-wrap gap-2">
                           {HARDWARE_DOMAINS.map((hd) => (
-                            <option key={hd} value={hd}>{hd}</option>
+                            <button
+                              key={hd}
+                              type="button"
+                              onClick={() => set("hardwareDomain", form.hardwareDomain.includes(hd) ? form.hardwareDomain.filter((d) => d !== hd) : [...form.hardwareDomain, hd])}
+                              className={cn(
+                                "rounded-full border px-3.5 py-1.5 text-xs font-medium transition-all",
+                                form.hardwareDomain.includes(hd)
+                                  ? "border-amber-500/60 bg-amber-500/15 text-amber-400 shadow-[0_0_10px_-4px_rgba(245,158,11,0.5)]"
+                                  : "border-border text-muted-foreground hover:border-amber-500/40 hover:text-amber-300"
+                              )}
+                            >
+                              {hd}
+                            </button>
                           ))}
-                        </Select>
+                        </div>
+                        {form.hardwareDomain.length > 0 && (
+                          <p className="mt-1 text-xs text-muted-foreground">{form.hardwareDomain.length} selected</p>
+                        )}
                       </Field>
                       {form.projectType === "Hardware" && (
                         <Field label="GitHub Profile Link (Optional)">
@@ -690,15 +704,29 @@ export function RegisterForm() {
                   )}
 
                   {/* Conditional software fields */}
-                  {(form.projectType === "Software" || form.projectType === "Both") && (
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <Field label="Software Domain" required>
-                        <Select value={form.softwareDomain} onChange={(e) => set("softwareDomain", e.target.value)} required={step === 3 && (form.projectType === "Software" || form.projectType === "Both")}>
-                          <option value="">Choose</option>
+                  {(form.projectType === "Software" || form.projectType === "Hardware & Software") && (
+                    <div className="flex flex-col gap-3">
+                      <Field label="Software Domain" required hint="Select all that apply">
+                        <div className="flex flex-wrap gap-2">
                           {SOFTWARE_DOMAINS.map((sd) => (
-                            <option key={sd} value={sd}>{sd}</option>
+                            <button
+                              key={sd}
+                              type="button"
+                              onClick={() => set("softwareDomain", form.softwareDomain.includes(sd) ? form.softwareDomain.filter((d) => d !== sd) : [...form.softwareDomain, sd])}
+                              className={cn(
+                                "rounded-full border px-3.5 py-1.5 text-xs font-medium transition-all",
+                                form.softwareDomain.includes(sd)
+                                  ? "border-blue-500/60 bg-blue-500/15 text-blue-400 shadow-[0_0_10px_-4px_rgba(59,130,246,0.5)]"
+                                  : "border-border text-muted-foreground hover:border-blue-500/40 hover:text-blue-300"
+                              )}
+                            >
+                              {sd}
+                            </button>
                           ))}
-                        </Select>
+                        </div>
+                        {form.softwareDomain.length > 0 && (
+                          <p className="mt-1 text-xs text-muted-foreground">{form.softwareDomain.length} selected</p>
+                        )}
                       </Field>
                       <Field label="GitHub Repository URL" required>
                         <Input
@@ -706,13 +734,13 @@ export function RegisterForm() {
                           value={form.githubRepo}
                           onChange={(e) => set("githubRepo", e.target.value)}
                           placeholder="https://github.com/username/project"
-                          required={step === 3 && (form.projectType === "Software" || form.projectType === "Both")}
+                          required={step === 3 && (form.projectType === "Software" || form.projectType === "Hardware & Software")}
                         />
                       </Field>
                     </div>
                   )}
 
-                  {/* GitHub Profile for Software */}
+                  {/* GitHub Profile for Software only */}
                   {form.projectType === "Software" && (
                     <Field label="GitHub Profile Link" required>
                       <Input
@@ -725,8 +753,8 @@ export function RegisterForm() {
                     </Field>
                   )}
 
-                  {/* YouTube unlisted link for Hardware/Both */}
-                  {(form.projectType === "Hardware" || form.projectType === "Both") && (
+                  {/* YouTube unlisted link for Hardware/Hardware & Software */}
+                  {(form.projectType === "Hardware" || form.projectType === "Hardware & Software") && (
                     <Field label="YouTube Link (Unlisted video demonstration) (Optional)">
                       <Input
                         type="url"
@@ -759,8 +787,8 @@ export function RegisterForm() {
                       <ReviewRow label="Project Title" value={form.projectTitle} />
                       <ReviewRow label="Project Description" value={form.projectDescription} />
                       <div className="grid gap-4 sm:grid-cols-2">
-                        {form.hardwareDomain && <ReviewRow label="Hardware Domain" value={form.hardwareDomain} />}
-                        {form.softwareDomain && <ReviewRow label="Software Domain" value={form.softwareDomain} />}
+                        {form.hardwareDomain.length > 0 && <ReviewRow label="Hardware Domain" value={form.hardwareDomain.join(", ")} />}
+                        {form.softwareDomain.length > 0 && <ReviewRow label="Software Domain" value={form.softwareDomain.join(", ")} />}
                       </div>
                       <ReviewRow label="Google Drive PPT Link" value={form.googleDrivePpt} link />
                       {form.githubProfile && <ReviewRow label="GitHub Profile" value={form.githubProfile} link />}

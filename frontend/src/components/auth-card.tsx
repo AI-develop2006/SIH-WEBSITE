@@ -14,11 +14,11 @@ export function AuthCard() {
   const configured = isSupabaseConfigured();
 
   const [busy, setBusy] = useState(false);
-  const [form, setForm] = useState({ registerNo: "" });
+  const [form, setForm] = useState({ registerNo: "", password: "" });
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.registerNo.trim()) return;
+    if (!form.registerNo.trim() || !form.password) return;
     setBusy(true);
     try {
       const regNoUpper = form.registerNo.trim().toUpperCase();
@@ -30,11 +30,11 @@ export function AuthCard() {
         throw new Error("Register number not found. Please verify your inputs or register first.");
       }
 
-      // 2. Perform supabase sign in using uppercase Register Number as password
+      // 2. Perform supabase sign in using the custom password
       const supabase = assertSupabase();
       const { error } = await supabase.auth.signInWithPassword({
         email: res.email,
-        password: regNoUpper,
+        password: form.password,
       });
       if (error) throw new Error(error.message);
 
@@ -82,6 +82,14 @@ export function AuthCard() {
                 value={form.registerNo}
                 onChange={(e) => setForm((f) => ({ ...f, registerNo: e.target.value }))}
                 placeholder="e.g. 24UAI123"
+                required
+              />
+              <Input
+                label="Password"
+                type="password"
+                value={form.password}
+                onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                placeholder="Your custom password"
                 required
               />
             </div>

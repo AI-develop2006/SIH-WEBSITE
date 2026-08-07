@@ -228,49 +228,52 @@ export default function LandingPage() {
 
       <main>
         {/* ── Hero ── */}
-        <section className="relative overflow-hidden bg-[#06090f]">
-          {/* SMVEC campus background image */}
+        <section className="relative overflow-hidden bg-[#06090f] min-h-[calc(100vh-4.5rem)] flex items-center">
+          {/* SMVEC campus background image — full viewport fill */}
           <div
             aria-hidden="true"
             className="pointer-events-none absolute inset-0"
             style={{
               backgroundImage: "url('/SMVEC Background.jpeg')",
               backgroundSize: "cover",
-              backgroundPosition: "center top",
+              backgroundPosition: "center center",
               backgroundRepeat: "no-repeat",
+              backgroundAttachment: "scroll",
             }}
           />
-          {/* Dark overlay so text stays readable */}
+          {/* Dark overlay — lighter at top so sky shows, darker at bottom for text */}
           <div
             aria-hidden="true"
             className="pointer-events-none absolute inset-0"
             style={{
               background:
-                "linear-gradient(to bottom, rgba(6,9,15,0.62) 0%, rgba(6,9,15,0.72) 60%, rgba(6,9,15,0.92) 100%)",
+                "linear-gradient(to bottom, rgba(6,9,15,0.45) 0%, rgba(6,9,15,0.60) 40%, rgba(6,9,15,0.85) 80%, rgba(6,9,15,0.96) 100%)",
             }}
           />
-          {/* Subtle gold tint at top-centre */}
+          {/* Subtle gold glow centre */}
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute -top-32 left-1/2 h-[500px] w-[700px] -translate-x-1/2 rounded-full blur-[130px]"
-            style={{ background: "rgba(201,162,39,0.10)" }}
+            className="pointer-events-none absolute left-1/2 top-1/3 h-[500px] w-[700px] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[140px]"
+            style={{ background: "rgba(201,162,39,0.08)" }}
           />
           <div className="bg-grid absolute inset-0 pointer-events-none" />
 
-          <div className="relative mx-auto w-full max-w-7xl px-5 pb-16 pt-16 sm:pt-24">
+          <div className="relative w-full mx-auto max-w-7xl px-5 py-24 sm:py-32">
             <div ref={heroRef} className="mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
-              <span className="reveal inline-flex items-center gap-2 rounded-full border border-[rgba(201,162,39,0.45)] bg-[rgba(6,9,15,0.55)] px-4 py-1.5 text-sm font-semibold text-[#e8c058] backdrop-blur-sm">
+              <span className="reveal inline-flex items-center gap-2 rounded-full border border-[rgba(201,162,39,0.50)] bg-[rgba(6,9,15,0.60)] px-4 py-1.5 text-sm font-semibold text-[#e8c058] backdrop-blur-sm">
                 <span className="size-2 rounded-full bg-[#c9a227] animate-pulse" />
                 Build your winning SIH team — not your stress
               </span>
 
-              <h1 className="reveal text-4xl font-bold leading-[1.08] tracking-tight text-white sm:text-6xl drop-shadow-lg">
+              <h1 className="reveal text-4xl font-bold leading-[1.08] tracking-tight text-white sm:text-6xl"
+                style={{ textShadow: "0 2px 24px rgba(0,0,0,0.6)" }}>
                 Smart India Hackathon 2026
                 <br />
                 <span className="text-gradient">SMVEC Internal</span>
               </h1>
 
-              <p className="reveal max-w-xl text-base leading-relaxed text-white/75 sm:text-lg drop-shadow">
+              <p className="reveal max-w-xl text-base leading-relaxed text-white/80 sm:text-lg"
+                style={{ textShadow: "0 1px 8px rgba(0,0,0,0.5)" }}>
                 Apply once, match with teammates by department and language, form balanced
                 teams, and keep every squad competition-ready with automatic rule checks.
               </p>

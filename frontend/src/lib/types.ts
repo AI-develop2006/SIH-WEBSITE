@@ -15,7 +15,7 @@ export type Profile = {
   year: string | null;
   languages: string[];
   linkedin: string | null;
-  project_type: "Hardware" | "Software" | "Both" | null;
+  project_type: "Hardware" | "Software" | "Hardware & Software" | null;
   verified: boolean;
   avatar_url: string | null;
   created_at: string;
@@ -26,6 +26,7 @@ export type Profile = {
   software_domain: string | null;
   hardware_domain: string | null;
   domain_interests: string[];
+  github_repo: string | null;
 };
 
 export type Team = {

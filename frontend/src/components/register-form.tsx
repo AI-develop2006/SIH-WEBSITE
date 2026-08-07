@@ -222,6 +222,7 @@ export function RegisterForm() {
 
       let finalDomain = "";
       let finalGithub = "";
+      let finalGithubRepo = "";
 
       if (form.projectType === "Hardware") {
         finalDomain = form.hardwareDomain.join(", ");
@@ -229,9 +230,10 @@ export function RegisterForm() {
       } else if (form.projectType === "Software") {
         finalDomain = form.softwareDomain.join(", ");
         finalGithub = form.githubProfile.trim();
+        finalGithubRepo = form.githubRepo.trim();
       } else if (form.projectType === "Hardware & Software") {
         finalDomain = `SW: ${form.softwareDomain.join(", ")} | HW: ${form.hardwareDomain.join(", ")}`;
-        finalGithub = form.githubRepo.trim();
+        finalGithubRepo = form.githubRepo.trim();
       }
 
       const meta = {
@@ -256,6 +258,7 @@ export function RegisterForm() {
         hardware_domain: form.hardwareDomain.join(", ") || null,
         domain: finalDomain,
         github: finalGithub || null,
+        github_repo: finalGithubRepo || null,
       };
 
       const { data, error } = await supabase.auth.signUp({
@@ -265,7 +268,13 @@ export function RegisterForm() {
       });
       if (error) throw new Error(error.message);
 
-      if (data.user) await ensureProfile(data.user.id, meta);
+      if (data.user) {
+        try {
+          await ensureProfile(data.user.id, meta);
+        } catch (profileErr) {
+          console.warn("Non-fatal profile upsert warning (handled by database trigger):", profileErr);
+        }
+      }
 
       // satisfying feedback delay
       await new Promise((resolve) => setTimeout(resolve, 2600));

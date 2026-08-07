@@ -295,6 +295,8 @@ export default function DashboardPage() {
                         <GlowingBadge variant="warning">Hardware</GlowingBadge>
                       ) : profile.project_type === "Software" ? (
                         <GlowingBadge variant="info">Software</GlowingBadge>
+                      ) : profile.project_type === "Hardware & Software" ? (
+                        <GlowingBadge variant="success">Hardware &amp; Software</GlowingBadge>
                       ) : (
                         "—"
                       )}
@@ -349,6 +351,28 @@ export default function DashboardPage() {
                           <p className="text-xs font-semibold mt-0.5 truncate">
                             <a href={profile.youtube_link} target="_blank" rel="noreferrer" className="text-primary hover:underline">
                               Watch Video ↗
+                            </a>
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
+                      {profile.github && (
+                        <div>
+                          <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">GitHub Profile</span>
+                          <p className="text-xs font-semibold mt-0.5 truncate">
+                            <a href={profile.github} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                              View Profile ↗
+                            </a>
+                          </p>
+                        </div>
+                      )}
+                      {profile.github_repo && (
+                        <div>
+                          <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">GitHub Repository</span>
+                          <p className="text-xs font-semibold mt-0.5 truncate">
+                            <a href={profile.github_repo} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                              View Repo ↗
                             </a>
                           </p>
                         </div>

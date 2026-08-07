@@ -203,6 +203,7 @@ export default function AdminPage() {
         software_domain: s.software_domain ?? "",
         hardware_domain: s.hardware_domain ?? "",
         github: s.github ?? "",
+        github_repo: s.github_repo ?? "",
         youtube_link: s.youtube_link ?? "",
         google_drive_ppt: s.google_drive_ppt ?? "",
         verified: s.verified ? "Yes" : "No",
@@ -226,7 +227,8 @@ export default function AdminPage() {
         { key: "domain", label: "Domain" },
         { key: "software_domain", label: "Software Domain" },
         { key: "hardware_domain", label: "Hardware Domain" },
-        { key: "github", label: "GitHub URL" },
+        { key: "github", label: "GitHub Profile URL" },
+        { key: "github_repo", label: "GitHub Repo URL" },
         { key: "youtube_link", label: "YouTube Link" },
         { key: "google_drive_ppt", label: "Google Drive PPT" },
         { key: "verified", label: "Verified" },
@@ -465,8 +467,13 @@ export default function AdminPage() {
                                 {s.project_title}
                               </p>
                             )}
+                            {s.project_description && (
+                              <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-2 leading-relaxed" title={s.project_description}>
+                                {s.project_description}
+                              </p>
+                            )}
                             {s.software_domain && (
-                              <p className="text-[9px] text-blue-400/80 truncate" title={s.software_domain}>
+                              <p className="text-[9px] text-blue-400/80 truncate mt-0.5" title={s.software_domain}>
                                 SW: {s.software_domain}
                               </p>
                             )}
@@ -475,7 +482,7 @@ export default function AdminPage() {
                                 HW: {s.hardware_domain}
                               </p>
                             )}
-                            <div className="flex flex-wrap gap-2 mt-1">
+                            <div className="flex flex-wrap gap-2 mt-1.5">
                               {s.linkedin && (
                                 <a href={s.linkedin} target="_blank" rel="noreferrer" className="text-[9px] text-blue-400 hover:underline">
                                   LinkedIn ↗
@@ -488,6 +495,11 @@ export default function AdminPage() {
                               )}
                               {s.github && (
                                 <a href={s.github} target="_blank" rel="noreferrer" className="text-[9px] text-[#dba328] hover:underline">
+                                  Profile ↗
+                                </a>
+                              )}
+                              {s.github_repo && (
+                                <a href={s.github_repo} target="_blank" rel="noreferrer" className="text-[9px] text-[#dba328] hover:underline">
                                   Repo ↗
                                 </a>
                               )}

@@ -192,7 +192,12 @@ export default function LandingPage() {
 
       <main>
         <section className="relative overflow-hidden">
-          <div className="mx-auto w-full max-w-7xl px-5 pb-16 pt-16 sm:pt-24">
+          <div
+            className="absolute inset-0 bg-cover bg-center"
+            style={{ backgroundImage: "url(/smvec-banner.jpg)" }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-background/95 via-background/80 to-background" />
+          <div className="relative mx-auto w-full max-w-7xl px-5 pb-16 pt-16 sm:pt-24">
             <div ref={heroRef} className="mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
               <span className="reveal inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
                 <span className="size-1.5 rounded-full bg-success animate-pulse" />

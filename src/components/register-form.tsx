@@ -10,11 +10,30 @@ import { Input, Select } from "@/components/unlumen-ui/input";
 import { cn } from "@/lib/utils";
 import { DEPARTMENTS, YEARS, LANGUAGE_OPTIONS, PROJECT_TYPES } from "@/lib/constants";
 
+const HARDWARE_DOMAINS = [
+  "IoT & Sensors",
+  "Embedded Systems & Microcontrollers",
+  "Circuit Design & PCB Layout",
+  "Smart Automation & Industrial Control",
+  "Robotics & Drones",
+];
+
+const SOFTWARE_DOMAINS = [
+  "Frontend",
+  "Backend",
+  "AI/ML",
+  "Cybersecurity / Blockchain",
+  "Full Stack",
+  "Cloud / DevOps",
+  "Mobile App Development",
+];
+
 const STEPS = [
   { n: 1, title: "Personal details", subtitle: "Your name and contact information" },
   { n: 2, title: "Academic details", subtitle: "Department, year, section and gender" },
   { n: 3, title: "Skills & project", subtitle: "Languages, LinkedIn and project type" },
-  { n: 4, title: "Account & review", subtitle: "Set a password and confirm your details" },
+  { n: 4, title: "Project details", subtitle: "Your project title, domain and links" },
+  { n: 5, title: "Account & review", subtitle: "Set a password and confirm your details" },
 ];
 
 type FormState = {
@@ -29,6 +48,14 @@ type FormState = {
   languages: string[];
   linkedin: string;
   projectType: string;
+  projectTitle: string;
+  projectBrief: string;
+  githubProfile: string;
+  youtube: string;
+  hardwareDomain: string;
+  softwareDomain: string;
+  pptLink: string;
+  githubRepo: string;
   password: string;
   confirm: string;
 };
@@ -45,6 +72,14 @@ const INITIAL: FormState = {
   languages: [],
   linkedin: "",
   projectType: "",
+  projectTitle: "",
+  projectBrief: "",
+  githubProfile: "",
+  youtube: "",
+  hardwareDomain: "",
+  softwareDomain: "",
+  pptLink: "",
+  githubRepo: "",
   password: "",
   confirm: "",
 };
@@ -84,6 +119,20 @@ export function RegisterForm() {
       if (!form.projectType) return "Select your project type";
     }
     if (s === 3) {
+      if (!form.projectTitle.trim()) return "Enter your project title";
+      if (form.projectBrief.trim().length < 20) return "Project brief description must be at least 20 characters";
+      if (form.projectType === "Hardware" || form.projectType === "Both") {
+        if (!form.hardwareDomain) return "Select your hardware domain";
+      }
+      if (form.projectType === "Software" || form.projectType === "Both") {
+        if (!form.softwareDomain) return "Select your software domain";
+        if (!/^https?:\/\/[\w.-]/.test(form.githubRepo.trim())) return "Enter a valid GitHub repository URL";
+      }
+      if (form.projectType === "Software" && !/^https?:\/\/[\w.-]/.test(form.githubProfile.trim()))
+        return "Enter a valid GitHub profile link";
+      if (!/^https?:\/\/[\w.-]/.test(form.pptLink.trim())) return "Enter a valid Google Drive link for your PPT (share as public)";
+    }
+    if (s === 4) {
       if (form.password.length < 6) return "Password must be at least 6 characters";
       if (form.password !== form.confirm) return "Passwords do not match";
     }
@@ -102,7 +151,7 @@ export function RegisterForm() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    const err = validateStep(3);
+    const err = validateStep(4);
     if (err) return toast("error", err);
 
     setBusy(true);
@@ -120,6 +169,14 @@ export function RegisterForm() {
         languages: form.languages,
         linkedin: form.linkedin.trim(),
         project_type: form.projectType,
+        project_title: form.projectTitle.trim(),
+        project_brief: form.projectBrief.trim(),
+        github_profile: form.githubProfile.trim(),
+        youtube: form.youtube.trim(),
+        hardware_domain: form.hardwareDomain,
+        software_domain: form.softwareDomain,
+        ppt_link: form.pptLink.trim(),
+        github_repo: form.githubRepo.trim(),
         role: "student",
       };
 
@@ -179,7 +236,17 @@ export function RegisterForm() {
         <article className="divide-y divide-border">
           <section className="py-8">
             <div className="mb-5 flex items-baseline justify-between gap-3">
-              <h2 className="text-lg font-semibold tracking-tight">Section {STEPS[step].n} of {STEPS.length}</h2>
+              <h2 className="text-lg font-semibold tracking-tight">
+                {step === 0 || step === 1 || step === 2
+                  ? "Section 1 — Basic Information (Common for all users)"
+                  : step === 3
+                    ? form.projectType === "Hardware"
+                      ? "Section 2 — Hardware"
+                      : form.projectType === "Software"
+                        ? "Section 3 — Software"
+                        : "Section 4 — Both Hardware and Software"
+                    : "Account & Review"}
+              </h2>
               <span className="text-[11px] font-semibold uppercase tracking-widest text-[#dba328]">
                 Required <span className="text-danger">*</span>
               </span>
@@ -324,6 +391,120 @@ export function RegisterForm() {
 
             {step === 3 && (
               <div className="flex flex-col gap-4">
+                <div className="rounded-xl border border-ring/30 bg-ring/10 px-4 py-3 text-sm text-foreground">
+                  {form.projectType === "Hardware" && (
+                    <>Section 2 — Hardware. This section applies because you selected <span className="font-semibold text-ring">Hardware</span>.</>
+                  )}
+                  {form.projectType === "Software" && (
+                    <>Section 3 — Software. This section applies because you selected <span className="font-semibold text-ring">Software</span>.</>
+                  )}
+                  {form.projectType === "Both" && (
+                    <>Section 4 — Both Hardware and Software. This section applies because you selected <span className="font-semibold text-ring">Both (Hardware and Software)</span>.</>
+                  )}
+                </div>
+
+                <Field label="Project title" required hint="Short answer">
+                  <Input
+                    value={form.projectTitle}
+                    onChange={(e) => set("projectTitle", e.target.value)}
+                    placeholder="Eg. Smart Irrigation System"
+                    required
+                  />
+                </Field>
+                <Field label="Project brief description" required hint="Long answer — at least 20 characters">
+                  <textarea
+                    value={form.projectBrief}
+                    onChange={(e) => set("projectBrief", e.target.value)}
+                    rows={4}
+                    placeholder="Describe your project idea in brief..."
+                    required
+                    className="w-full rounded-xl border border-border bg-background/60 px-3.5 py-2.5 text-sm text-foreground outline-none transition-all placeholder:text-muted-foreground/70 focus:border-ring/70 focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--ring)_18%,transparent)]"
+                  />
+                </Field>
+
+                {(form.projectType === "Hardware" || form.projectType === "Both") && (
+                  <Field label="Hardware domain" required>
+                    <Select value={form.hardwareDomain} onChange={(e) => set("hardwareDomain", e.target.value)} required>
+                      <option value="">Choose</option>
+                      {HARDWARE_DOMAINS.map((d) => (
+                        <option key={d} value={d}>
+                          {d}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                )}
+
+                {(form.projectType === "Software" || form.projectType === "Both") && (
+                  <>
+                    <Field label="Software domain" required>
+                      <Select value={form.softwareDomain} onChange={(e) => set("softwareDomain", e.target.value)} required>
+                        <option value="">Choose</option>
+                        {SOFTWARE_DOMAINS.map((d) => (
+                          <option key={d} value={d}>
+                            {d}
+                          </option>
+                        ))}
+                      </Select>
+                    </Field>
+                    <Field label="GitHub repository URL" required hint="Which describes your domain">
+                      <Input
+                        type="url"
+                        value={form.githubRepo}
+                        onChange={(e) => set("githubRepo", e.target.value)}
+                        placeholder="https://github.com/you/project"
+                        required
+                      />
+                    </Field>
+                  </>
+                )}
+
+                {form.projectType === "Software" && (
+                  <Field label="GitHub profile link" required>
+                    <Input
+                      type="url"
+                      value={form.githubProfile}
+                      onChange={(e) => set("githubProfile", e.target.value)}
+                      placeholder="https://github.com/you"
+                      required
+                    />
+                  </Field>
+                )}
+
+                {form.projectType === "Hardware" && (
+                  <Field label="GitHub profile link" hint="If available">
+                    <Input
+                      type="url"
+                      value={form.githubProfile}
+                      onChange={(e) => set("githubProfile", e.target.value)}
+                      placeholder="https://github.com/you"
+                    />
+                  </Field>
+                )}
+
+                <Field label="YouTube (Unlisted)" hint="Optional URL">
+                  <Input
+                    type="url"
+                    value={form.youtube}
+                    onChange={(e) => set("youtube", e.target.value)}
+                    placeholder="https://www.youtube.com/watch?v=..."
+                  />
+                </Field>
+
+                <Field label="Google Drive link for PPT" required hint="Share as public">
+                  <Input
+                    type="url"
+                    value={form.pptLink}
+                    onChange={(e) => set("pptLink", e.target.value)}
+                    placeholder="https://drive.google.com/..."
+                    required
+                  />
+                </Field>
+              </div>
+            )}
+
+            {step === 4 && (
+              <div className="flex flex-col gap-4">
                 <ReviewRow label="Name" value={form.name} />
                 <div className="grid gap-4 sm:grid-cols-2">
                   <ReviewRow label="Register No" value={form.registerNo} />
@@ -335,8 +516,16 @@ export function RegisterForm() {
                   <ReviewRow label="Gender" value={form.gender} />
                   <ReviewRow label="Languages" value={form.languages.join(", ")} />
                   <ReviewRow label="Project type" value={form.projectType} />
+                  <ReviewRow label="Hardware domain" value={form.hardwareDomain} />
+                  <ReviewRow label="Software domain" value={form.softwareDomain} />
                 </div>
                 <ReviewRow label="LinkedIn" value={form.linkedin} link />
+                <ReviewRow label="Project title" value={form.projectTitle} />
+                <ReviewRow label="Project brief" value={form.projectBrief} />
+                <ReviewRow label="GitHub profile" value={form.githubProfile} link />
+                <ReviewRow label="GitHub repository" value={form.githubRepo} link />
+                <ReviewRow label="YouTube" value={form.youtube} link />
+                <ReviewRow label="Google Drive PPT" value={form.pptLink} link />
 
                 <div className="mt-2 grid gap-4 sm:grid-cols-2">
                   <Input

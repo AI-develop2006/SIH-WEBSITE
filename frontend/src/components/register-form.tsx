@@ -118,15 +118,15 @@ export function RegisterForm() {
       if (!form.registerNo.trim()) return "Enter your register number";
       if (!/^\S+@\S+\.\S+$/.test(form.email.trim())) return "Enter a valid email address";
       if (!/^[6-9]\d{9}$/.test(form.phone.replace(/\s/g, ""))) return "Enter a valid 10-digit phone number";
-      if (!form.password) return "Create a password";
-      if (form.password.length < 6) return "Password must be at least 6 characters";
-      if (form.password !== form.confirmPassword) return "Passwords do not match";
     }
     if (s === 1) {
       if (!form.department) return "Select your department";
       if (!form.year) return "Select your year";
       if (!form.section.trim()) return "Enter your section";
       if (!form.gender) return "Select your gender";
+      if (!form.password) return "Create a password";
+      if (form.password.length < 6) return "Password must be at least 6 characters";
+      if (form.password !== form.confirmPassword) return "Passwords do not match";
     }
     if (s === 2) {
       if (form.languages.length === 0) return "Select at least one language you know";
@@ -432,26 +432,6 @@ export function RegisterForm() {
                       required={step === 0}
                     />
                   </Field>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <Field label="Password" required hint="At least 6 characters">
-                      <Input
-                        type="password"
-                        value={form.password}
-                        onChange={(e) => set("password", e.target.value)}
-                        placeholder="Create a password"
-                        required={step === 0}
-                      />
-                    </Field>
-                    <Field label="Confirm Password" required>
-                      <Input
-                        type="password"
-                        value={form.confirmPassword}
-                        onChange={(e) => set("confirmPassword", e.target.value)}
-                        placeholder="Confirm your password"
-                        required={step === 0}
-                      />
-                    </Field>
-                  </div>
                 </div>
 
                 {/* Step 1: Academic details */}
@@ -492,6 +472,26 @@ export function RegisterForm() {
                         <option value="Male">Male</option>
                         <option value="Female">Female</option>
                       </Select>
+                    </Field>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Field label="Password" required hint="At least 6 characters">
+                      <Input
+                        type="password"
+                        value={form.password}
+                        onChange={(e) => set("password", e.target.value)}
+                        placeholder="Create a password"
+                        required={step === 1}
+                      />
+                    </Field>
+                    <Field label="Confirm Password" required>
+                      <Input
+                        type="password"
+                        value={form.confirmPassword}
+                        onChange={(e) => set("confirmPassword", e.target.value)}
+                        placeholder="Confirm your password"
+                        required={step === 1}
+                      />
                     </Field>
                   </div>
                 </div>

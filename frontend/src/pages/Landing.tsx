@@ -48,7 +48,7 @@ const TIMELINE = [
     step: "02",
   },
   {
-    date: "TBA",
+    date: "",
     label: "Team formation",
     description: "Teams will be formed by your mentor based on skills and preferences. Date will be announced soon.",
     status: "upcoming",
@@ -236,7 +236,7 @@ export default function LandingPage() {
               </span>
 
               <h1 className="reveal text-4xl font-bold leading-[1.08] tracking-tight text-white drop-shadow-[0_4px_16px_rgba(0,0,0,0.9)] sm:text-6xl">
-                Smart India Hackathon 2026 
+                Smart India Hackathon 2026
                 <br />
                 <span className="text-gradient">SMVEC Internal</span>
               </h1>
@@ -409,7 +409,7 @@ export default function LandingPage() {
 
         <section className="mx-auto w-full max-w-[1536px] px-5 pb-20">
           <div className="relative overflow-hidden rounded-3xl px-6 py-16 text-center sm:py-20 backdrop-blur-md"
-            style={{background: "linear-gradient(160deg, rgba(10, 18, 38, 0.9) 0%, rgba(16, 28, 63, 0.8) 60%, rgba(20, 35, 75, 0.7) 100%)"}}>
+            style={{ background: "linear-gradient(160deg, rgba(10, 18, 38, 0.9) 0%, rgba(16, 28, 63, 0.8) 60%, rgba(20, 35, 75, 0.7) 100%)" }}>
             {/* Gold top border accent */}
             <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[#c9a227] to-transparent" />
             {/* Gold glow blob */}
@@ -479,8 +479,8 @@ export default function LandingPage() {
             <p className="text-xs text-white/70">
               © 2026 Sri Manakula Vinayagar Engineering College · SIH 2026 Team Builder
             </p>
-            <a 
-              href="/admin" 
+            <a
+              href="/admin"
               className="text-xs font-semibold text-[#dba328] hover:text-[#dba328]/80 transition-colors flex items-center gap-1.5"
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -521,9 +521,8 @@ function TimelineItem({ item, isLast, segColor, index, navigate }: { item: any; 
       style={{
         transitionDelay: `${index * 120}ms`,
       }}
-      className={`relative flex items-start gap-6 sm:gap-10 transition-all duration-[800ms] ease-out ${
-        inView ? "opacity-100 translate-y-0" : "opacity-0 translate-y-12"
-      }`}
+      className={`relative flex items-start gap-6 sm:gap-10 transition-all duration-[800ms] ease-out ${inView ? "opacity-100 translate-y-0" : "opacity-0 translate-y-12"
+        }`}
     >
       {/* Left column: node + connector */}
       <div className="hidden shrink-0 flex-col items-center sm:flex">

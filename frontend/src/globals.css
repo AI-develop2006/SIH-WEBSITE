@@ -165,9 +165,9 @@ body {
   border-color: rgba(201, 162, 39, 0.45);
 }
 
-/* ── Text gradient (gold → light gold) ── */
+/* ── Text gradient (gold → orange-gold) ── */
 .text-gradient {
-  background: linear-gradient(120deg, var(--gold-rich, #c9a227), var(--gold-light, #e8c058));
+  background: linear-gradient(135deg, #ffe066 0%, #ff9800 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;

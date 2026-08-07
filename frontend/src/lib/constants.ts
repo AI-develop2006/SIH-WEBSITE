@@ -20,3 +20,31 @@ export const YEARS = ["I", "II", "III", "IV"] as const;
 export const LANGUAGE_OPTIONS = ["English", "Hindi"] as const;
 
 export const PROJECT_TYPES = ["Hardware", "Software", "Both"] as const;
+
+export const HARDWARE_ROLES = [
+  "IoT & Sensors",
+  "Embedded Systems & Microcontrollers",
+  "Circuit Design & PCB Layout",
+  "Smart Automation & Industrial Control",
+  "Robotics & Drones",
+  "Edge AI & Hardware AI",
+] as const;
+
+export const SOFTWARE_ROLES = [
+  "Frontend Development",
+  "Backend Development",
+  "AI / Machine Learning",
+  "Cybersecurity / Blockchain",
+  "Full Stack Development",
+  "Cloud / DevOps",
+  "Mobile App Development",
+] as const;
+
+export const OTHER_ROLES = [
+  "Business Analysis & Documentation",
+  "UI/UX Design",
+  "Project Management",
+  "Data Analysis & Visualization",
+  "Research & Innovation",
+] as const;
+

@@ -8,13 +8,13 @@ import { useToast } from "@/components/unlumen-ui/toast";
 import { Button } from "@/components/unlumen-ui/button";
 import { Input, Select } from "@/components/unlumen-ui/input";
 import { cn } from "@/lib/utils";
-import { DEPARTMENTS, YEARS, LANGUAGE_OPTIONS, PROJECT_TYPES } from "@/lib/constants";
+import { DEPARTMENTS, YEARS, LANGUAGE_OPTIONS, PROJECT_TYPES, HARDWARE_ROLES, SOFTWARE_ROLES, OTHER_ROLES } from "@/lib/constants";
 
 const STEPS = [
   { n: 1, title: "Personal details", subtitle: "Your name and contact information" },
   { n: 2, title: "Academic details", subtitle: "Department, year, section and gender" },
-  { n: 3, title: "Skills & project type", subtitle: "Languages, LinkedIn and project type" },
-  { n: 4, title: "Project details", subtitle: "Project title, description and domains" },
+  { n: 3, title: "Skills & domain interest", subtitle: "Languages, LinkedIn and your domain roles" },
+  { n: 4, title: "Project details", subtitle: "Project type and submission links" },
   { n: 5, title: "Account & review", subtitle: "Confirm details and submit" },
 ];
 
@@ -50,6 +50,7 @@ type FormState = {
   gender: string;
   languages: string[];
   linkedin: string;
+  domainInterests: string[];
   projectType: string;
   // Project specific fields
   projectTitle: string;
@@ -76,6 +77,7 @@ const INITIAL: FormState = {
   gender: "",
   languages: [],
   linkedin: "",
+  domainInterests: [],
   projectType: "",
   projectTitle: "",
   projectDescription: "",
@@ -131,9 +133,10 @@ export function RegisterForm() {
     if (s === 2) {
       if (form.languages.length === 0) return "Select at least one language you know";
       if (!/^https?:\/\/[\w.-]/.test(form.linkedin.trim())) return "Enter a valid LinkedIn profile URL";
-      if (!form.projectType) return "Select your project type";
+      if (form.domainInterests.length === 0) return "Select at least one domain interest role";
     }
     if (s === 3) {
+      if (!form.projectType) return "Select your project type";
       if (!form.projectTitle.trim()) return "Enter your project title";
       if (!form.projectDescription.trim()) return "Enter a brief project description";
       if (!/^https?:\/\/[\w.-]/.test(form.googleDrivePpt.trim())) return "Enter a valid Google Drive link for PPT";
@@ -242,6 +245,7 @@ export function RegisterForm() {
         gender: form.gender,
         languages: form.languages,
         linkedin: form.linkedin.trim(),
+        domain_interests: form.domainInterests,
         project_type: form.projectType,
         role: "student",
         project_title: form.projectTitle.trim(),
@@ -496,7 +500,7 @@ export function RegisterForm() {
                   </div>
                 </div>
 
-                {/* Step 2: Skills & Project type */}
+                {/* Step 2: Skills & Domain Interest */}
                 <div className="w-full shrink-0 flex flex-col gap-4">
                   <Field label="Language known" required>
                     <div className="flex flex-wrap gap-2">
@@ -526,6 +530,91 @@ export function RegisterForm() {
                       required={step === 2}
                     />
                   </Field>
+
+                  {/* Domain Interest 3-category multi-select */}
+                  <Field label="Domain Interest" required hint="Select all roles that match your experience (multiple allowed)">
+                    <div className="flex flex-col gap-4">
+                      {/* Hardware Roles */}
+                      <div>
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-amber-400/80 flex items-center gap-1.5">
+                          <span>🔧</span> Hardware Roles
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {HARDWARE_ROLES.map((role) => (
+                            <button
+                              key={role}
+                              type="button"
+                              onClick={() => set("domainInterests", form.domainInterests.includes(role) ? form.domainInterests.filter((r) => r !== role) : [...form.domainInterests, role])}
+                              className={cn(
+                                "rounded-full border px-3.5 py-1.5 text-xs font-medium transition-all",
+                                form.domainInterests.includes(role)
+                                  ? "border-amber-500/60 bg-amber-500/15 text-amber-400 shadow-[0_0_10px_-4px_rgba(245,158,11,0.5)]"
+                                  : "border-border text-muted-foreground hover:border-amber-500/40 hover:text-amber-300"
+                              )}
+                            >
+                              {role}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      {/* Software Roles */}
+                      <div>
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-blue-400/80 flex items-center gap-1.5">
+                          <span>💻</span> Software Roles
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {SOFTWARE_ROLES.map((role) => (
+                            <button
+                              key={role}
+                              type="button"
+                              onClick={() => set("domainInterests", form.domainInterests.includes(role) ? form.domainInterests.filter((r) => r !== role) : [...form.domainInterests, role])}
+                              className={cn(
+                                "rounded-full border px-3.5 py-1.5 text-xs font-medium transition-all",
+                                form.domainInterests.includes(role)
+                                  ? "border-blue-500/60 bg-blue-500/15 text-blue-400 shadow-[0_0_10px_-4px_rgba(59,130,246,0.5)]"
+                                  : "border-border text-muted-foreground hover:border-blue-500/40 hover:text-blue-300"
+                              )}
+                            >
+                              {role}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      {/* Other Roles */}
+                      <div>
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-purple-400/80 flex items-center gap-1.5">
+                          <span>🎯</span> Other Roles
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {OTHER_ROLES.map((role) => (
+                            <button
+                              key={role}
+                              type="button"
+                              onClick={() => set("domainInterests", form.domainInterests.includes(role) ? form.domainInterests.filter((r) => r !== role) : [...form.domainInterests, role])}
+                              className={cn(
+                                "rounded-full border px-3.5 py-1.5 text-xs font-medium transition-all",
+                                form.domainInterests.includes(role)
+                                  ? "border-purple-500/60 bg-purple-500/15 text-purple-400 shadow-[0_0_10px_-4px_rgba(168,85,247,0.5)]"
+                                  : "border-border text-muted-foreground hover:border-purple-500/40 hover:text-purple-300"
+                              )}
+                            >
+                              {role}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    {form.domainInterests.length > 0 && (
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        {form.domainInterests.length} role{form.domainInterests.length > 1 ? "s" : ""} selected
+                      </p>
+                    )}
+                  </Field>
+                </div>
+
+                {/* Step 3: Project details (Dynamic Step) */}
+                <div className="w-full shrink-0 flex flex-col gap-4">
+                  {/* Project type selector at top */}
                   <Field label="Select project type" required>
                     <div className="flex flex-wrap gap-2">
                       {PROJECT_TYPES.map((pt) => (
@@ -545,10 +634,7 @@ export function RegisterForm() {
                       ))}
                     </div>
                   </Field>
-                </div>
 
-                {/* Step 3: Project details (Dynamic Step) */}
-                <div className="w-full shrink-0 flex flex-col gap-4">
                   <div className="grid gap-4 sm:grid-cols-2">
                     <Field label="Project Title" required>
                       <Input

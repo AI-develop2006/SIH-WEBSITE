@@ -25,6 +25,7 @@ export type Profile = {
   google_drive_ppt: string | null;
   software_domain: string | null;
   hardware_domain: string | null;
+  domain_interests: string[];
 };
 
 export type Team = {

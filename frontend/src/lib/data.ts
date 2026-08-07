@@ -49,6 +49,7 @@ export async function ensureProfile(uid: string, meta: Record<string, unknown>):
       google_drive_ppt: (meta.google_drive_ppt as string) ?? null,
       software_domain: (meta.software_domain as string) ?? null,
       hardware_domain: (meta.hardware_domain as string) ?? null,
+      domain_interests: Array.isArray(meta.domain_interests) ? meta.domain_interests : [],
     },
     { onConflict: "id" }
   );

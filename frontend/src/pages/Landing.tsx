@@ -137,6 +137,7 @@ const ICONS: Record<string, React.ReactNode> = {
 export default function LandingPage() {
   const navigate = useNavigate();
   const [timelineData, setTimelineData] = useState<any[]>([]);
+  const [dbConnected, setDbConnected] = useState<boolean | null>(null);
 
   useEffect(() => {
     supabase?.auth.getSession().then(({ data }) => {
@@ -149,6 +150,17 @@ export default function LandingPage() {
           setTimelineData(res.data);
         }
       });
+      data.fetchThemes().then((res) => {
+        if (res.error) {
+          setDbConnected(false);
+        } else {
+          setDbConnected(true);
+        }
+      }).catch(() => {
+        setDbConnected(false);
+      });
+    } else {
+      setDbConnected(false);
     }
   }, [navigate]);
 
@@ -471,7 +483,16 @@ export default function LandingPage() {
                 <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
                 <path d="M7 11V7a5 5 0 0 1 10 0v4" />
               </svg>
-              Admin Portal
+              <span>Admin Portal</span>
+              {dbConnected === null && (
+                <span className="size-2 rounded-full bg-neutral-500 animate-pulse" title="Checking database connection..." />
+              )}
+              {dbConnected === true && (
+                <span className="size-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" title="Database connected" />
+              )}
+              {dbConnected === false && (
+                <span className="size-2 rounded-full bg-rose-500 shadow-[0_0_8px_#f43f5e]" title="Database disconnected" />
+              )}
             </a>
           </div>
         </div>

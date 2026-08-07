@@ -24,7 +24,7 @@ export async function getCurrentProfile(): Promise<ApiResult<Profile>> {
 export async function ensureProfile(uid: string, meta: Record<string, unknown>): Promise<void> {
   const supabase = assertSupabase();
   const phone = (meta.phone as string) ?? "";
-  await supabase.from("profiles").upsert(
+  const { error } = await supabase.from("profiles").upsert(
     {
       id: uid,
       name: (meta.name as string) ?? "",
@@ -52,6 +52,7 @@ export async function ensureProfile(uid: string, meta: Record<string, unknown>):
     },
     { onConflict: "id" }
   );
+  if (error) throw new Error(error.message);
 }
 
 export async function fetchEnrichedTeams(): Promise<ApiResult<EnrichedTeam[]>> {

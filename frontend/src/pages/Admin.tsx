@@ -1272,7 +1272,24 @@ function AdminLoginForm({ onLoginSuccess }: { onLoginSuccess: () => void }) {
       }
 
       // 3. Login succeeded, check if user is admin
-      const { data: profile, error: profileError } = await data.getCurrentProfile();
+      let { data: profile, error: profileError } = await data.getCurrentProfile();
+      if (profileError || !profile) {
+        // If the profile is missing but the logged-in user is the admin email, auto-restore the profile row
+        const { data: { user } } = await supabase!.auth.getUser();
+        if (user && user.email === "smvecsihadmin2026@gmail.com") {
+          await data.ensureProfile(user.id, {
+            name: "Admin Manager",
+            email: user.email,
+            role: "admin",
+            gender: "Other",
+            phone: "admin-phone-2026",
+          });
+          const retry = await data.getCurrentProfile();
+          profile = retry.data;
+          profileError = retry.error;
+        }
+      }
+
       if (profileError || !profile) {
         throw new Error(profileError ?? "Profile data not found");
       }

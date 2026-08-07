@@ -46,7 +46,7 @@ export default function RegisterPage() {
               <h1 className="text-4xl font-bold leading-tight tracking-tight text-white sm:text-5xl">
                 SIH Internal Hackathon Registration-2026
               </h1>
-              <p className="block font-caveat text-xl text-[#8fa0c0]">— 06 August, 2026</p>
+              
             </div>
 
             {/* Gold divider line */}

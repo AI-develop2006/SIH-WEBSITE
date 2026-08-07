@@ -216,7 +216,7 @@ export default function LandingPage() {
         <section className="relative overflow-hidden">
           <div className="mx-auto w-full max-w-[1536px] px-5 pb-16 pt-16 sm:pt-24">
             <div ref={heroRef} className="mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
-              
+
 
               <h1 className="reveal text-4xl font-bold leading-[1.08] tracking-tight text-white drop-shadow-[0_4px_16px_rgba(0,0,0,0.9)] sm:text-6xl">
                 Smart India Hackathon 2026
@@ -228,9 +228,9 @@ export default function LandingPage() {
                 Build your Winning SIH team ,Not your Stress
               </span>
 
-              
 
-              <div className="reveal flex flex-wrap items-center justify-center gap-3">
+
+              <div className="reveal flex flex-wrap items-center justify-center gap-3" style={{ marginTop: "100px" }}>
                 <Button onClick={() => navigate("/register")} className="bg-[#c9a227] text-[#06090f] hover:bg-[#e8c058] font-bold border-0 px-6 py-2.5 shadow-lg shadow-black/20">
                   Apply Now
                 </Button>
@@ -243,7 +243,7 @@ export default function LandingPage() {
         </section>
 
         {/* ── Timeline ── */}
-        <section id="timeline" className="relative overflow-hidden mx-auto w-full max-w-4xl px-5 py-20 sm:py-28">
+        <section id="timeline" className="relative overflow-hidden mx-auto w-full max-w-4xl px-5 py-20 sm:py-28" style={{ marginTop: "100px" }}>
           <div className="mx-auto max-w-2xl text-center">
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Key dates</h2>
             <p className="mt-3 text-muted-foreground">

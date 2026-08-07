@@ -65,74 +65,37 @@ const TIMELINE = [
 
 const FEATURES = [
   {
-    title: "Project Parameters Wizard",
-    body: "Enter your hardware or software project parameters, upload PPT slides, and submit video demonstration links.",
+    title: "Smart team matching",
+    body: "Search students by department, year, section or language and invite the people who complete your squad.",
     icon: "spark",
   },
   {
-    title: "Passwordless Authentication",
-    body: "Register securely and log in using your college Register Number with zero password hassle.",
+    title: "Automatic rule checks",
+    body: "Server-side validation enforces the 6-member, 2-female, 2-department rules — bad teams are blocked, not just warned.",
     icon: "shield",
   },
   {
-    title: "Live Milestone Feed",
-    body: "Track key dates, evaluation timelines, and announcements directly on your student dashboard.",
+    title: "Invites & join requests",
+    body: "Send invites, accept requests, and track every pending decision in one clean inbox per team.",
     icon: "inbox",
   },
   {
-    title: "Mentor-Led Formations",
-    body: "Mentors analyze your project profile, skills, and department to form balanced hackathon squads.",
+    title: "Live team health",
+    body: "Every team shows a competition-ready badge with member count, gender balance and department spread at a glance.",
     icon: "pulse",
   },
 ];
 
 const STEPS = [
   { n: "01", title: "Apply via the registration form", body: "Fill in your details — name, register no, department, year, languages, LinkedIn and project type — and create your account." },
-  { n: "02", title: "Team formation by mentors", body: "Your team will be formed by your mentors based on project types and skills. The final date will be announced soon." },
-  { n: "03", title: "Await final announcement", body: "Wait for mentor evaluations and check your dashboard timeline for team assignments." },
+  { n: "02", title: "Find or build your team", body: "Your team will be formed by your mentor based on skills. Date will be announced later." },
+  { n: "03", title: "Compete together", body: "Keep your squad rule-valid, accept join requests, and walk into SIH 2026 ready to build." },
 ];
 
 const RULES = [
-  {
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-        <circle cx="9" cy="7" r="4" />
-        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-      </svg>
-    ),
-    title: "6 members max",
-    body: "Teams can hold at most six members.",
-  },
-  {
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="8" r="5" />
-        <path d="M12 13v8" />
-        <path d="M9 18h6" />
-        <path d="M8 6c0-2 1.5-3 4-3" />
-      </svg>
-    ),
-    title: "2 female members",
-    body: "Every team needs at least two female members.",
-  },
-  {
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 21h18" />
-        <path d="M3 10h18" />
-        <path d="M5 6l7-3 7 3" />
-        <path d="M4 10v11" />
-        <path d="M20 10v11" />
-        <path d="M8 14v3" />
-        <path d="M12 14v3" />
-        <path d="M16 14v3" />
-      </svg>
-    ),
-    title: "2 departments",
-    body: "Every team must span at least two departments.",
-  },
+  { icon: "👥", title: "6 members max", body: "Teams can hold at most six members." },
+  { icon: "♀", title: "2 female members", body: "Every team needs at least two female members." },
+  { icon: "🏛", title: "2 departments", body: "Every team must span at least two departments." },
 ];
 
 const QUOTES = [
@@ -142,11 +105,12 @@ const QUOTES = [
 ];
 
 const FAQS = [
-  { q: "What are the official team constraints?", a: "Each formed team must have at most 6 members, at least 2 female members, and members spanning at least 2 different departments. The evaluation mentors will ensure these rules are strictly met during team allocation." },
-  { q: "How are teams formed for the hackathon?", a: "Teams are constructed dynamically by our college review mentors based on your department, project type (Hardware/Software/Both), and coding skills. You do not need to form teams manually." },
-  { q: "What credentials do I use to log in?", a: "You do not need to create or remember a password. Simply enter your college Register Number (e.g. 24UAI123) to log in directly to your student dashboard." },
-  { q: "Who can use this portal?", a: "It is built exclusively for the internal SIH 2026 participant pool of Sri Manakula Vinayagar Engineering College. Students apply with their project preferences and wait for team matching." },
-  { q: "How do I register?", a: "Click 'Apply Now' and fill out the form steps: basic details, academic department, coding stack, project title/description, PPT link, and repository URL." },
+  { q: "What are the official team rules?", a: "Each team must have at most 6 members, at least 2 female members, and members from at least 2 different departments. Violations are blocked automatically by the backend." },
+  { q: "How do I join an existing team?", a: "Open the Teams tab, pick a team, and send a join request. The team leader sees it under My Team and can accept or reject it." },
+  { q: "How do I become a team leader?", a: "If you're not already in a team, use My Team to create one — you become the leader automatically and can invite members or accept requests." },
+  { q: "How does teammate matching work?", a: "Every profile carries a department, year, section and preferred languages. Find Members lets you search and filter across all of them." },
+  { q: "Who can use this portal?", a: "It's built for the internal SIH 2026 participant pool — students apply with their email, register number and department, then join or form teams." },
+  { q: "How do I register?", a: "Hit Apply and fill in the registration form — name, register no, email, phone, department, year, section, gender, languages, LinkedIn and project type. Your email is used to log in." },
 ];
 
 const ICONS: Record<string, React.ReactNode> = {
@@ -211,15 +175,11 @@ export default function LandingPage() {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
             entry.target.classList.add("in-view");
-            observer.unobserve(entry.target);
+            observer.unobserve(entry.target); // fire once
           }
         });
       },
-      {
-        threshold: 0.08,
-        // Pre-trigger 80px before element enters viewport — no pop-in during fast scroll
-        rootMargin: "0px 0px -80px 0px",
-      }
+      { threshold: 0.12 }
     );
 
     targets.forEach((el) => observer.observe(el));
@@ -264,59 +224,38 @@ export default function LandingPage() {
 
       <main>
         {/* ── Hero ── */}
-        <section className="relative overflow-hidden bg-[#06090f] min-h-[calc(100vh-4.5rem)] flex items-center">
-          {/* SMVEC campus background image — full viewport fill */}
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0"
-            style={{
-              backgroundImage: "url('/SMVEC Background.jpeg')",
-              backgroundSize: "cover",
-              backgroundPosition: "center center",
-              backgroundRepeat: "no-repeat",
-              backgroundAttachment: "scroll",
-            }}
-          />
-          {/* Dark overlay — lighter at top so sky shows, darker at bottom for text */}
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0"
-            style={{
-              background:
-                "linear-gradient(to bottom, rgba(6,9,15,0.45) 0%, rgba(6,9,15,0.60) 40%, rgba(6,9,15,0.85) 80%, rgba(6,9,15,0.96) 100%)",
-            }}
-          />
-          {/* Subtle gold glow centre */}
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute left-1/2 top-1/3 h-[500px] w-[700px] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[140px]"
-            style={{ background: "rgba(201,162,39,0.08)" }}
-          />
-          <div className="bg-grid absolute inset-0 pointer-events-none" />
+        <section className="relative overflow-hidden bg-white dark:bg-[#06090f]">
+          {/* Soft gold orb backdrops on white */}
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
+            <div className="absolute -top-32 left-1/2 h-[500px] w-[700px] -translate-x-1/2 rounded-full bg-[#c9a227]/10 blur-[130px]" />
+            <div className="absolute top-1/3 -left-20 h-[380px] w-[380px] rounded-full bg-[#c9a227]/06 blur-[100px]" />
+            <div className="absolute -bottom-10 right-[-8%] h-[340px] w-[340px] rounded-full bg-[#0b1631]/04 blur-[100px]" />
+            <div className="bg-grid absolute inset-0" />
+          </div>
 
-          <div className="relative w-full mx-auto max-w-7xl px-5 py-24 sm:py-32">
+          <div className="mx-auto w-full max-w-7xl px-5 pb-16 pt-16 sm:pt-24">
             <div ref={heroRef} className="mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
-              <h1 className="reveal text-4xl font-bold leading-[1.08] tracking-tight text-white sm:text-6xl"
-                style={{ textShadow: "0 2px 24px rgba(0,0,0,0.6)" }}>
+              <span className="reveal inline-flex items-center gap-2 rounded-full border border-[rgba(201,162,39,0.40)] bg-[rgba(201,162,39,0.08)] px-4 py-1.5 text-sm font-semibold text-[#a07c10]">
+                <span className="size-2 rounded-full bg-[#c9a227] animate-pulse" />
+                Build your winning SIH team — not your stress
+              </span>
+
+              <h1 className="reveal text-4xl font-bold leading-[1.08] tracking-tight text-[#0f1520] dark:text-[#eef1f8] sm:text-6xl">
                 Smart India Hackathon 2026
                 <br />
                 <span className="text-gradient">SMVEC Internal</span>
               </h1>
 
-              <span className="reveal inline-flex items-center gap-2 rounded-full border border-[rgba(201,162,39,0.50)] bg-[rgba(6,9,15,0.60)] px-4 py-1.5 text-sm font-semibold text-[#e8c058] backdrop-blur-sm">
-                <span className="size-2 rounded-full bg-[#c9a227] animate-pulse" />
-                Building The Skilled team For SIH 
-              </span>
-
-              <p className="reveal max-w-xl text-base leading-relaxed text-white/80 sm:text-lg"
-                style={{ textShadow: "0 1px 8px rgba(0,0,0,0.5)" }}>
+              <p className="reveal max-w-xl text-base leading-relaxed text-[#5a6680] dark:text-[#8fa0c0] sm:text-lg">
+                Apply once, match with teammates by department and language, form balanced
+                teams, and keep every squad competition-ready with automatic rule checks.
               </p>
 
               <div className="reveal flex flex-wrap items-center justify-center gap-3">
-                <Button onClick={() => navigate("/register")} className="bg-[#c9a227] text-[#06090f] hover:bg-[#e8c058] font-bold border-0 px-6 py-2.5 shadow-lg">
+                <Button onClick={() => navigate("/register")} className="bg-[#c9a227] text-white hover:bg-[#a07c10] font-bold border-0 px-6 py-2.5">
                   Apply Now
                 </Button>
-                <Button variant="outline" className="border-white/40 text-white bg-white/10 hover:bg-white/20 backdrop-blur-sm px-6 py-2.5" onClick={() => navigate("/login")}>
+                <Button variant="outline" className="border-[rgba(201,162,39,0.45)] text-[#a07c10] hover:bg-[rgba(201,162,39,0.08)] px-6 py-2.5" onClick={() => navigate("/login")}>
                   Log in
                 </Button>
               </div>
@@ -507,9 +446,7 @@ export default function LandingPage() {
           <div className="scroll-reveal-group mt-12 grid gap-4 sm:grid-cols-3">
             {RULES.map((r) => (
               <div key={r.title} className="flex items-start gap-4 rounded-xl border border-[rgba(201,162,39,0.18)] bg-white dark:bg-[#0d1220] dark:border-[rgba(201,162,39,0.15)] p-6 shadow-sm">
-                <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(201,162,39,0.15)] text-[#c9a227] border border-[rgba(201,162,39,0.30)]">
-                  {r.icon}
-                </span>
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-[rgba(201,162,39,0.10)] text-lg">{r.icon}</span>
                 <div>
                   <h3 className="text-base font-bold tracking-tight text-[#0f1520] dark:text-[#eef1f8]">{r.title}</h3>
                   <p className="mt-1 text-sm text-[#5a6680] dark:text-[#8fa0c0]">{r.body}</p>

@@ -205,3 +205,72 @@ export async function updateAvatarUrl(userId: string, url: string): Promise<ApiR
   if (error) return { data: null, error: error.message };
   return { data: null, error: null };
 }
+
+// ── Admin: portal state ───────────────────────────────────────────────────────
+
+export async function getPortalState(): Promise<ApiResult<boolean>> {
+  const supabase = assertSupabase();
+  const { data, error } = await supabase.rpc("get_portal_state");
+  if (error) return { data: null, error: error.message };
+  return { data: data as boolean, error: null };
+}
+
+export async function setPortalState(open: boolean): Promise<ApiResult<null>> {
+  const supabase = assertSupabase();
+  const { error } = await supabase.rpc("set_portal_state", { p_open: open });
+  if (error) return { data: null, error: error.message };
+  return { data: null, error: null };
+}
+
+// ── Admin: auto-assign teams (matchmaker) ────────────────────────────────────
+
+export async function autoAssignTeams(): Promise<ApiResult<number>> {
+  const supabase = assertSupabase();
+  const { data, error } = await supabase.rpc("auto_assign_teams");
+  if (error) return { data: null, error: error.message };
+  return { data: data as number, error: null };
+}
+
+// ── Admin: add / remove individual team members ───────────────────────────────
+
+export async function adminAddMember(
+  teamId: string,
+  userId: string
+): Promise<ApiResult<null>> {
+  const supabase = assertSupabase();
+  const { error } = await supabase.rpc("admin_add_member", {
+    p_team_id: teamId,
+    p_user_id: userId,
+  });
+  if (error) return { data: null, error: error.message };
+  return { data: null, error: null };
+}
+
+export async function adminRemoveMember(
+  teamId: string,
+  userId: string
+): Promise<ApiResult<null>> {
+  const supabase = assertSupabase();
+  const { error } = await supabase.rpc("admin_remove_member", {
+    p_team_id: teamId,
+    p_user_id: userId,
+  });
+  if (error) return { data: null, error: error.message };
+  return { data: null, error: null };
+}
+
+// ── Admin: fetch all unassigned students ─────────────────────────────────────
+
+export async function fetchUnassignedProfiles(
+  assignedIds: Set<string>
+): Promise<ApiResult<Profile[]>> {
+  const supabase = assertSupabase();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("role", "student")
+    .order("name");
+  if (error) return { data: null, error: error.message };
+  const unassigned = (data as Profile[]).filter((p) => !assignedIds.has(p.id));
+  return { data: unassigned, error: null };
+}

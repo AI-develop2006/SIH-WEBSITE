@@ -65,37 +65,74 @@ const TIMELINE = [
 
 const FEATURES = [
   {
-    title: "Smart team matching",
-    body: "Search students by department, year, section or language and invite the people who complete your squad.",
+    title: "Project Parameters Wizard",
+    body: "Enter your hardware or software project parameters, upload PPT slides, and submit video demonstration links.",
     icon: "spark",
   },
   {
-    title: "Automatic rule checks",
-    body: "Server-side validation enforces the 6-member, 2-female, 2-department rules — bad teams are blocked, not just warned.",
+    title: "Passwordless Authentication",
+    body: "Register securely and log in using your college Register Number with zero password hassle.",
     icon: "shield",
   },
   {
-    title: "Invites & join requests",
-    body: "Send invites, accept requests, and track every pending decision in one clean inbox per team.",
+    title: "Live Milestone Feed",
+    body: "Track key dates, evaluation timelines, and announcements directly on your student dashboard.",
     icon: "inbox",
   },
   {
-    title: "Live team health",
-    body: "Every team shows a competition-ready badge with member count, gender balance and department spread at a glance.",
+    title: "Mentor-Led Formations",
+    body: "Mentors analyze your project profile, skills, and department to form balanced hackathon squads.",
     icon: "pulse",
   },
 ];
 
 const STEPS = [
   { n: "01", title: "Apply via the registration form", body: "Fill in your details — name, register no, department, year, languages, LinkedIn and project type — and create your account." },
-  { n: "02", title: "Find or build your team", body: "Your team will be formed by your mentor based on skills. Date will be announced later." },
-  { n: "03", title: "Compete together", body: "Keep your squad rule-valid, accept join requests, and walk into SIH 2026 ready to build." },
+  { n: "02", title: "Team formation by mentors", body: "Your team will be formed by your mentors based on project types and skills. The final date will be announced soon." },
+  { n: "03", title: "Await final announcement", body: "Wait for mentor evaluations and check your dashboard timeline for team assignments." },
 ];
 
 const RULES = [
-  { icon: "👥", title: "6 members max", body: "Teams can hold at most six members." },
-  { icon: "♀", title: "2 female members", body: "Every team needs at least two female members." },
-  { icon: "🏛", title: "2 departments", body: "Every team must span at least two departments." },
+  {
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      </svg>
+    ),
+    title: "6 members max",
+    body: "Teams can hold at most six members.",
+  },
+  {
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="8" r="5" />
+        <path d="M12 13v8" />
+        <path d="M9 18h6" />
+        <path d="M8 6c0-2 1.5-3 4-3" />
+      </svg>
+    ),
+    title: "2 female members",
+    body: "Every team needs at least two female members.",
+  },
+  {
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 21h18" />
+        <path d="M3 10h18" />
+        <path d="M5 6l7-3 7 3" />
+        <path d="M4 10v11" />
+        <path d="M20 10v11" />
+        <path d="M8 14v3" />
+        <path d="M12 14v3" />
+        <path d="M16 14v3" />
+      </svg>
+    ),
+    title: "2 departments",
+    body: "Every team must span at least two departments.",
+  },
 ];
 
 const QUOTES = [
@@ -105,12 +142,11 @@ const QUOTES = [
 ];
 
 const FAQS = [
-  { q: "What are the official team rules?", a: "Each team must have at most 6 members, at least 2 female members, and members from at least 2 different departments. Violations are blocked automatically by the backend." },
-  { q: "How do I join an existing team?", a: "Open the Teams tab, pick a team, and send a join request. The team leader sees it under My Team and can accept or reject it." },
-  { q: "How do I become a team leader?", a: "If you're not already in a team, use My Team to create one — you become the leader automatically and can invite members or accept requests." },
-  { q: "How does teammate matching work?", a: "Every profile carries a department, year, section and preferred languages. Find Members lets you search and filter across all of them." },
-  { q: "Who can use this portal?", a: "It's built for the internal SIH 2026 participant pool — students apply with their email, register number and department, then join or form teams." },
-  { q: "How do I register?", a: "Hit Apply and fill in the registration form — name, register no, email, phone, department, year, section, gender, languages, LinkedIn and project type. Your email is used to log in." },
+  { q: "What are the official team constraints?", a: "Each formed team must have at most 6 members, at least 2 female members, and members spanning at least 2 different departments. The evaluation mentors will ensure these rules are strictly met during team allocation." },
+  { q: "How are teams formed for the hackathon?", a: "Teams are constructed dynamically by our college review mentors based on your department, project type (Hardware/Software/Both), and coding skills. You do not need to form teams manually." },
+  { q: "What credentials do I use to log in?", a: "You do not need to create or remember a password. Simply enter your college Register Number (e.g. 24UAI123) to log in directly to your student dashboard." },
+  { q: "Who can use this portal?", a: "It is built exclusively for the internal SIH 2026 participant pool of Sri Manakula Vinayagar Engineering College. Students apply with their project preferences and wait for team matching." },
+  { q: "How do I register?", a: "Click 'Apply Now' and fill out the form steps: basic details, academic department, coding stack, project title/description, PPT link, and repository URL." },
 ];
 
 const ICONS: Record<string, React.ReactNode> = {
@@ -260,11 +296,6 @@ export default function LandingPage() {
 
           <div className="relative w-full mx-auto max-w-7xl px-5 py-24 sm:py-32">
             <div ref={heroRef} className="mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
-              <span className="reveal inline-flex items-center gap-2 rounded-full border border-[rgba(201,162,39,0.50)] bg-[rgba(6,9,15,0.60)] px-4 py-1.5 text-sm font-semibold text-[#e8c058] backdrop-blur-sm">
-                <span className="size-2 rounded-full bg-[#c9a227] animate-pulse" />
-                Build your winning SIH team — not your stress
-              </span>
-
               <h1 className="reveal text-4xl font-bold leading-[1.08] tracking-tight text-white sm:text-6xl"
                 style={{ textShadow: "0 2px 24px rgba(0,0,0,0.6)" }}>
                 Smart India Hackathon 2026
@@ -272,10 +303,13 @@ export default function LandingPage() {
                 <span className="text-gradient">SMVEC Internal</span>
               </h1>
 
+              <span className="reveal inline-flex items-center gap-2 rounded-full border border-[rgba(201,162,39,0.50)] bg-[rgba(6,9,15,0.60)] px-4 py-1.5 text-sm font-semibold text-[#e8c058] backdrop-blur-sm">
+                <span className="size-2 rounded-full bg-[#c9a227] animate-pulse" />
+                Building The Skilled team For SIH 
+              </span>
+
               <p className="reveal max-w-xl text-base leading-relaxed text-white/80 sm:text-lg"
                 style={{ textShadow: "0 1px 8px rgba(0,0,0,0.5)" }}>
-                Apply once, match with teammates by department and language, form balanced
-                teams, and keep every squad competition-ready with automatic rule checks.
               </p>
 
               <div className="reveal flex flex-wrap items-center justify-center gap-3">
@@ -473,7 +507,9 @@ export default function LandingPage() {
           <div className="scroll-reveal-group mt-12 grid gap-4 sm:grid-cols-3">
             {RULES.map((r) => (
               <div key={r.title} className="flex items-start gap-4 rounded-xl border border-[rgba(201,162,39,0.18)] bg-white dark:bg-[#0d1220] dark:border-[rgba(201,162,39,0.15)] p-6 shadow-sm">
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-[rgba(201,162,39,0.10)] text-lg">{r.icon}</span>
+                <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(201,162,39,0.15)] text-[#c9a227] border border-[rgba(201,162,39,0.30)]">
+                  {r.icon}
+                </span>
                 <div>
                   <h3 className="text-base font-bold tracking-tight text-[#0f1520] dark:text-[#eef1f8]">{r.title}</h3>
                   <p className="mt-1 text-sm text-[#5a6680] dark:text-[#8fa0c0]">{r.body}</p>

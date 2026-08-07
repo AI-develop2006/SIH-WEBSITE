@@ -230,21 +230,19 @@ export default function LandingPage() {
         <section className="relative overflow-hidden">
           <div className="mx-auto w-full max-w-[1536px] px-5 pb-16 pt-16 sm:pt-24">
             <div ref={heroRef} className="mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
-              <span className="reveal inline-flex items-center gap-2 rounded-full border border-[#c9a227]/50 bg-black/50 backdrop-blur-md px-4 py-1.5 text-sm font-semibold text-[#e8c058]">
-                <span className="size-2 rounded-full bg-[#e8c058] animate-pulse" />
-                Build your Winning SIH team ,,Not your SStress
-              </span>
+              
 
               <h1 className="reveal text-4xl font-bold leading-[1.08] tracking-tight text-white drop-shadow-[0_4px_16px_rgba(0,0,0,0.9)] sm:text-6xl">
                 Smart India Hackathon 2026
                 <br />
                 <span className="text-gradient">SMVEC Internal</span>
               </h1>
+              <span className="reveal inline-flex items-center gap-2 rounded-full border border-[#c9a227]/50 bg-black/50 backdrop-blur-md px-4 py-1.5 text-sm font-semibold text-[#e8c058]">
+                <span className="size-2 rounded-full bg-[#e8c058] animate-pulse" />
+                Build your Winning SIH team ,Not your Stress
+              </span>
 
-              <p className="reveal max-w-xl text-base leading-relaxed text-slate-100 font-semibold drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)] sm:text-lg">
-                Apply once, match with teammates by department and language, form balanced
-                teams, and keep every squad competition-ready with automatic rule checks.
-              </p>
+              
 
               <div className="reveal flex flex-wrap items-center justify-center gap-3">
                 <Button onClick={() => navigate("/register")} className="bg-[#c9a227] text-[#06090f] hover:bg-[#e8c058] font-bold border-0 px-6 py-2.5 shadow-lg shadow-black/20">

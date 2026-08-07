@@ -360,9 +360,9 @@ export function RegisterForm() {
         </div>
       )}
 
-      <form onSubmit={submit} className="flex grow flex-col">
-        <article className="divide-y divide-border">
-          <section className="py-8">
+      <form onSubmit={submit} className="flex grow flex-col justify-between">
+        <article className="divide-y divide-border grow flex flex-col">
+          <section className="py-8 grow flex flex-col justify-start">
             <div className="mb-5 flex items-baseline justify-between gap-3">
               <h2 className="text-lg font-semibold tracking-tight">Section {STEPS[step].n} of {STEPS.length}</h2>
               <span className="text-[11px] font-semibold uppercase tracking-widest text-[#dba328]">

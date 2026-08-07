@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { assertSupabase, isSupabaseConfigured } from "@/lib/supabase/client";
 import { ensureProfile, checkRegisterNoExists, checkEmailExists } from "@/lib/data";
@@ -93,6 +93,13 @@ export function RegisterForm() {
   const [busy, setBusy] = useState(false);
   const [showSync, setShowSync] = useState(false);
   const [form, setForm] = useState<FormState>(INITIAL);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = 0;
+    }
+  }, [step]);
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
@@ -334,7 +341,7 @@ export function RegisterForm() {
   }
 
   return (
-    <div className="flex min-h-[60vh] flex-col">
+    <div className="flex min-h-[65vh] lg:h-[72vh] flex-col overflow-hidden">
       <div className="mb-8">
         <p className="font-caveat text-2xl text-[#dba328]">Smart India Hackathon 2026</p>
         <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">{STEPS[step].title}</h1>
@@ -360,8 +367,8 @@ export function RegisterForm() {
         </div>
       )}
 
-      <form onSubmit={submit} className="flex grow flex-col justify-between">
-        <article className="divide-y divide-border grow flex flex-col">
+      <form onSubmit={submit} className="flex grow flex-col justify-between overflow-hidden">
+        <article ref={scrollRef} className="divide-y divide-border grow flex flex-col overflow-y-auto pr-1">
           <section className="py-8 grow flex flex-col justify-start">
             <div className="mb-5 flex items-baseline justify-between gap-3">
               <h2 className="text-lg font-semibold tracking-tight">Section {STEPS[step].n} of {STEPS.length}</h2>

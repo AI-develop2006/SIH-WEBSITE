@@ -1,6 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { MemoryRouter, Routes, Route, Navigate } from "react-router-dom";
 import "./globals.css";
 import { ToastProvider } from "@/components/unlumen-ui/toast";
 import { AuroraBackground } from "@/components/aurora-background";
@@ -11,9 +11,14 @@ import DashboardPage from "@/pages/Dashboard";
 import AdminPage from "@/pages/Admin";
 import FooterDemoPage from "@/pages/FooterDemo";
 
+// Prevent direct URL bypass (e.g. typing /admin) by cleaning the address bar path on load
+if (window.location.pathname !== "/") {
+  window.history.replaceState({}, "", "/");
+}
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <BrowserRouter>
+    <MemoryRouter>
       <ToastProvider>
         <AuroraBackground />
         <Routes>
@@ -26,6 +31,6 @@ createRoot(document.getElementById("root")!).render(
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </ToastProvider>
-    </BrowserRouter>
+    </MemoryRouter>
   </StrictMode>
 );

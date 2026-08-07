@@ -1,10 +1,23 @@
 import express from "express";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-
-import { runMigrations } from "./database.js";
+import { existsSync } from "node:fs";
+import dotenv from "dotenv";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// Load environment variables locally
+if (existsSync(join(__dirname, ".env.local"))) {
+  dotenv.config({ path: join(__dirname, ".env.local") });
+} else if (existsSync(join(__dirname, "../frontend/.env.local"))) {
+  dotenv.config({ path: join(__dirname, "../frontend/.env.local") });
+} else if (existsSync(join(__dirname, ".env"))) {
+  dotenv.config({ path: join(__dirname, ".env") });
+} else {
+  dotenv.config();
+}
+
+import { runMigrations } from "./database.js";
 const app = express();
 const PORT = process.env.PORT || 3000;
 

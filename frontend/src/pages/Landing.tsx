@@ -176,13 +176,13 @@ export default function LandingPage() {
   return (
     <div className="page-transition min-h-screen bg-transparent relative">
       {/* College Banner Background with smooth fade */}
-      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[85vh] overflow-hidden">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[92vh] overflow-hidden">
         <div
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-[0.18] filter grayscale-[100%]"
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-[0.80]"
           style={{ backgroundImage: "url('/smvec-banner.jpeg')" }}
         />
-        <div className="bg-grid absolute inset-0 opacity-40" />
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#050b18]/45 to-[#050b18]" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/45 via-black/15 to-[#050b18]" />
+        <div className="bg-grid absolute inset-0 opacity-55" />
       </div>
 
       {/* SMVEC gold top accent bar */}
@@ -208,7 +208,7 @@ export default function LandingPage() {
               <a
                 key={l.href}
                 href={l.href}
-                className="rounded-lg px-3 py-2 text-sm font-medium text-[#8fa0c0] transition-colors hover:text-[#e8c058]"
+                className="rounded-lg px-3 py-2 text-sm font-medium text-slate-200 transition-colors hover:text-[#e8c058]"
               >
                 {l.label}
               </a>
@@ -230,27 +230,27 @@ export default function LandingPage() {
         <section className="relative overflow-hidden">
           <div className="mx-auto w-full max-w-[1536px] px-5 pb-16 pt-16 sm:pt-24">
             <div ref={heroRef} className="mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
-              <span className="reveal inline-flex items-center gap-2 rounded-full border border-[rgba(201,162,39,0.35)] bg-[rgba(201,162,39,0.08)] px-4 py-1.5 text-sm font-semibold text-[#c9a227]">
-                <span className="size-2 rounded-full bg-[#c9a227] animate-pulse" />
+              <span className="reveal inline-flex items-center gap-2 rounded-full border border-[#c9a227]/50 bg-black/50 backdrop-blur-md px-4 py-1.5 text-sm font-semibold text-[#e8c058]">
+                <span className="size-2 rounded-full bg-[#e8c058] animate-pulse" />
                 Build your Winning SIH team ,,Not your SStress
               </span>
 
-              <h1 className="reveal text-4xl font-bold leading-[1.08] tracking-tight text-foreground sm:text-6xl">
+              <h1 className="reveal text-4xl font-bold leading-[1.08] tracking-tight text-white drop-shadow-[0_4px_16px_rgba(0,0,0,0.9)] sm:text-6xl">
                 Smart India Hackathon 2026 
                 <br />
                 <span className="text-gradient">SMVEC Internal</span>
               </h1>
 
-              <p className="reveal max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
+              <p className="reveal max-w-xl text-base leading-relaxed text-slate-100 font-semibold drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)] sm:text-lg">
                 Apply once, match with teammates by department and language, form balanced
                 teams, and keep every squad competition-ready with automatic rule checks.
               </p>
 
               <div className="reveal flex flex-wrap items-center justify-center gap-3">
-                <Button onClick={() => navigate("/register")} className="bg-[#c9a227] text-[#06090f] hover:bg-[#e8c058] font-bold border-0 px-6 py-2.5">
+                <Button onClick={() => navigate("/register")} className="bg-[#c9a227] text-[#06090f] hover:bg-[#e8c058] font-bold border-0 px-6 py-2.5 shadow-lg shadow-black/20">
                   Apply Now
                 </Button>
-                <Button variant="outline" className="border-[rgba(201,162,39,0.40)] text-[#c9a227] hover:bg-[rgba(201,162,39,0.08)] px-6 py-2.5" onClick={() => navigate("/login")}>
+                <Button variant="outline" className="border-white/30 bg-black/40 text-white hover:bg-white/10 hover:text-white px-6 py-2.5 backdrop-blur-md shadow-lg shadow-black/20" onClick={() => navigate("/login")}>
                   Log in
                 </Button>
               </div>

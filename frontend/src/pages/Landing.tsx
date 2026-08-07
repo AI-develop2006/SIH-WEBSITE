@@ -93,7 +93,7 @@ const STEPS = [
 ];
 
 const RULES = [
-  { icon: "👥", title: "6 members max", body: "Teams can hold at most six members." },
+  { icon: "👥", title: "6 members max", body: "Teams consist of six  members." },
   { icon: "♀", title: "2 female members", body: "Every team needs at least two female members." },
   { icon: "🏛", title: "2 departments", body: "Every team must span at least two departments." },
 ];

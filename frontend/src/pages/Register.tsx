@@ -44,7 +44,7 @@ export default function RegisterPage() {
             <div className="mt-14 space-y-4 lg:mt-12">
               <p className="font-caveat text-3xl text-[#e8c058]">Registration for</p>
               <h1 className="text-4xl font-bold leading-tight tracking-tight text-white sm:text-5xl">
-                SIH Internal Hackathon Registration-2026
+                SIH Internal Hackathon Registration 2026
               </h1>
               
             </div>

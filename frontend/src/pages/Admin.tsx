@@ -1212,6 +1212,7 @@ function AnnouncementsManager({ announcements, onReload }: { announcements: Anno
 }
 
 function AdminLoginForm({ onLoginSuccess }: { onLoginSuccess: () => void }) {
+  const navigate = useNavigate();
   const toast = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -1291,48 +1292,118 @@ function AdminLoginForm({ onLoginSuccess }: { onLoginSuccess: () => void }) {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center px-5 py-12 relative overflow-hidden bg-transparent">
-      {/* Top accent bar */}
-      <div className="fixed inset-x-0 top-0 z-50 h-[2px] bg-gradient-to-r from-transparent via-[#c9a227] to-transparent" />
-      
-      <Card className="w-full max-w-md border border-[rgba(201,162,39,0.25)] bg-card/85 p-8 backdrop-blur-xl shadow-2xl relative z-10">
-        <div className="flex flex-col items-center text-center gap-2 mb-8">
-          <CollegeBrand />
-          <h2 className="mt-4 text-2xl font-black tracking-tight text-foreground">Admin Portal Access</h2>
-          <p className="text-sm text-muted-foreground font-semibold">Authorized personnel only</p>
+    <div className="page-transition flex min-h-screen flex-col overflow-hidden">
+      {/* SMVEC gold top accent bar */}
+      <div className="h-1 w-full bg-gradient-to-r from-transparent via-[#c9a227] to-transparent" />
+
+      <div className="grow flex flex-col lg:flex-row">
+        {/* Left panel — Glass styled midnight panel */}
+        <div className="relative w-full overflow-hidden lg:fixed lg:inset-y-0 lg:w-1/2 lg:rounded-r-[3rem] border-r border-[rgba(147,197,253,0.08)] bg-card/60 backdrop-blur-xl">
+
+          {/* Gold top border on rounded right edge */}
+          <div className="absolute inset-y-0 right-0 hidden w-[2px] lg:block"
+            style={{ background: "linear-gradient(to bottom, transparent, #c9a227 30%, #c9a227 70%, transparent)" }} />
+
+          {/* Subtle grid decoration inside left panel */}
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+            <div className="bg-grid absolute inset-0 opacity-40" />
+          </div>
+
+          <div className="relative min-h-full w-full max-w-xl mx-auto flex flex-col justify-start px-5 py-6 sm:px-6 lg:justify-center lg:py-20">
+            {/* Logo */}
+            <div className="mt-8 flex justify-center lg:mt-0">
+              <a href="/" className="inline-flex">
+                <CollegeBrand className="scale-[1.5] sm:scale-[1.75] origin-center" />
+              </a>
+            </div>
+
+            <div className="mt-14 space-y-4 lg:mt-12">
+              {/* Gold accent label */}
+              <p className="font-caveat text-3xl text-[#e8c058]">Welcome back</p>
+              <h1 className="text-4xl font-bold leading-tight tracking-tight text-white sm:text-5xl">
+                Sign In to Admin Control Center.
+              </h1>
+              <p className="block font-caveat text-xl text-[#8fa0c0]">— Authorized Personnel Only</p>
+            </div>
+
+            {/* Gold divider line */}
+            <div className="mt-10 gold-bar w-24" />
+          </div>
         </div>
 
-        <form onSubmit={handleLogin} className="flex flex-col gap-5">
-          <Input
-            label="Email Address"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="admin@smvec.ac.in"
-            required
-            autoComplete="username"
-          />
-          <Input
-            label="Password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="••••••••"
-            required
-            autoComplete="current-password"
-          />
+        {/* Right panel */}
+        <main className="flex w-full flex-col bg-transparent lg:ml-auto lg:w-1/2">
+          <div className="grow w-full max-w-xl mx-auto px-5 py-12 sm:px-6 lg:pt-20 lg:pb-24">
+            {/* Home nav */}
+            <div className="mb-8 flex items-center gap-3">
+              <a
+                href="/"
+                className="inline-flex items-center gap-2 rounded-xl border border-[rgba(201,162,39,0.20)] bg-[rgba(201,162,39,0.05)] px-3.5 py-2 text-sm font-medium text-[#8fa0c0] transition-colors hover:border-[rgba(201,162,39,0.45)] hover:bg-[rgba(201,162,39,0.10)] hover:text-[#e8c058]"
+                title="Back to home"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="size-4 shrink-0">
+                  <path fillRule="evenodd" d="M9.293 2.293a1 1 0 0 1 1.414 0l7 7A1 1 0 0 1 17 11h-1v6a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-6H3a1 1 0 0 1-.707-1.707l7-7Z" clipRule="evenodd" />
+                </svg>
+                Home
+              </a>
+            </div>
 
-          <Button type="submit" loading={busy} className="mt-2 w-full bg-[#c9a227] text-[#06090f] hover:bg-[#e8c058] font-bold border-0">
-            Sign In to Control Center
-          </Button>
-        </form>
+            {/* Auth content block mimicking AuthCard structure */}
+            <div className="flex min-h-[50vh] flex-col">
+              <div className="mb-8">
+                <p className="font-caveat text-2xl text-[#dba328]">Smart India Hackathon 2026</p>
+                <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">Admin Portal Access</h1>
+                <p className="mt-1 text-sm text-muted-foreground font-semibold">
+                  Verify your admin credentials to access the coordinator panel.
+                </p>
+              </div>
 
-        <div className="mt-6 border-t border-border/60 pt-4 text-center">
-          <a href="/" className="text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors">
-            ← Back to Landing Page
-          </a>
-        </div>
-      </Card>
+              <form onSubmit={handleLogin} className="flex grow flex-col">
+                <article className="divide-y divide-border">
+                  <section className="py-8">
+                    <div className="mb-5 flex items-baseline justify-between gap-3">
+                      <h2 className="text-lg font-semibold tracking-tight">Credentials</h2>
+                      <span className="text-[11px] font-semibold uppercase tracking-widest text-[#dba328]">
+                        Required <span className="text-danger">*</span>
+                      </span>
+                    </div>
+
+                    <div className="flex flex-col gap-4">
+                      <Input
+                        label="Email Address"
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="admin@smvec.ac.in"
+                        required
+                        autoComplete="username"
+                      />
+                      <Input
+                        label="Password"
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="••••••••"
+                        required
+                        autoComplete="current-password"
+                      />
+                    </div>
+                  </section>
+                </article>
+
+                <div className="mt-8 flex items-center justify-between border-t border-border pt-6">
+                  <Button type="button" variant="ghost" onClick={() => navigate("/")} className="text-slate-400 hover:text-white">
+                    ← Back
+                  </Button>
+                  <Button type="submit" loading={busy} className="bg-[#c9a227] text-[#06090f] hover:bg-[#e8c058] font-bold border-0">
+                    Sign In
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </main>
+      </div>
     </div>
   );
 }

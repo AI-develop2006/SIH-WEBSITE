@@ -197,7 +197,14 @@ export default function LandingPage() {
 
       <header className="sticky top-0 z-40 border-b border-[rgba(201,162,39,0.18)] bg-background/80 backdrop-blur-md">
         <div className="mx-auto flex h-[4.5rem] w-full max-w-[1536px] items-center justify-between gap-3 px-5">
-          <a href="/" className="flex items-center">
+          <a
+            href="/"
+            onClick={(e) => {
+              e.preventDefault();
+              navigate("/");
+            }}
+            className="flex items-center"
+          >
             <CollegeBrand />
           </a>
 
@@ -477,6 +484,10 @@ export default function LandingPage() {
             </p>
             <a
               href="/admin"
+              onClick={(e) => {
+                e.preventDefault();
+                navigate("/admin");
+              }}
               className="text-xs font-semibold text-[#dba328] hover:text-[#dba328]/80 transition-colors flex items-center gap-1.5"
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">

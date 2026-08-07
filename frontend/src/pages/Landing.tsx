@@ -174,9 +174,19 @@ export default function LandingPage() {
   }, []);
 
   return (
-    <div className="page-transition min-h-screen bg-transparent">
+    <div className="page-transition min-h-screen bg-transparent relative">
+      {/* College Banner Background with smooth fade */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[85vh] overflow-hidden">
+        <div
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-[0.18] filter grayscale-[100%]"
+          style={{ backgroundImage: "url('/smvec-banner.jpeg')" }}
+        />
+        <div className="bg-grid absolute inset-0 opacity-40" />
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#050b18]/45 to-[#050b18]" />
+      </div>
+
       {/* SMVEC gold top accent bar */}
-      <div className="h-1 w-full bg-gradient-to-r from-transparent via-[#c9a227] to-transparent" />
+      <div className="h-1 w-full bg-gradient-to-r from-transparent via-[#c9a227] to-transparent relative z-30" />
 
       {announcement && (
         <div className="bg-[#dba328]/10 border-b border-[#dba328]/35 text-[#dba328] py-2 px-5 text-center text-xs font-semibold backdrop-blur-md relative z-30 flex items-center justify-center gap-2">

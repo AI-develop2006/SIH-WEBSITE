@@ -194,6 +194,7 @@ export default function AdminPage() {
         section: s.section ?? "",
         gender: s.gender ?? "",
         languages: s.languages.join(" | "),
+        domain_interests: Array.isArray(s.domain_interests) ? s.domain_interests.join(" | ") : "",
         linkedin: s.linkedin ?? "",
         project_type: s.project_type ?? "",
         project_title: s.project_title ?? "",
@@ -217,6 +218,7 @@ export default function AdminPage() {
         { key: "section", label: "Section" },
         { key: "gender", label: "Gender" },
         { key: "languages", label: "Languages" },
+        { key: "domain_interests", label: "Domain Interests" },
         { key: "linkedin", label: "LinkedIn" },
         { key: "project_type", label: "Project Type" },
         { key: "project_title", label: "Project Title" },
@@ -367,11 +369,11 @@ export default function AdminPage() {
                     <option value="verified">Verified</option>
                     <option value="unverified">Unverified</option>
                   </Select>
-                  <Select value={projType} onChange={(e) => setProjType(e.target.value)} className="w-full sm:w-40">
+                  <Select value={projType} onChange={(e) => setProjType(e.target.value)} className="w-full sm:w-44">
                     <option value="">All project types</option>
                     <option value="Hardware">Hardware</option>
                     <option value="Software">Software</option>
-                    <option value="Both">Both</option>
+                    <option value="Hardware & Software">Hardware &amp; Software</option>
                   </Select>
                   <Button variant="outline" onClick={exportStudents}>
                     Export CSV
@@ -388,6 +390,7 @@ export default function AdminPage() {
                       <th className="px-5 py-3 font-semibold">Dept · Year · Sec</th>
                       <th className="px-5 py-3 font-semibold">Gender</th>
                       <th className="px-5 py-3 font-semibold">Languages</th>
+                      <th className="px-5 py-3 font-semibold">Domain Interest</th>
                       <th className="px-5 py-3 font-semibold">Project</th>
                       <th className="px-5 py-3 font-semibold">Status</th>
                       <th className="px-5 py-3 font-semibold">Role</th>
@@ -438,20 +441,46 @@ export default function AdminPage() {
                             ))}
                           </div>
                         </td>
+                        {/* Domain Interest column */}
+                        <td className="px-5 py-3">
+                          <div className="flex max-w-[220px] flex-wrap gap-1">
+                            {(!s.domain_interests || s.domain_interests.length === 0) && (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
+                            {(s.domain_interests ?? []).map((di) => (
+                              <span
+                                key={di}
+                                className="rounded border border-ring/30 bg-ring/10 px-1.5 py-0.5 text-[10px] text-ring/80"
+                              >
+                                {di}
+                              </span>
+                            ))}
+                          </div>
+                        </td>
                         <td className="px-5 py-3 text-muted-foreground">
-                          <div className="leading-tight max-w-[220px]">
+                          <div className="leading-tight max-w-[240px]">
                             <p className="font-semibold text-xs text-foreground">{s.project_type ?? "—"}</p>
                             {s.project_title && (
                               <p className="text-[11px] text-muted-foreground truncate mt-0.5" title={s.project_title}>
                                 {s.project_title}
                               </p>
                             )}
-                            {s.domain && (
-                              <p className="text-[9px] text-muted-foreground/80 truncate" title={s.domain}>
-                                {s.domain}
+                            {s.software_domain && (
+                              <p className="text-[9px] text-blue-400/80 truncate" title={s.software_domain}>
+                                SW: {s.software_domain}
                               </p>
                             )}
-                            <div className="flex gap-2 mt-1">
+                            {s.hardware_domain && (
+                              <p className="text-[9px] text-amber-400/80 truncate" title={s.hardware_domain}>
+                                HW: {s.hardware_domain}
+                              </p>
+                            )}
+                            <div className="flex flex-wrap gap-2 mt-1">
+                              {s.linkedin && (
+                                <a href={s.linkedin} target="_blank" rel="noreferrer" className="text-[9px] text-blue-400 hover:underline">
+                                  LinkedIn ↗
+                                </a>
+                              )}
                               {s.google_drive_ppt && (
                                 <a href={s.google_drive_ppt} target="_blank" rel="noreferrer" className="text-[9px] text-[#dba328] hover:underline">
                                   PPT ↗
@@ -459,7 +488,7 @@ export default function AdminPage() {
                               )}
                               {s.github && (
                                 <a href={s.github} target="_blank" rel="noreferrer" className="text-[9px] text-[#dba328] hover:underline">
-                                  Repo/Profile ↗
+                                  Repo ↗
                                 </a>
                               )}
                               {s.youtube_link && (

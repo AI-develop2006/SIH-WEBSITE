@@ -137,7 +137,6 @@ const ICONS: Record<string, React.ReactNode> = {
 export default function LandingPage() {
   const navigate = useNavigate();
   const [timelineData, setTimelineData] = useState<any[]>([]);
-  const [announcement, setAnnouncement] = useState<any | null>(null);
 
   useEffect(() => {
     supabase?.auth.getSession().then(({ data }) => {
@@ -148,12 +147,6 @@ export default function LandingPage() {
       data.fetchTimelineEvents().then((res) => {
         if (res.data && res.data.length > 0) {
           setTimelineData(res.data);
-        }
-      });
-      data.fetchAnnouncements().then((res) => {
-        if (res.data) {
-          const active = res.data.find((a: any) => a.active);
-          if (active) setAnnouncement(active);
         }
       });
     }
@@ -188,14 +181,7 @@ export default function LandingPage() {
       {/* SMVEC gold top accent bar */}
       <div className="h-1 w-full bg-gradient-to-r from-transparent via-[#c9a227] to-transparent relative z-30" />
 
-      {announcement && (
-        <div className="bg-[#dba328]/10 border-b border-[#dba328]/35 text-[#dba328] py-2 px-5 text-center text-xs font-semibold backdrop-blur-md relative z-30 flex items-center justify-center gap-2">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="animate-pulse shrink-0">
-            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-          </svg>
-          <span>{announcement.content}</span>
-        </div>
-      )}
+
 
       <header className="sticky top-0 z-40 border-b border-[rgba(201,162,39,0.18)] bg-background/80 backdrop-blur-md">
         <div className="mx-auto flex h-[4.5rem] w-full max-w-[1536px] items-center justify-between gap-3 px-5">

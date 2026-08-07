@@ -33,7 +33,7 @@ export default function LoginPage() {
             <div className="bg-grid absolute inset-0 opacity-40" />
           </div>
 
-          <div className="relative min-h-full w-full max-w-xl mx-auto flex flex-col justify-start px-5 py-6 sm:px-6 lg:justify-center lg:py-20">
+          <div className="relative h-full lg:h-screen w-full max-w-xl mx-auto flex flex-col justify-start px-5 py-6 sm:px-6 lg:justify-center lg:py-20">
             {/* Logo */}
             <div className="mt-8 flex justify-center lg:mt-0">
               <a href="/" className="inline-flex">

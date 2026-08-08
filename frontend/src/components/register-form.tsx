@@ -162,6 +162,9 @@ export function RegisterForm() {
       if (form.projectType === "Hardware & Software") {
         if (form.softwareDomain.length === 0) return "Select at least one software domain";
         if (form.hardwareDomain.length === 0) return "Select at least one hardware domain";
+        if (!/^https?:\/\/[\w.-]/.test(form.githubProfile.trim())) {
+          return "Enter a valid GitHub profile URL";
+        }
         if (!/^https?:\/\/[\w.-]/.test(form.githubRepo.trim())) {
           return "Enter a valid GitHub repository URL";
         }
@@ -233,6 +236,7 @@ export function RegisterForm() {
         finalGithubRepo = form.githubRepo.trim();
       } else if (form.projectType === "Hardware & Software") {
         finalDomain = `SW: ${form.softwareDomain.join(", ")} | HW: ${form.hardwareDomain.join(", ")}`;
+        finalGithub = form.githubProfile.trim();
         finalGithubRepo = form.githubRepo.trim();
       }
 
@@ -749,15 +753,15 @@ export function RegisterForm() {
                     </div>
                   )}
 
-                  {/* GitHub Profile for Software only */}
-                  {form.projectType === "Software" && (
+                  {/* GitHub Profile for Software and Hardware & Software (Required) */}
+                  {(form.projectType === "Software" || form.projectType === "Hardware & Software") && (
                     <Field label="GitHub Profile Link" required>
                       <Input
                         type="url"
                         value={form.githubProfile}
                         onChange={(e) => set("githubProfile", e.target.value)}
                         placeholder="https://github.com/username"
-                        required={step === 3 && form.projectType === "Software"}
+                        required={step === 3 && (form.projectType === "Software" || form.projectType === "Hardware & Software")}
                       />
                     </Field>
                   )}

@@ -1,12 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase/client";
 import * as data from "@/lib/data";
-import { uploadToCloudinary } from "@/lib/cloudinary";
 import type { Profile } from "@/lib/types";
-import { useToast } from "@/components/unlumen-ui/toast";
+
 import { Avatar } from "@/components/unlumen-ui/avatar";
 import { Button } from "@/components/unlumen-ui/button";
 import { CollegeBrand } from "@/components/college-brand";
@@ -23,15 +22,12 @@ const TIMELINE_FALLBACK = [
 
 export default function DashboardPage() {
   const navigate = useNavigate();
-  const toast = useToast();
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [timeline, setTimeline] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [setup, setSetup] = useState(false);
-  const [avatarUploading, setAvatarUploading] = useState(false);
   const [announcement, setAnnouncement] = useState<any | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const refresh = useCallback(async () => {
     if (!profile) return;
@@ -80,29 +76,7 @@ export default function DashboardPage() {
     }
   }, [profile, refresh]);
 
-  async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file || !profile) return;
 
-    setAvatarUploading(true);
-    const { url, error: uploadError } = await uploadToCloudinary(file);
-    if (uploadError || !url) {
-      toast("error", uploadError ?? "Upload failed");
-      setAvatarUploading(false);
-      return;
-    }
-
-    const { error: saveError } = await data.updateAvatarUrl(profile.id, url);
-    if (saveError) {
-      toast("error", saveError);
-    } else {
-      setProfile((prev) => prev ? { ...prev, avatar_url: url } : prev);
-      toast("success", "Profile photo updated");
-    }
-    setAvatarUploading(false);
-    // reset so the same file can be re-selected
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  }
 
   async function logout() {
     await supabase?.auth.signOut();
@@ -152,38 +126,11 @@ export default function DashboardPage() {
           <div className="flex items-center gap-2">
             {profile && (
               <div className="hidden items-center gap-2.5 rounded-lg border border-[rgba(201,162,39,0.18)] bg-card px-3 py-1.5 sm:flex">
-                {/* Hidden file input */}
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleAvatarChange}
+                <Avatar
+                  name={profile.name}
+                  src={profile.avatar_url ?? undefined}
+                  className="size-7 text-[10px]"
                 />
-                {/* Clickable avatar with upload overlay */}
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={avatarUploading}
-                  className="group relative shrink-0 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-[#c9a227]"
-                  title="Change profile photo"
-                >
-                  <Avatar
-                    name={profile.name}
-                    src={profile.avatar_url ?? undefined}
-                    className="size-7 text-[10px]"
-                  />
-                  {/* Hover overlay */}
-                  <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 opacity-0 transition-opacity group-hover:opacity-100 group-disabled:opacity-100">
-                    {avatarUploading ? (
-                      <span className="size-3 animate-spin rounded-full border border-white border-t-transparent" />
-                    ) : (
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="size-3 text-white">
-                        <path d="M8 1a.75.75 0 0 1 .75.75v5.5h5.5a.75.75 0 0 1 0 1.5h-5.5v5.5a.75.75 0 0 1-1.5 0v-5.5H1.75a.75.75 0 0 1 0-1.5h5.5v-5.5A.75.75 0 0 1 8 1Z" />
-                      </svg>
-                    )}
-                  </span>
-                </button>
                 <div className="leading-tight">
                   <p className="text-xs font-semibold">{profile.name}</p>
                   <p className="text-[10px] text-muted-foreground">{profile.phone}</p>

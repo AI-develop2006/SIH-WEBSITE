@@ -120,7 +120,9 @@ export function RegisterForm() {
       if (!form.name.trim()) return "Enter your full name";
       if (form.name.trim().length < 3) return "Name must be at least 3 characters";
       if (!form.registerNo.trim()) return "Enter your register number";
-      if (!/^\S+@\S+\.\S+$/.test(form.email.trim())) return "Enter a valid email address";
+      if (!/^[a-zA-Z0-9._%+-]+@smvec\.ac\.in$/i.test(form.email.trim())) {
+        return "Enter a valid SMVEC college email address (ending with @smvec.ac.in)";
+      }
       if (!/^[6-9]\d{9}$/.test(form.phone.replace(/\s/g, ""))) return "Enter a valid 10-digit phone number";
     }
     if (s === 1) {
@@ -447,12 +449,12 @@ export function RegisterForm() {
                       />
                     </Field>
                   </div>
-                  <Field label="Email" required hint="We'll use this email to verify your account, so kindly use this mail id for further login process.">
+                  <Field label="Email" required hint="We'll use this email to verify your account, so kindly use your SMVEC college email ID (ending with @smvec.ac.in) for further login process.">
                     <Input
                       type="email"
                       value={form.email}
                       onChange={(e) => set("email", e.target.value)}
-                      placeholder="you@college.edu"
+                      placeholder="you@smvec.ac.in"
                       required={step === 0}
                     />
                   </Field>

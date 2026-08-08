@@ -55,8 +55,8 @@ export default function RegisterPage() {
         </div>
 
         {/* Right panel */}
-        <main className="flex w-full flex-col bg-transparent lg:ml-auto lg:w-1/2">
-          <div className="grow w-full max-w-xl mx-auto px-5 py-12 sm:px-6 lg:pt-20 lg:pb-24">
+        <main className="flex w-full flex-col bg-transparent lg:ml-auto lg:w-1/2 lg:h-screen lg:overflow-y-auto">
+          <div className="grow w-full max-w-xl mx-auto px-5 py-12 sm:px-6 lg:py-16">
             {/* Home nav */}
             <div className="mb-8 flex items-center gap-3">
               <a

@@ -292,7 +292,7 @@ export default function LandingPage() {
               </h1>
               <span className="reveal inline-flex items-center gap-2 rounded-full border border-[#c9a227]/50 bg-black/50 backdrop-blur-md px-4 py-1.5 text-sm font-semibold text-[#e8c058]">
                 <span className="size-2 rounded-full bg-[#e8c058] animate-pulse" />
-                Building The Skilled team For SIH 
+                Build your Winning SIH team ,Not your Stress
               </span>
 
 

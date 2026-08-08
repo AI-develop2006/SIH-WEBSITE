@@ -19,7 +19,7 @@ export const YEARS = ["I", "II", "III", "IV"] as const;
 
 export const LANGUAGE_OPTIONS = ["English", "Hindi"] as const;
 
-export const PROJECT_TYPES = ["Hardware", "Software", "Both"] as const;
+export const PROJECT_TYPES = ["Hardware", "Software", "Hardware & Software"] as const;
 
 export const HARDWARE_ROLES = [
   "IoT & Sensors",

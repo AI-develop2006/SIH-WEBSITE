@@ -536,7 +536,7 @@ export default function LandingPage() {
                 e.preventDefault();
                 navigate("/admin");
               }}
-              className="text-xs font-semibold text-[#dba328] hover:text-[#dba328]/80 transition-colors flex items-center gap-1.5"
+              className="text-xs font-semibold text-[#dba328]/30 hover:text-[#dba328] transition-colors flex items-center gap-1.5 opacity-40 hover:opacity-100"
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />

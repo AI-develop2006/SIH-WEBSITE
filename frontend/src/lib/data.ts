@@ -51,6 +51,15 @@ export async function ensureProfile(uid: string, meta: Record<string, unknown>):
       hardware_domain: (meta.hardware_domain as string) ?? null,
       domain_interests: Array.isArray(meta.domain_interests) ? meta.domain_interests : [],
       github_repo: (meta.github_repo as string) ?? null,
+      resume_link: (meta.resume_link as string) ?? null,
+      sih_participant: (meta.sih_participant as boolean) ?? false,
+      sih_num_participations: (meta.sih_num_participations as number) ?? null,
+      sih_participation_year: (meta.sih_participation_year as number) ?? null,
+      sih_problem_statement: (meta.sih_problem_statement as string) ?? null,
+      sih_project_domain: (meta.sih_project_domain as string) ?? null,
+      sih_project_role: (meta.sih_project_role as string) ?? null,
+      sih_position_reached: (meta.sih_position_reached as string) ?? null,
+      sih_nodal_center: (meta.sih_nodal_center as string) ?? null,
     },
     { onConflict: "id" }
   );

@@ -27,6 +27,15 @@ export type Profile = {
   hardware_domain: string | null;
   domain_interests: string[];
   github_repo: string | null;
+  resume_link: string | null;
+  sih_participant: boolean;
+  sih_num_participations: number | null;
+  sih_participation_year: number | null;
+  sih_problem_statement: string | null;
+  sih_project_domain: string | null;
+  sih_project_role: string | null;
+  sih_position_reached: string | null;
+  sih_nodal_center: string | null;
 };
 
 export type Team = {

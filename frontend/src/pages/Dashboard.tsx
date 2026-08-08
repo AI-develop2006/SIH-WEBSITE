@@ -324,7 +324,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="grid gap-4 pt-4 grid-cols-1 sm:grid-cols-2">
+        <div className="grid gap-4 pt-4 grid-cols-1 sm:grid-cols-3">
           <div>
             <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">GitHub Profile</span>
             <p className="text-sm font-semibold mt-0.5 truncate">
@@ -349,7 +349,59 @@ export default function DashboardPage() {
               )}
             </p>
           </div>
+          <div>
+            <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Resume</span>
+            <p className="text-sm font-semibold mt-0.5 truncate">
+              {profile.resume_link ? (
+                <a href={profile.resume_link} target="_blank" rel="noreferrer" className="text-[#dba328] hover:underline font-semibold">
+                  View Resume ↗
+                </a>
+              ) : (
+                "—"
+              )}
+            </p>
+          </div>
         </div>
+
+        {profile.sih_participant && (
+          <div className="pt-4 mt-4 border-t border-border/40 text-left">
+            <span className="text-[10px] uppercase font-black tracking-wider text-purple-400">SIH Participation History</span>
+            <div className="mt-2 grid gap-4 grid-cols-1 sm:grid-cols-2 bg-muted/10 p-3 rounded-lg border border-border/20">
+              <div>
+                <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Times Participated</span>
+                <p className="text-xs font-semibold mt-0.5 text-foreground">{profile.sih_num_participations} time(s)</p>
+              </div>
+              <div>
+                <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Year of Participation</span>
+                <p className="text-xs font-semibold mt-0.5 text-foreground">{profile.sih_participation_year}</p>
+              </div>
+              <div>
+                <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Project Domain</span>
+                <p className="text-xs font-semibold mt-0.5 text-foreground">{profile.sih_project_domain}</p>
+              </div>
+              <div>
+                <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Role in Project</span>
+                <p className="text-xs font-semibold mt-0.5 text-foreground">{profile.sih_project_role}</p>
+              </div>
+            </div>
+            <div className="mt-3 flex flex-col gap-2">
+              <div>
+                <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Problem Statement</span>
+                <p className="text-xs font-semibold text-foreground">{profile.sih_problem_statement}</p>
+              </div>
+              <div>
+                <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Position Reached</span>
+                <p className="text-xs font-semibold text-foreground">{profile.sih_position_reached}</p>
+              </div>
+              {profile.sih_nodal_center && (
+                <div>
+                  <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Nodal Center</span>
+                  <p className="text-xs font-semibold text-foreground">{profile.sih_nodal_center}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </Card>
   );

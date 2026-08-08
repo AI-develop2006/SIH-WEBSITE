@@ -15,7 +15,8 @@ const STEPS = [
   { n: 2, title: "Academic details", subtitle: "Department, year, section and gender" },
   { n: 3, title: "Skills & domain interest", subtitle: "Languages, LinkedIn and your domain roles" },
   { n: 4, title: "Project details", subtitle: "Project type and submission links" },
-  { n: 5, title: "Account & review", subtitle: "Confirm details and submit" },
+  { n: 5, title: "SIH History", subtitle: "Prior hackathon participation details" },
+  { n: 6, title: "Account & review", subtitle: "Confirm details and submit" },
 ];
 
 const HARDWARE_DOMAINS = [
@@ -24,7 +25,8 @@ const HARDWARE_DOMAINS = [
   "Circuit Design & PCB Layout",
   "Smart Automation & Industrial Control",
   "Robotics & Drones",
-  "Edge AI "
+  "Edge AI ",
+  "Others"
 ];
 
 const SOFTWARE_DOMAINS = [
@@ -35,6 +37,7 @@ const SOFTWARE_DOMAINS = [
   "Full Stack",
   "Cloud / DevOps",
   "Mobile App Development",
+  "Others"
 ];
 
 type FormState = {
@@ -50,6 +53,7 @@ type FormState = {
   gender: string;
   languages: string[];
   linkedin: string;
+  resumeLink: string;
   domainInterests: string[];
   otherRolesText: string;
   projectType: string;
@@ -60,9 +64,20 @@ type FormState = {
   youtubeLink: string;
   hardwareDomain: string[];
   softwareDomain: string[];
+  otherSoftwareText: string;
+  otherHardwareText: string;
   googleDrivePpt: string;
   githubRepo: string;
   declared: boolean;
+  // SIH History Questionnaire
+  sihParticipant: boolean;
+  sihNumParticipations: string;
+  sihParticipationYear: string;
+  sihProblemStatement: string;
+  sihProjectDomain: string;
+  sihProjectRole: string;
+  sihPositionReached: string;
+  sihNodalCenter: string;
 };
 
 const INITIAL: FormState = {
@@ -78,6 +93,7 @@ const INITIAL: FormState = {
   gender: "",
   languages: [],
   linkedin: "",
+  resumeLink: "",
   domainInterests: [],
   otherRolesText: "",
   projectType: "",
@@ -87,9 +103,19 @@ const INITIAL: FormState = {
   youtubeLink: "",
   hardwareDomain: [],
   softwareDomain: [],
+  otherSoftwareText: "",
+  otherHardwareText: "",
   googleDrivePpt: "",
   githubRepo: "",
   declared: false,
+  sihParticipant: false,
+  sihNumParticipations: "1",
+  sihParticipationYear: "",
+  sihProblemStatement: "",
+  sihProjectDomain: "Software",
+  sihProjectRole: "",
+  sihPositionReached: "Participated",
+  sihNodalCenter: "",
 };
 
 export function RegisterForm() {
@@ -136,7 +162,12 @@ export function RegisterForm() {
     }
     if (s === 2) {
       if (form.languages.length === 0) return "Select at least one language you know";
-      if (!/^https?:\/\/[\w.-]/.test(form.linkedin.trim())) return "Enter a valid LinkedIn profile URL";
+      if (form.linkedin.trim() && !/^https?:\/\/[\w.-]/.test(form.linkedin.trim())) {
+        return "Enter a valid LinkedIn profile URL";
+      }
+      if (!form.resumeLink.trim() || !/^https?:\/\/[\w.-]/.test(form.resumeLink.trim())) {
+        return "Enter a valid Resume URL (Google Drive/OneDrive link)";
+      }
       if (form.domainInterests.length === 0 && !form.otherRolesText.trim()) {
         return "Select at least one domain interest role or type a custom role";
       }
@@ -149,6 +180,9 @@ export function RegisterForm() {
 
       if (form.projectType === "Hardware") {
         if (form.hardwareDomain.length === 0) return "Select at least one hardware domain";
+        if (form.hardwareDomain.includes("Others") && !form.otherHardwareText.trim()) {
+          return "Please type your custom Hardware Domain";
+        }
         if (form.githubProfile.trim() && !/^https?:\/\/[\w.-]/.test(form.githubProfile.trim())) {
           return "Enter a valid GitHub profile URL";
         }
@@ -158,6 +192,9 @@ export function RegisterForm() {
       }
       if (form.projectType === "Software") {
         if (form.softwareDomain.length === 0) return "Select at least one software domain";
+        if (form.softwareDomain.includes("Others") && !form.otherSoftwareText.trim()) {
+          return "Please type your custom Software Domain";
+        }
         if (!/^https?:\/\/[\w.-]/.test(form.githubProfile.trim())) {
           return "Enter a valid GitHub profile URL";
         }
@@ -167,7 +204,13 @@ export function RegisterForm() {
       }
       if (form.projectType === "Hardware & Software") {
         if (form.softwareDomain.length === 0) return "Select at least one software domain";
+        if (form.softwareDomain.includes("Others") && !form.otherSoftwareText.trim()) {
+          return "Please type your custom Software Domain";
+        }
         if (form.hardwareDomain.length === 0) return "Select at least one hardware domain";
+        if (form.hardwareDomain.includes("Others") && !form.otherHardwareText.trim()) {
+          return "Please type your custom Hardware Domain";
+        }
         if (!/^https?:\/\/[\w.-]/.test(form.githubProfile.trim())) {
           return "Enter a valid GitHub profile URL";
         }
@@ -180,6 +223,23 @@ export function RegisterForm() {
       }
     }
     if (s === 4) {
+      if (form.sihParticipant) {
+        if (!form.sihParticipationYear.trim() || isNaN(Number(form.sihParticipationYear.trim()))) {
+          return "Enter a valid year of participation (e.g. 2024)";
+        }
+        if (!form.sihProblemStatement.trim()) {
+          return "Enter the problem statement chosen during participation";
+        }
+        if (!form.sihProjectRole.trim()) {
+          return "Enter your role in that project";
+        }
+        const needsNodal = ["Shortlisted for SIH", "Finalist", "Runners", "Winners"].includes(form.sihPositionReached);
+        if (needsNodal && !form.sihNodalCenter.trim()) {
+          return "Enter the Nodal Center where the competition was held";
+        }
+      }
+    }
+    if (s === 5) {
       if (!form.declared) return "You must declare that the information is true and complete to submit";
     }
     return null;
@@ -220,7 +280,7 @@ export function RegisterForm() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    const err = validateStep(4);
+    const err = validateStep(5);
     if (err) return toast("error", err);
 
     setBusy(true);
@@ -229,19 +289,29 @@ export function RegisterForm() {
       const supabase = assertSupabase();
       const registerNoUpper = form.registerNo.trim().toUpperCase();
 
+      const getFinalSoftwareDomainList = () => {
+        return form.softwareDomain.map(d => d === "Others" ? `Others: ${form.otherSoftwareText.trim()}` : d);
+      };
+      const getFinalHardwareDomainList = () => {
+        return form.hardwareDomain.map(d => d === "Others" ? `Others: ${form.otherHardwareText.trim()}` : d);
+      };
+
+      const finalSoftwareDomain = getFinalSoftwareDomainList().join(", ");
+      const finalHardwareDomain = getFinalHardwareDomainList().join(", ");
+
       let finalDomain = "";
       let finalGithub = "";
       let finalGithubRepo = "";
 
       if (form.projectType === "Hardware") {
-        finalDomain = form.hardwareDomain.join(", ");
+        finalDomain = finalHardwareDomain;
         finalGithub = form.githubProfile.trim();
       } else if (form.projectType === "Software") {
-        finalDomain = form.softwareDomain.join(", ");
+        finalDomain = finalSoftwareDomain;
         finalGithub = form.githubProfile.trim();
         finalGithubRepo = form.githubRepo.trim();
       } else if (form.projectType === "Hardware & Software") {
-        finalDomain = `SW: ${form.softwareDomain.join(", ")} | HW: ${form.hardwareDomain.join(", ")}`;
+        finalDomain = `SW: ${finalSoftwareDomain} | HW: ${finalHardwareDomain}`;
         finalGithub = form.githubProfile.trim();
         finalGithubRepo = form.githubRepo.trim();
       }
@@ -257,6 +327,7 @@ export function RegisterForm() {
         gender: form.gender,
         languages: form.languages,
         linkedin: form.linkedin.trim(),
+        resume_link: form.resumeLink.trim(),
         domain_interests: [
           ...form.domainInterests,
           ...(form.otherRolesText.trim() ? form.otherRolesText.split(",").map(r => r.trim()).filter(Boolean) : [])
@@ -267,11 +338,20 @@ export function RegisterForm() {
         project_description: form.projectDescription.trim(),
         youtube_link: form.youtubeLink.trim() || null,
         google_drive_ppt: form.googleDrivePpt.trim(),
-        software_domain: form.softwareDomain.join(", ") || null,
-        hardware_domain: form.hardwareDomain.join(", ") || null,
+        software_domain: finalSoftwareDomain || null,
+        hardware_domain: finalHardwareDomain || null,
         domain: finalDomain,
         github: finalGithub || null,
         github_repo: finalGithubRepo || null,
+        // SIH Questionnaire
+        sih_participant: form.sihParticipant,
+        sih_num_participations: form.sihParticipant ? Number(form.sihNumParticipations) : null,
+        sih_participation_year: form.sihParticipant && form.sihParticipationYear ? Number(form.sihParticipationYear) : null,
+        sih_problem_statement: form.sihParticipant ? form.sihProblemStatement.trim() : null,
+        sih_project_domain: form.sihParticipant ? form.sihProjectDomain : null,
+        sih_project_role: form.sihParticipant ? form.sihProjectRole.trim() : null,
+        sih_position_reached: form.sihParticipant ? form.sihPositionReached : null,
+        sih_nodal_center: (form.sihParticipant && ["Shortlisted for SIH", "Finalist", "Runners", "Winners"].includes(form.sihPositionReached)) ? form.sihNodalCenter.trim() : null,
       };
 
       const { data, error } = await supabase.auth.signUp({
@@ -543,15 +623,25 @@ export function RegisterForm() {
                       ))}
                     </div>
                   </Field>
-                  <Field label="LinkedIn profile URL" required>
-                    <Input
-                      type="url"
-                      value={form.linkedin}
-                      onChange={(e) => set("linkedin", e.target.value)}
-                      placeholder="https://www.linkedin.com/in/you"
-                      required={step === 2}
-                    />
-                  </Field>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Field label="LinkedIn profile URL (Optional)">
+                      <Input
+                        type="url"
+                        value={form.linkedin}
+                        onChange={(e) => set("linkedin", e.target.value)}
+                        placeholder="https://www.linkedin.com/in/you"
+                      />
+                    </Field>
+                    <Field label="Resume Link" required hint="Google Drive / OneDrive shared link">
+                      <Input
+                        type="url"
+                        value={form.resumeLink}
+                        onChange={(e) => set("resumeLink", e.target.value)}
+                        placeholder="https://drive.google.com/..."
+                        required={step === 2}
+                      />
+                    </Field>
+                  </div>
 
                   {/* Domain Interest 3-category multi-select */}
                   <Field label="Domain Interest" required hint="Select all roles that match your experience (multiple allowed)">
@@ -697,6 +787,17 @@ export function RegisterForm() {
                             </button>
                           ))}
                         </div>
+                        {form.hardwareDomain.includes("Others") && (
+                          <div className="mt-2">
+                            <Input
+                              type="text"
+                              value={form.otherHardwareText}
+                              onChange={(e) => set("otherHardwareText", e.target.value)}
+                              placeholder="Type custom hardware domain..."
+                              required={step === 3 && form.hardwareDomain.includes("Others")}
+                            />
+                          </div>
+                        )}
                         {form.hardwareDomain.length > 0 && (
                           <p className="mt-1 text-xs text-muted-foreground">{form.hardwareDomain.length} selected</p>
                         )}
@@ -735,6 +836,17 @@ export function RegisterForm() {
                             </button>
                           ))}
                         </div>
+                        {form.softwareDomain.includes("Others") && (
+                          <div className="mt-2">
+                            <Input
+                              type="text"
+                              value={form.otherSoftwareText}
+                              onChange={(e) => set("otherSoftwareText", e.target.value)}
+                              placeholder="Type custom software domain..."
+                              required={step === 3 && form.softwareDomain.includes("Others")}
+                            />
+                          </div>
+                        )}
                         {form.softwareDomain.length > 0 && (
                           <p className="mt-1 text-xs text-muted-foreground">{form.softwareDomain.length} selected</p>
                         )}
@@ -777,8 +889,106 @@ export function RegisterForm() {
                   )}
                 </div>
 
-                {/* Step 4: Review & declaration */}
+                {/* Step 4: SIH History Questionnaire */}
                 <div className={cn("w-full shrink-0 flex flex-col gap-4 transition-all duration-300", step !== 4 && "h-0 overflow-hidden opacity-0 pointer-events-none")}>
+                  <Field label="Have you participated in SIH (Smart India Hackathon) before?" required>
+                    <Select
+                      value={form.sihParticipant ? "Yes" : "No"}
+                      onChange={(e) => set("sihParticipant", e.target.value === "Yes")}
+                      required={step === 4}
+                    >
+                      <option value="No">No</option>
+                      <option value="Yes">Yes</option>
+                    </Select>
+                  </Field>
+
+                  {form.sihParticipant && (
+                    <div className="flex flex-col gap-4 animate-page-enter">
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <Field label="No. of times participated" required>
+                          <Select
+                            value={form.sihNumParticipations}
+                            onChange={(e) => set("sihNumParticipations", e.target.value)}
+                            required={step === 4 && form.sihParticipant}
+                          >
+                            <option value="1">1 time</option>
+                            <option value="2">2 times</option>
+                            <option value="3">3 times or more</option>
+                          </Select>
+                        </Field>
+                        <Field label="Year of Participation" required hint="e.g. 2024">
+                          <Input
+                            type="number"
+                            value={form.sihParticipationYear}
+                            onChange={(e) => set("sihParticipationYear", e.target.value)}
+                            placeholder="e.g. 2024"
+                            required={step === 4 && form.sihParticipant}
+                          />
+                        </Field>
+                      </div>
+
+                      <Field label="Problem Statement Chosen" required hint="The title or PS code you worked on">
+                        <Input
+                          value={form.sihProblemStatement}
+                          onChange={(e) => set("sihProblemStatement", e.target.value)}
+                          placeholder="e.g. Smart Traffic Management System (SIH1450)"
+                          required={step === 4 && form.sihParticipant}
+                        />
+                      </Field>
+
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <Field label="Project Domain" required>
+                          <Select
+                            value={form.sihProjectDomain}
+                            onChange={(e) => set("sihProjectDomain", e.target.value)}
+                            required={step === 4 && form.sihParticipant}
+                          >
+                            <option value="Software">Software</option>
+                            <option value="Hardware">Hardware</option>
+                            <option value="Both">Both (Hardware & Software)</option>
+                          </Select>
+                        </Field>
+                        <Field label="Role in that Project" required>
+                          <Input
+                            value={form.sihProjectRole}
+                            onChange={(e) => set("sihProjectRole", e.target.value)}
+                            placeholder="e.g. Frontend Developer / Team Leader"
+                            required={step === 4 && form.sihParticipant}
+                          />
+                        </Field>
+                      </div>
+
+                      <Field label="Position Reached" required>
+                        <Select
+                          value={form.sihPositionReached}
+                          onChange={(e) => set("sihPositionReached", e.target.value)}
+                          required={step === 4 && form.sihParticipant}
+                        >
+                          <option value="Participated">Participated</option>
+                          <option value="Shortlisted in Internal Hackathon">Shortlisted in Internal Hackathon</option>
+                          <option value="Shortlisted for SIH">Shortlisted for SIH (Main Round)</option>
+                          <option value="Finalist">Finalist</option>
+                          <option value="Runners">Runners</option>
+                          <option value="Winners">Winners</option>
+                        </Select>
+                      </Field>
+
+                      {["Shortlisted for SIH", "Finalist", "Runners", "Winners"].includes(form.sihPositionReached) && (
+                        <Field label="Nodal Center Name" required hint="Where the final SIH competition was hosted">
+                          <Input
+                            value={form.sihNodalCenter}
+                            onChange={(e) => set("sihNodalCenter", e.target.value)}
+                            placeholder="e.g. IIT Kharagpur / LPU Punjab"
+                            required={step === 4 && form.sihParticipant}
+                          />
+                        </Field>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Step 5: Review & declaration */}
+                <div className={cn("w-full shrink-0 flex flex-col gap-4 transition-all duration-300", step !== 5 && "h-0 overflow-hidden opacity-0 pointer-events-none")}>
                   <ReviewRow label="Name" value={form.name} />
                   <div className="grid gap-4 sm:grid-cols-2">
                     <ReviewRow label="Register No" value={form.registerNo} />
@@ -792,15 +1002,35 @@ export function RegisterForm() {
                     <ReviewRow label="Domain Interests" value={[...form.domainInterests, ...(form.otherRolesText.trim() ? [form.otherRolesText.trim()] : [])].join(", ")} />
                     <ReviewRow label="Project type" value={form.projectType} />
                   </div>
-                  <ReviewRow label="LinkedIn profile" value={form.linkedin} link />
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <ReviewRow label="LinkedIn profile" value={form.linkedin} link />
+                    <ReviewRow label="Resume Link" value={form.resumeLink} link />
+                  </div>
+
+                  {form.sihParticipant && (
+                    <div className="mt-2 border-t border-border/60 pt-4 flex flex-col gap-3 text-left">
+                      <p className="text-xs font-black uppercase tracking-wider text-purple-400">SIH Participation History</p>
+                      <div className="grid gap-4 sm:grid-cols-2 bg-muted/20 p-3 rounded-lg border border-border/40">
+                        <ReviewRow label="Times Participated" value={`${form.sihNumParticipations} time(s)`} />
+                        <ReviewRow label="Year of Participation" value={form.sihParticipationYear} />
+                        <ReviewRow label="Project Domain" value={form.sihProjectDomain} />
+                        <ReviewRow label="Role in Project" value={form.sihProjectRole} />
+                      </div>
+                      <ReviewRow label="Problem Statement" value={form.sihProblemStatement} />
+                      <ReviewRow label="Position Reached" value={form.sihPositionReached} />
+                      {["Shortlisted for SIH", "Finalist", "Runners", "Winners"].includes(form.sihPositionReached) && form.sihNodalCenter && (
+                        <ReviewRow label="Nodal Center" value={form.sihNodalCenter} />
+                      )}
+                    </div>
+                  )}
                   
                   {form.projectType && (
                     <div className="mt-2 border-t border-border/60 pt-4 flex flex-col gap-4">
                       <ReviewRow label="Project Title" value={form.projectTitle} />
                       <ReviewRow label="Project Description" value={form.projectDescription} />
                       <div className="grid gap-4 sm:grid-cols-2">
-                        {form.hardwareDomain.length > 0 && <ReviewRow label="Hardware Domain" value={form.hardwareDomain.join(", ")} />}
-                        {form.softwareDomain.length > 0 && <ReviewRow label="Software Domain" value={form.softwareDomain.join(", ")} />}
+                        {form.hardwareDomain.length > 0 && <ReviewRow label="Hardware Domain" value={form.hardwareDomain.map(d => d === "Others" ? `Others: ${form.otherHardwareText}` : d).join(", ")} />}
+                        {form.softwareDomain.length > 0 && <ReviewRow label="Software Domain" value={form.softwareDomain.map(d => d === "Others" ? `Others: ${form.otherSoftwareText}` : d).join(", ")} />}
                       </div>
                       <ReviewRow label="Google Drive PPT Link" value={form.googleDrivePpt} link />
                       {form.githubProfile && <ReviewRow label="GitHub Profile" value={form.githubProfile} link />}

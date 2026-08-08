@@ -292,7 +292,7 @@ export default function LandingPage() {
               </h1>
               <span className="reveal inline-flex items-center gap-2 rounded-full border border-[#c9a227]/50 bg-black/50 backdrop-blur-md px-4 py-1.5 text-sm font-semibold text-[#e8c058]">
                 <span className="size-2 rounded-full bg-[#e8c058] animate-pulse" />
-                Build your Winning SIH team ,Not your Stress
+                “The right team can turn a good idea into a winning solution.”
               </span>
 
 
@@ -536,7 +536,7 @@ export default function LandingPage() {
                 e.preventDefault();
                 navigate("/admin");
               }}
-              className="text-xs font-semibold text-[#dba328] hover:text-[#dba328]/80 transition-colors flex items-center gap-1.5"
+              className="text-xs font-semibold text-[#dba328]/30 hover:text-[#dba328] transition-colors flex items-center gap-1.5 opacity-40 hover:opacity-100"
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />

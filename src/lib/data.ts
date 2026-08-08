@@ -174,6 +174,11 @@ export const api = {
   verifyStudent: (userId: string, verified: boolean) =>
     rpc("verify_student", { p_user_id: userId, p_verified: verified }),
   deleteTeam: (teamId: string) => rpc("delete_team_admin", { p_team_id: teamId }),
+  adminAddMember: (teamId: string, memberId: string) =>
+    rpc("admin_add_member", { p_team_id: teamId, p_member_id: memberId }),
+  adminRemoveMember: (teamId: string, memberId: string) =>
+    rpc("admin_remove_member", { p_team_id: teamId, p_member_id: memberId }),
+  adminAutoAssign: () => rpc("admin_auto_assign", {}),
   upsertProblem: (input: {
     id?: string | null;
     title: string;
@@ -192,6 +197,20 @@ export const api = {
     rpc("delete_problem_admin", { p_problem_id: problemId }),
 };
 
+export async function getRegistrationOpen(): Promise<boolean> {
+  const supabase = assertSupabase();
+  const { data, error } = await supabase.rpc("get_registration_open");
+  if (error) return true; // fail-open
+  return data === true;
+}
+
+export async function setRegistrationOpen(open: boolean): Promise<ApiResult<null>> {
+  const supabase = assertSupabase();
+  const { error } = await supabase.rpc("set_registration_open", { p_open: open });
+  if (error) return { data: null, error: error.message };
+  return { data: null, error: null };
+}
+
 export function isConfigured(): boolean {
   return isSupabaseConfigured();
 }
@@ -204,73 +223,4 @@ export async function updateAvatarUrl(userId: string, url: string): Promise<ApiR
     .eq("id", userId);
   if (error) return { data: null, error: error.message };
   return { data: null, error: null };
-}
-
-// ── Admin: portal state ───────────────────────────────────────────────────────
-
-export async function getPortalState(): Promise<ApiResult<boolean>> {
-  const supabase = assertSupabase();
-  const { data, error } = await supabase.rpc("get_portal_state");
-  if (error) return { data: null, error: error.message };
-  return { data: data as boolean, error: null };
-}
-
-export async function setPortalState(open: boolean): Promise<ApiResult<null>> {
-  const supabase = assertSupabase();
-  const { error } = await supabase.rpc("set_portal_state", { p_open: open });
-  if (error) return { data: null, error: error.message };
-  return { data: null, error: null };
-}
-
-// ── Admin: auto-assign teams (matchmaker) ────────────────────────────────────
-
-export async function autoAssignTeams(): Promise<ApiResult<number>> {
-  const supabase = assertSupabase();
-  const { data, error } = await supabase.rpc("auto_assign_teams");
-  if (error) return { data: null, error: error.message };
-  return { data: data as number, error: null };
-}
-
-// ── Admin: add / remove individual team members ───────────────────────────────
-
-export async function adminAddMember(
-  teamId: string,
-  userId: string
-): Promise<ApiResult<null>> {
-  const supabase = assertSupabase();
-  const { error } = await supabase.rpc("admin_add_member", {
-    p_team_id: teamId,
-    p_user_id: userId,
-  });
-  if (error) return { data: null, error: error.message };
-  return { data: null, error: null };
-}
-
-export async function adminRemoveMember(
-  teamId: string,
-  userId: string
-): Promise<ApiResult<null>> {
-  const supabase = assertSupabase();
-  const { error } = await supabase.rpc("admin_remove_member", {
-    p_team_id: teamId,
-    p_user_id: userId,
-  });
-  if (error) return { data: null, error: error.message };
-  return { data: null, error: null };
-}
-
-// ── Admin: fetch all unassigned students ─────────────────────────────────────
-
-export async function fetchUnassignedProfiles(
-  assignedIds: Set<string>
-): Promise<ApiResult<Profile[]>> {
-  const supabase = assertSupabase();
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("role", "student")
-    .order("name");
-  if (error) return { data: null, error: error.message };
-  const unassigned = (data as Profile[]).filter((p) => !assignedIds.has(p.id));
-  return { data: unassigned, error: null };
 }

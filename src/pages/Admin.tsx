@@ -2,10 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend,
+} from "recharts";
 import { supabase } from "@/lib/supabase/client";
 import * as data from "@/lib/data";
 import { downloadCsv, cn } from "@/lib/utils";
-import { DEPARTMENTS } from "@/lib/constants";
+import { DEPARTMENTS, YEARS } from "@/lib/constants";
 import type { EnrichedTeam, Problem, Profile, Theme } from "@/lib/types";
 import { useToast } from "@/components/unlumen-ui/toast";
 import { Button } from "@/components/unlumen-ui/button";
@@ -15,156 +18,444 @@ import { Avatar } from "@/components/unlumen-ui/avatar";
 import { Input, Select } from "@/components/unlumen-ui/input";
 import { CollegeBrand } from "@/components/college-brand";
 
+// ─── Types ──────────────────────────────────────────────────────────────────
+
 type Tab = "students" | "teams" | "analytics" | "problems";
 
-// ── Tiny bar-chart component (no external dep) ───────────────────────────────
-function BarChart({ rows, color = "#c9a227" }: {
-  rows: { label: string; value: number }[];
-  color?: string;
+// ─── Chart colour palette ────────────────────────────────────────────────────
+
+const CHART_COLORS = [
+  "#6366f1", "#22d3ee", "#f59e0b", "#34d399", "#f87171",
+  "#a78bfa", "#fb923c", "#38bdf8", "#4ade80", "#e879f9",
+  "#facc15", "#2dd4bf", "#f472b6", "#818cf8", "#60a5fa",
+];
+
+// ─── Registration Toggle Banner ──────────────────────────────────────────────
+
+function RegistrationBanner({
+  open,
+  toggling,
+  onToggle,
+}: {
+  open: boolean;
+  toggling: boolean;
+  onToggle: () => void;
 }) {
-  const max = Math.max(...rows.map((r) => r.value), 1);
   return (
-    <div className="flex flex-col gap-2">
-      {rows.map((r) => (
-        <div key={r.label} className="flex items-center gap-3 text-xs">
-          <span className="w-44 shrink-0 truncate text-right text-muted-foreground" title={r.label}>
-            {r.label}
-          </span>
-          <div className="h-5 flex-1 overflow-hidden rounded-md bg-muted/40">
-            <div
-              className="h-full rounded-md transition-all duration-500"
-              style={{ width: `${(r.value / max) * 100}%`, background: color }}
-            />
-          </div>
-          <span className="w-6 shrink-0 tabular-nums font-semibold text-foreground">{r.value}</span>
+    <div
+      className={cn(
+        "flex flex-col gap-2 rounded-xl border px-5 py-4 transition-all sm:flex-row sm:items-center sm:justify-between",
+        open
+          ? "border-success/40 bg-success/8"
+          : "border-danger/40 bg-danger/8",
+      )}
+    >
+      <div className="flex items-center gap-3">
+        <span className={cn("size-2.5 rounded-full", open ? "bg-success animate-pulse" : "bg-danger")} />
+        <div>
+          <p className="text-sm font-bold">
+            Registration portal is currently{" "}
+            <span className={open ? "text-success" : "text-danger"}>
+              {open ? "OPEN" : "CLOSED"}
+            </span>
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {open
+              ? "Students can register and form teams."
+              : "New registrations are blocked. Existing data is preserved."}
+          </p>
         </div>
-      ))}
+      </div>
+      <Button
+        variant={open ? "danger" : "outline"}
+        loading={toggling}
+        onClick={onToggle}
+        className="shrink-0"
+      >
+        {open ? "Close registration" : "Reopen registration"}
+      </Button>
     </div>
   );
 }
 
-// ── Stat card ─────────────────────────────────────────────────────────────────
-function StatCard({ label, value, sub, accent = "ring" }: {
-  label: string; value: number | string; sub?: string; accent?: string;
-}) {
-  return (
-    <Card className="flex flex-col gap-1 p-4">
-      <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{label}</p>
-      <p className={`text-3xl font-black tabular-nums text-${accent}`}>{value}</p>
-      {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
-    </Card>
-  );
-}
 
-// ── Member management dialog ──────────────────────────────────────────────────
+// ─── Member Management Dialog ─────────────────────────────────────────────────
+
 function MemberDialog({
-  team, unassigned, onClose, onReload,
+  team,
+  allProfiles,
+  onClose,
+  onReload,
 }: {
   team: EnrichedTeam;
-  unassigned: Profile[];
+  allProfiles: Profile[];
   onClose: () => void;
   onReload: () => Promise<void>;
 }) {
   const toast = useToast();
+  const [q, setQ] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
 
-  const filtered = unassigned.filter((p) =>
-    `${p.name} ${p.register_no} ${p.department}`.toLowerCase().includes(search.toLowerCase())
-  );
+  const unassignedMatches = useMemo(() => {
+    const memberIds = new Set(team.members.map((m) => m.id));
+    const needle = q.trim().toLowerCase();
+    return allProfiles.filter((p) => {
+      if (p.role !== "student") return false;
+      if (memberIds.has(p.id)) return false;
+      if (!needle) return true;
+      return [p.name, p.register_no, p.department, p.email]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(needle);
+    });
+  }, [allProfiles, team.members, q]);
 
-  async function add(p: Profile) {
-    setBusy(p.id);
-    const res = await data.adminAddMember(team.team.id, p.id);
-    if (res.error) toast("error", res.error);
-    else { toast("success", `${p.name} added to ${team.team.name}`); await onReload(); }
+  async function addMember(profile: Profile) {
+    setBusy(profile.id);
+    const res = await data.api.adminAddMember(team.team.id, profile.id);
+    if (res.error) {
+      toast("error", res.error);
+    } else {
+      toast("success", `${profile.name} added to ${team.team.name}`);
+      await onReload();
+    }
     setBusy(null);
   }
 
-  async function remove(p: Profile) {
-    if (!window.confirm(`Remove ${p.name} from ${team.team.name}?`)) return;
-    setBusy(p.id);
-    const res = await data.adminRemoveMember(team.team.id, p.id);
-    if (res.error) toast("error", res.error);
-    else { toast("success", `${p.name} removed`); await onReload(); }
+  async function removeMember(profile: Profile) {
+    setBusy(profile.id);
+    const res = await data.api.adminRemoveMember(team.team.id, profile.id);
+    if (res.error) {
+      toast("error", res.error);
+    } else {
+      toast("success", `${profile.name} removed from ${team.team.name}`);
+      await onReload();
+    }
     setBusy(null);
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
-      onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
-        {/* header */}
-        <div className="flex items-center justify-between border-b border-border px-6 py-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <Card className="flex w-full max-w-2xl flex-col gap-0 overflow-hidden p-0 max-h-[90vh]">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <div>
-            <h2 className="text-lg font-bold">{team.team.name}</h2>
+            <h2 className="text-base font-bold">Manage members — {team.team.name}</h2>
             <p className="text-xs text-muted-foreground">
-              {team.members.length}/6 members · {team.stats.girlCount} female · {team.stats.deptCount} depts
+              {team.members.length}/6 members · {team.stats.girlCount} female · {team.stats.deptCount} dept
+              {team.stats.deptCount !== 1 ? "s" : ""}
             </p>
           </div>
-          <button onClick={onClose} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted/60 hover:text-foreground">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          <button
+            onClick={onClose}
+            className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+          >
+            ✕
           </button>
         </div>
 
-        <div className="flex flex-1 overflow-hidden divide-x divide-border">
-          {/* current members */}
-          <div className="flex w-1/2 flex-col overflow-hidden">
-            <p className="border-b border-border px-4 py-2.5 text-xs font-bold uppercase tracking-widest text-muted-foreground">Current members</p>
-            <div className="flex-1 overflow-y-auto">
+        <div className="flex flex-col gap-5 overflow-y-auto p-5">
+          {/* Current members */}
+          <div>
+            <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">
+              Current members
+            </h3>
+            {team.members.length === 0 && (
+              <p className="text-xs text-muted-foreground">No members yet.</p>
+            )}
+            <div className="flex flex-col gap-1.5">
               {team.members.map((m) => (
-                <div key={m.id} className="flex items-center justify-between gap-2 border-b border-border/60 px-4 py-2.5 last:border-0 hover:bg-muted/20">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <Avatar name={m.name} className="size-7 text-[9px] shrink-0" />
-                    <div className="min-w-0 leading-tight">
-                      <p className="truncate text-sm font-semibold">{m.name}
-                        {m.id === team.team.leader_id && <span className="ml-1 text-[10px] text-ring">Leader</span>}
+                <div
+                  key={m.id}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/20 px-3 py-2"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Avatar name={m.name} src={m.avatar_url} className="size-7 text-[9px]" />
+                    <div className="leading-tight">
+                      <p className="text-sm font-semibold">{m.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {m.department ?? "—"} · {m.year ?? "—"} · {m.gender ?? "—"}
                       </p>
-                      <p className="truncate text-[10px] text-muted-foreground">{m.department ?? "—"} · {m.gender}</p>
                     </div>
                   </div>
-                  <Button variant="danger" className="shrink-0 px-2 py-1 text-xs"
-                    loading={busy === m.id} onClick={() => remove(m)}>
-                    Remove
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    {m.id === team.team.leader_id && (
+                      <GlowingBadge variant="info" pulse={false}>Leader</GlowingBadge>
+                    )}
+                    {m.id !== team.team.leader_id && (
+                      <Button
+                        variant="danger"
+                        className="px-2.5 py-1 text-xs"
+                        loading={busy === m.id}
+                        onClick={() => removeMember(m)}
+                      >
+                        Remove
+                      </Button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* add members */}
-          <div className="flex w-1/2 flex-col overflow-hidden">
-            <div className="border-b border-border px-4 py-2.5">
-              <p className="mb-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">Add student</p>
-              <input value={search} onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search name, reg no…"
-                className="w-full rounded-lg border border-border bg-background/60 px-3 py-1.5 text-sm outline-none focus:border-ring/60" />
-            </div>
-            <div className="flex-1 overflow-y-auto">
-              {filtered.length === 0 && (
-                <p className="px-4 py-6 text-center text-xs text-muted-foreground">No unassigned students match.</p>
-              )}
-              {filtered.map((p) => (
-                <div key={p.id} className="flex items-center justify-between gap-2 border-b border-border/60 px-4 py-2.5 last:border-0 hover:bg-muted/20">
-                  <div className="min-w-0 leading-tight">
-                    <p className="truncate text-sm font-semibold">{p.name}</p>
-                    <p className="truncate text-[10px] text-muted-foreground">{p.register_no} · {p.department ?? "—"} · {p.gender}</p>
+          {/* Add members */}
+          {team.members.length < 6 && (
+            <div>
+              <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                Add student
+              </h3>
+              <Input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Search by name, register no, department…"
+                className="mb-3"
+              />
+              <div className="flex max-h-48 flex-col gap-1.5 overflow-y-auto">
+                {unassignedMatches.length === 0 && (
+                  <p className="text-xs text-muted-foreground">No students match.</p>
+                )}
+                {unassignedMatches.slice(0, 30).map((p) => (
+                  <div
+                    key={p.id}
+                    className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-2"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Avatar name={p.name} className="size-7 text-[9px]" />
+                      <div className="leading-tight">
+                        <p className="text-sm font-semibold">{p.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {p.register_no ?? "—"} · {p.department ?? "—"} · {p.gender ?? "—"}
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      className="px-2.5 py-1 text-xs"
+                      loading={busy === p.id}
+                      onClick={() => addMember(p)}
+                    >
+                      Add
+                    </Button>
                   </div>
-                  <Button variant="outline" className="shrink-0 px-2 py-1 text-xs"
-                    loading={busy === p.id} onClick={() => add(p)}>
-                    Add
-                  </Button>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
+          )}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+
+// ─── Analytics Tab ────────────────────────────────────────────────────────────
+
+function AnalyticsView({ profiles, teams }: { profiles: Profile[]; teams: EnrichedTeam[] }) {
+  const students = profiles.filter((p) => p.role === "student");
+
+  // By department
+  const byDept = useMemo(() => {
+    const counts: Record<string, number> = {};
+    students.forEach((s) => {
+      const d = s.department ?? "Unknown";
+      counts[d] = (counts[d] ?? 0) + 1;
+    });
+    return Object.entries(counts)
+      .map(([name, count]) => ({ name: name.replace(/ (Engineering|and)/g, " ").trim(), count }))
+      .sort((a, b) => b.count - a.count);
+  }, [students]);
+
+  // By year
+  const byYear = useMemo(() => {
+    const counts: Record<string, number> = { I: 0, II: 0, III: 0, IV: 0 };
+    students.forEach((s) => { if (s.year) counts[s.year] = (counts[s.year] ?? 0) + 1; });
+    return YEARS.map((y) => ({ name: `Year ${y}`, count: counts[y] ?? 0 }));
+  }, [students]);
+
+  // By project type
+  const byProject = useMemo(() => {
+    const counts: Record<string, number> = { Hardware: 0, Software: 0, Both: 0, "Not set": 0 };
+    students.forEach((s) => {
+      const k = s.project_type ?? "Not set";
+      counts[k] = (counts[k] ?? 0) + 1;
+    });
+    return Object.entries(counts)
+      .filter(([, v]) => v > 0)
+      .map(([name, value]) => ({ name, value }));
+  }, [students]);
+
+  // By gender
+  const byGender = useMemo(() => {
+    const counts: Record<string, number> = { Male: 0, Female: 0, Other: 0 };
+    students.forEach((s) => { const k = s.gender ?? "Other"; counts[k] = (counts[k] ?? 0) + 1; });
+    return Object.entries(counts).filter(([, v]) => v > 0).map(([name, value]) => ({ name, value }));
+  }, [students]);
+
+  // Team validity
+  const validCount = teams.filter((t) => t.stats.valid).length;
+  const invalidCount = teams.length - validCount;
+
+  const RADIAN = Math.PI / 180;
+  const renderLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }: {
+    cx: number; cy: number; midAngle: number; innerRadius: number; outerRadius: number; percent: number;
+  }) => {
+    const r = innerRadius + (outerRadius - innerRadius) * 0.5;
+    const x = cx + r * Math.cos(-midAngle * RADIAN);
+    const y = cy + r * Math.sin(-midAngle * RADIAN);
+    return percent > 0.04 ? (
+      <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={11} fontWeight={600}>
+        {`${(percent * 100).toFixed(0)}%`}
+      </text>
+    ) : null;
+  };
+
+  return (
+    <div className="flex flex-col gap-6">
+      {/* KPI row */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <MiniKpi label="Total students" value={students.length} color="text-primary" />
+        <MiniKpi label="Female" value={students.filter((s) => s.gender === "Female").length} color="text-pink-400" />
+        <MiniKpi label="Verified" value={students.filter((s) => s.verified).length} color="text-success" />
+        <MiniKpi label="In a team" value={teams.reduce((n, t) => n + t.members.length, 0)} color="text-accent" />
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Dept bar chart */}
+        <Card className="p-5">
+          <p className="mb-4 text-sm font-bold">Registrations by department</p>
+          <ResponsiveContainer width="100%" height={280}>
+            <BarChart data={byDept} layout="vertical" margin={{ left: 0, right: 20, top: 0, bottom: 0 }}>
+              <XAxis type="number" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} />
+              <YAxis
+                type="category"
+                dataKey="name"
+                width={130}
+                tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+              />
+              <Tooltip
+                contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }}
+                cursor={{ fill: "var(--muted)" }}
+              />
+              <Bar dataKey="count" radius={[0, 4, 4, 0]}>
+                {byDept.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </Card>
+
+        {/* Year bar chart */}
+        <Card className="p-5">
+          <p className="mb-4 text-sm font-bold">Registrations by year of study</p>
+          <ResponsiveContainer width="100%" height={280}>
+            <BarChart data={byYear} margin={{ left: 0, right: 20, top: 0, bottom: 0 }}>
+              <XAxis dataKey="name" tick={{ fontSize: 12, fill: "var(--muted-foreground)" }} />
+              <YAxis tick={{ fontSize: 12, fill: "var(--muted-foreground)" }} />
+              <Tooltip
+                contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }}
+                cursor={{ fill: "var(--muted)" }}
+              />
+              <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                {byYear.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </Card>
+
+        {/* Project type pie */}
+        <Card className="p-5">
+          <p className="mb-4 text-sm font-bold">Project type distribution</p>
+          <ResponsiveContainer width="100%" height={260}>
+            <PieChart>
+              <Pie
+                data={byProject}
+                dataKey="value"
+                nameKey="name"
+                cx="50%"
+                cy="50%"
+                outerRadius={100}
+                labelLine={false}
+                label={renderLabel}
+              >
+                {byProject.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+              </Pie>
+              <Tooltip
+                contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }}
+              />
+              <Legend iconType="circle" iconSize={10} wrapperStyle={{ fontSize: 12 }} />
+            </PieChart>
+          </ResponsiveContainer>
+        </Card>
+
+        {/* Gender + team validity */}
+        <div className="flex flex-col gap-6">
+          <Card className="p-5">
+            <p className="mb-4 text-sm font-bold">Gender breakdown</p>
+            <ResponsiveContainer width="100%" height={120}>
+              <PieChart>
+                <Pie
+                  data={byGender}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={50}
+                  labelLine={false}
+                  label={renderLabel}
+                >
+                  {byGender.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                </Pie>
+                <Tooltip
+                  contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }}
+                />
+                <Legend iconType="circle" iconSize={10} wrapperStyle={{ fontSize: 12 }} />
+              </PieChart>
+            </ResponsiveContainer>
+          </Card>
+
+          <Card className="p-5">
+            <p className="mb-3 text-sm font-bold">Team compliance status</p>
+            <div className="flex gap-4">
+              <div className="flex flex-col items-center gap-1">
+                <span className="text-3xl font-black text-success">{validCount}</span>
+                <span className="text-xs text-muted-foreground">Valid teams</span>
+              </div>
+              <div className="flex flex-col items-center gap-1">
+                <span className="text-3xl font-black text-warning">{invalidCount}</span>
+                <span className="text-xs text-muted-foreground">Incomplete teams</span>
+              </div>
+              <div className="flex flex-col items-center gap-1">
+                <span className="text-3xl font-black text-muted-foreground">{teams.length}</span>
+                <span className="text-xs text-muted-foreground">Total teams</span>
+              </div>
+            </div>
+            {teams.length > 0 && (
+              <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full bg-success transition-all"
+                  style={{ width: `${(validCount / teams.length) * 100}%` }}
+                />
+              </div>
+            )}
+          </Card>
         </div>
       </div>
     </div>
   );
 }
 
-// ── Main AdminPage ────────────────────────────────────────────────────────────
+function MiniKpi({ label, value, color }: { label: string; value: number; color: string }) {
+  return (
+    <Card className="p-4">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className={cn("mt-1 text-3xl font-black tabular-nums", color)}>{value}</p>
+    </Card>
+  );
+}
+
+
+// ─── Main AdminPage ───────────────────────────────────────────────────────────
+
 export default function AdminPage() {
   const navigate = useNavigate();
   const toast = useToast();
@@ -174,8 +465,11 @@ export default function AdminPage() {
   const [teams, setTeams] = useState<EnrichedTeam[]>([]);
   const [problems, setProblems] = useState<Problem[]>([]);
   const [themes, setThemes] = useState<Theme[]>([]);
-  const [portalOpen, setPortalOpen] = useState(true);
   const [loading, setLoading] = useState(true);
+
+  // Registration toggle
+  const [regOpen, setRegOpen] = useState(true);
+  const [toggling, setToggling] = useState(false);
 
   // Filters
   const [q, setQ] = useState("");
@@ -183,32 +477,32 @@ export default function AdminPage() {
   const [gender, setGender] = useState("");
   const [verified, setVerified] = useState("all");
 
-  // Busy flags
+  // Action states
   const [promoting, setPromoting] = useState<string | null>(null);
   const [verifying, setVerifying] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
-  const [matching, setMatching] = useState(false);
-  const [togglingPortal, setTogglingPortal] = useState(false);
+  const [autoAssigning, setAutoAssigning] = useState(false);
 
-  // Member management dialog
-  const [dialogTeam, setDialogTeam] = useState<EnrichedTeam | null>(null);
-  const [unassigned, setUnassigned] = useState<Profile[]>([]);
+  // Member dialog
+  const [memberDialogTeam, setMemberDialogTeam] = useState<EnrichedTeam | null>(null);
 
   const load = useCallback(async () => {
-    const [profilesRes, teamsRes, problemsRes, themesRes, portalRes] = await Promise.all([
+    const [profilesRes, teamsRes, problemsRes, themesRes, regOpenRes] = await Promise.all([
       data.fetchAllProfiles(),
       data.fetchEnrichedTeams(),
       data.fetchProblems(),
       data.fetchThemes(),
-      data.getPortalState(),
+      data.getRegistrationOpen(),
     ]);
     if (profilesRes.error) toast("error", profilesRes.error);
     if (teamsRes.error) toast("error", teamsRes.error);
+    if (problemsRes.error) toast("error", problemsRes.error);
+    if (themesRes.error) toast("error", themesRes.error);
     setProfiles(profilesRes.data ?? []);
     setTeams(teamsRes.data ?? []);
     setProblems(problemsRes.data ?? []);
     setThemes(themesRes.data ?? []);
-    setPortalOpen(portalRes.data ?? true);
+    setRegOpen(regOpenRes);
   }, [toast]);
 
   useEffect(() => {
@@ -226,12 +520,7 @@ export default function AdminPage() {
     })();
   }, [navigate, toast, load]);
 
-  // recompute unassigned whenever teams/profiles change
-  useEffect(() => {
-    const assignedIds = new Set(teams.flatMap((t) => t.members.map((m) => m.id)));
-    setUnassigned(profiles.filter((p) => p.role === "student" && !assignedIds.has(p.id)));
-  }, [teams, profiles]);
-
+  // ── Filtered students ──
   const students = useMemo(() => {
     const list = profiles.filter((p) => p.role === "student");
     const needle = q.trim().toLowerCase();
@@ -241,47 +530,44 @@ export default function AdminPage() {
       if (verified === "verified" && !p.verified) return false;
       if (verified === "unverified" && p.verified) return false;
       if (!needle) return true;
-      return [p.name, p.register_no, p.email, p.phone, p.section, p.year]
+      return [p.name, p.register_no, p.email, p.phone, p.section, p.year, (p.languages ?? []).join(" ")]
         .filter(Boolean).join(" ").toLowerCase().includes(needle);
     });
   }, [profiles, q, dept, gender, verified]);
 
   const problemMap = useMemo(() => new Map(problems.map((p) => [p.id, p.title])), [problems]);
+
   const validTeams = teams.filter((t) => t.stats.valid).length;
-  const verifiedCount = students.filter((s) => s.verified).length;
+  const assignedIds = useMemo(() => new Set(teams.flatMap((t) => t.members.map((m) => m.id))), [teams]);
+  const unassigned = profiles.filter((p) => p.role === "student" && !assignedIds.has(p.id)).length;
+  const verifiedCount = profiles.filter((p) => p.role === "student" && p.verified).length;
 
-  // ── Analytics data ─────────────────────────────────────────────────────────
-  const byDept = useMemo(() => {
-    const map = new Map<string, number>();
-    students.forEach((s) => {
-      const k = s.department ?? "Unknown";
-      map.set(k, (map.get(k) ?? 0) + 1);
-    });
-    return [...map.entries()]
-      .map(([label, value]) => ({ label, value }))
-      .sort((a, b) => b.value - a.value);
-  }, [students]);
+  // ── Actions ──
+  async function toggleRegistration() {
+    setToggling(true);
+    const res = await data.setRegistrationOpen(!regOpen);
+    if (res.error) {
+      toast("error", res.error);
+    } else {
+      setRegOpen(!regOpen);
+      toast("success", !regOpen ? "Registration reopened" : "Registration closed");
+    }
+    setToggling(false);
+  }
 
-  const byYear = useMemo(() => {
-    const map = new Map<string, number>();
-    ["I", "II", "III", "IV"].forEach((y) => map.set(y, 0));
-    students.forEach((s) => { const k = s.year ?? "Unknown"; map.set(k, (map.get(k) ?? 0) + 1); });
-    return [...map.entries()].map(([label, value]) => ({ label, value }));
-  }, [students]);
+  async function autoAssign() {
+    if (!window.confirm(`Auto-assign ${unassigned} unassigned students into new teams of up to 6? This will create new teams.`)) return;
+    setAutoAssigning(true);
+    const res = await data.api.adminAutoAssign();
+    if (res.error) {
+      toast("error", res.error);
+    } else {
+      toast("success", "Auto-assignment complete — teams created");
+      await load();
+    }
+    setAutoAssigning(false);
+  }
 
-  const byProject = useMemo(() => {
-    const map = new Map<string, number>([["Hardware", 0], ["Software", 0], ["Both", 0], ["Unknown", 0]]);
-    students.forEach((s) => { const k = s.project_type ?? "Unknown"; map.set(k, (map.get(k) ?? 0) + 1); });
-    return [...map.entries()].map(([label, value]) => ({ label, value })).filter((r) => r.value > 0);
-  }, [students]);
-
-  const byGender = useMemo(() => {
-    let m = 0, f = 0;
-    students.forEach((s) => { if (s.gender === "Female") f++; else m++; });
-    return [{ label: "Male", value: m }, { label: "Female", value: f }];
-  }, [students]);
-
-  // ── Actions ────────────────────────────────────────────────────────────────
   async function promote(phone: string, name: string) {
     setPromoting(phone);
     const res = await data.api.promoteAdmin(phone);
@@ -294,7 +580,7 @@ export default function AdminPage() {
     setVerifying(p.id);
     const res = await data.api.verifyStudent(p.id, !p.verified);
     if (res.error) toast("error", res.error);
-    else { toast("success", p.verified ? `Verification removed` : `${p.name} verified`); await load(); }
+    else { toast("success", p.verified ? `Verification removed for ${p.name}` : `${p.name} verified`); await load(); }
     setVerifying(null);
   }
 
@@ -307,33 +593,22 @@ export default function AdminPage() {
     setDeleting(null);
   }
 
-  async function runMatchmaker() {
-    if (!window.confirm(`Auto-assign all ${unassigned.length} unassigned students into teams?\nThis cannot be undone.`)) return;
-    setMatching(true);
-    const res = await data.autoAssignTeams();
-    if (res.error) toast("error", res.error);
-    else { toast("success", `Created ${res.data} new team${res.data === 1 ? "" : "s"}`); await load(); }
-    setMatching(false);
+  async function logout() {
+    await supabase!.auth.signOut();
+    navigate("/", { replace: true });
   }
 
-  async function togglePortal() {
-    setTogglingPortal(true);
-    const res = await data.setPortalState(!portalOpen);
-    if (res.error) toast("error", res.error);
-    else { setPortalOpen((v) => !v); toast("success", !portalOpen ? "Registration reopened" : "Registration closed"); }
-    setTogglingPortal(false);
-  }
-
+  // ── Export helpers ──
   function exportStudents() {
-    downloadCsv("sih2026-students.csv",
+    downloadCsv(
+      "sih2026-students.csv",
       students.map((s) => ({
         name: s.name, register_no: s.register_no ?? "", email: s.email ?? "",
         phone: s.phone ?? "", department: s.department ?? "", year: s.year ?? "",
         section: s.section ?? "", gender: s.gender ?? "",
-        languages: s.languages.join(" | "), linkedin: s.linkedin ?? "",
+        languages: (s.languages ?? []).join(" | "), linkedin: s.linkedin ?? "",
         project_type: s.project_type ?? "", project_title: s.project_title ?? "",
-        domain: s.domain ?? "", verified: s.verified ? "Yes" : "No",
-        created_at: s.created_at,
+        verified: s.verified ? "Yes" : "No", created_at: s.created_at,
       })),
       [
         { key: "name", label: "Name" }, { key: "register_no", label: "Register No" },
@@ -342,283 +617,207 @@ export default function AdminPage() {
         { key: "section", label: "Section" }, { key: "gender", label: "Gender" },
         { key: "languages", label: "Languages" }, { key: "linkedin", label: "LinkedIn" },
         { key: "project_type", label: "Project Type" }, { key: "project_title", label: "Project Title" },
-        { key: "domain", label: "Domain" }, { key: "verified", label: "Verified" },
-        { key: "created_at", label: "Registered On" },
+        { key: "verified", label: "Verified" }, { key: "created_at", label: "Registered On" },
       ]
     );
   }
 
   function exportTeams() {
-    downloadCsv("sih2026-teams.csv",
-      teams.map((t) => ({
-        name: t.team.name, leader: t.leader?.name ?? "",
-        members: t.members.map((m) => m.name).join(" | "),
-        member_nos: t.members.map((m) => m.register_no ?? "").join(" | "),
-        member_count: t.stats.memberCount, departments: t.stats.deptCount,
-        female: t.stats.girlCount, valid: t.stats.valid ? "Yes" : "No",
-        reason: t.stats.reason ?? "",
+    const rows = teams.flatMap((t) =>
+      t.members.map((m) => ({
+        team_name: t.team.name,
+        leader: t.leader?.name ?? "",
+        member_name: m.name,
+        register_no: m.register_no ?? "",
+        email: m.email ?? "",
+        department: m.department ?? "",
+        year: m.year ?? "",
+        gender: m.gender ?? "",
+        team_valid: t.stats.valid ? "Yes" : "No",
+        compliance_issue: t.stats.reason ?? "",
         problem: problemMap.get(t.team.problem_id ?? "") ?? "",
-      })),
+      }))
+    );
+    downloadCsv(
+      "sih2026-teams.csv",
+      rows,
       [
-        { key: "name", label: "Team Name" }, { key: "leader", label: "Leader" },
-        { key: "members", label: "Members" }, { key: "member_nos", label: "Register Numbers" },
-        { key: "member_count", label: "Count" }, { key: "departments", label: "Depts" },
-        { key: "female", label: "Female" }, { key: "valid", label: "Valid" },
-        { key: "reason", label: "Reason" }, { key: "problem", label: "Problem Statement" },
+        { key: "team_name", label: "Team Name" }, { key: "leader", label: "Leader" },
+        { key: "member_name", label: "Member" }, { key: "register_no", label: "Register No" },
+        { key: "email", label: "Email" }, { key: "department", label: "Department" },
+        { key: "year", label: "Year" }, { key: "gender", label: "Gender" },
+        { key: "team_valid", label: "Valid" }, { key: "compliance_issue", label: "Compliance Issue" },
+        { key: "problem", label: "Problem Statement" },
       ]
     );
   }
 
-  async function logout() {
-    await supabase!.auth.signOut();
-    navigate("/", { replace: true });
-  }
+  const TAB_LABELS: Record<Tab, string> = {
+    students: `Students (${profiles.filter((p) => p.role === "student").length})`,
+    teams: `Teams (${teams.length})`,
+    analytics: "Analytics",
+    problems: "Problems",
+  };
 
-  const TABS: { id: Tab; label: string }[] = [
-    { id: "students", label: `Students (${students.length})` },
-    { id: "teams",    label: `Teams (${teams.length})` },
-    { id: "analytics", label: "Analytics" },
-    { id: "problems", label: "Problems" },
-  ];
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-5 pb-16">
-      {dialogTeam && (
+    <>
+      {memberDialogTeam && (
         <MemberDialog
-          team={dialogTeam}
-          unassigned={unassigned}
-          onClose={() => setDialogTeam(null)}
+          team={memberDialogTeam}
+          allProfiles={profiles}
+          onClose={() => setMemberDialogTeam(null)}
           onReload={async () => { await load(); }}
         />
       )}
 
-      {/* ── Header ── */}
-      <header className="sticky top-0 z-40 -mx-5 mb-6 border-b border-border bg-background/90 px-5 backdrop-blur">
-        <div className="flex h-16 items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <CollegeBrand />
-            <div className="hidden leading-tight sm:block">
-              <p className="text-sm font-bold tracking-tight">Admin Panel</p>
-              <p className="text-xs text-muted-foreground">SIH 2026 · control centre</p>
+      <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-5 pb-16">
+        {/* ── Header ── */}
+        <header className="sticky top-0 z-40 -mx-5 mb-6 border-b border-border bg-background/80 px-5 backdrop-blur">
+          <div className="flex h-16 items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <CollegeBrand />
+              <div className="leading-tight">
+                <p className="text-sm font-bold tracking-tight">Admin control</p>
+                <p className="text-xs text-muted-foreground">SIH 2026 · registrations &amp; teams</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={() => navigate("/dashboard")}>Dashboard</Button>
+              <Button variant="danger" onClick={logout} className="px-3 py-2">Log out</Button>
             </div>
           </div>
 
-          {/* Portal toggle */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={togglePortal}
-              disabled={togglingPortal}
-              className={cn(
-                "flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-bold transition-all",
-                portalOpen
-                  ? "border-success/40 bg-success/10 text-success hover:bg-success/20"
-                  : "border-danger/40 bg-danger/10 text-danger hover:bg-danger/20"
-              )}
-            >
-              <span className={cn("size-2 rounded-full", portalOpen ? "bg-success animate-pulse" : "bg-danger")} />
-              {togglingPortal ? "Updating…" : portalOpen ? "Registration OPEN" : "Registration CLOSED"}
-            </button>
-            <Button variant="outline" onClick={() => navigate("/dashboard")} className="hidden sm:inline-flex">Dashboard</Button>
-            <Button variant="danger" onClick={logout} className="px-3 py-2">Log out</Button>
+          <div className="flex gap-1 pb-3">
+            {(Object.keys(TAB_LABELS) as Tab[]).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setTab(t)}
+                className={cn(
+                  "rounded-lg px-4 py-1.5 text-sm font-semibold transition-all",
+                  tab === t
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                )}
+              >
+                {TAB_LABELS[t]}
+              </button>
+            ))}
           </div>
-        </div>
+        </header>
 
-        {/* Tab bar */}
-        <div className="flex gap-1 pb-3">
-          {TABS.map((t) => (
-            <button key={t.id} type="button" onClick={() => setTab(t.id)}
-              className={cn("rounded-lg px-4 py-1.5 text-sm font-semibold transition-all",
-                tab === t.id ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-              )}>
-              {t.label}
-            </button>
-          ))}
-        </div>
-      </header>
+        {loading ? (
+          <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">Loading…</div>
+        ) : (
+          <div className="flex flex-col gap-6">
+            {/* ── Registration toggle banner (always visible) ── */}
+            <RegistrationBanner open={regOpen} toggling={toggling} onToggle={toggleRegistration} />
 
-      {loading ? (
-        <div className="flex flex-1 items-center justify-center">
-          <span className="size-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        </div>
-      ) : (
-        <div className="flex flex-col gap-6">
+            {/* ── Stat cards ── */}
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+              <StatCard label="Students" value={profiles.filter((p) => p.role === "student").length} accent="ring" />
+              <StatCard label="Verified" value={verifiedCount} accent="success" />
+              <StatCard label="Pending" value={profiles.filter((p) => p.role === "student").length - verifiedCount} accent="warning" />
+              <StatCard label="Teams" value={teams.length} accent="accent" />
+              <StatCard label="Valid teams" value={validTeams} accent="success" />
+              <StatCard label="Unassigned" value={unassigned} accent="warning" />
+            </div>
 
-          {/* ── Stat cards ── */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
-            <StatCard label="Students" value={students.length} accent="ring" />
-            <StatCard label="Verified" value={verifiedCount} accent="success" />
-            <StatCard label="Pending" value={students.length - verifiedCount} accent="warning" />
-            <StatCard label="Teams" value={teams.length} accent="accent" />
-            <StatCard label="Valid teams" value={validTeams} accent="success" />
-            <StatCard label="Unassigned" value={unassigned.length} accent="warning" sub="not in any team" />
-          </div>
-
-          {/* ── Students tab ── */}
-          {tab === "students" && (
-            <Card className="overflow-hidden p-0">
-              <div className="flex flex-col gap-3 border-b border-border px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
-                <h3 className="text-base font-bold">Student registrations</h3>
-                <div className="flex flex-wrap gap-2">
-                  <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name / reg no / email…" className="w-56" />
-                  <Select value={dept} onChange={(e) => setDept(e.target.value)} className="w-48">
-                    <option value="">All departments</option>
-                    {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
-                  </Select>
-                  <Select value={gender} onChange={(e) => setGender(e.target.value)} className="w-32">
-                    <option value="">All genders</option>
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                  </Select>
-                  <Select value={verified} onChange={(e) => setVerified(e.target.value)} className="w-36">
-                    <option value="all">All statuses</option>
-                    <option value="verified">Verified</option>
-                    <option value="unverified">Unverified</option>
-                  </Select>
-                  <Button variant="outline" onClick={exportStudents}>⬇ Export CSV</Button>
-                </div>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[1100px] text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-border text-[11px] uppercase tracking-wider text-muted-foreground">
-                      {["Student", "Register No", "Dept · Yr · Sec", "Gender", "Languages", "Project", "Status", "Actions"].map((h) => (
-                        <th key={h} className="px-5 py-3 font-semibold">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {students.length === 0 && (
-                      <tr><td colSpan={8} className="px-5 py-10 text-center text-sm text-muted-foreground">No registrations match.</td></tr>
-                    )}
-                    {students.map((s) => (
-                      <tr key={s.id} className="border-b border-border/60 last:border-0 hover:bg-muted/20">
-                        <td className="px-5 py-3">
-                          <div className="flex items-center gap-2.5">
-                            <Avatar name={s.name} className="size-8 shrink-0 text-[10px]" />
-                            <div className="leading-tight">
-                              <p className="font-semibold">{s.name}</p>
-                              <p className="text-xs text-muted-foreground">{s.email ?? "—"}</p>
-                              <p className="text-xs text-muted-foreground">{s.phone ?? "—"}</p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-5 py-3 font-mono text-xs text-muted-foreground">{s.register_no ?? "—"}</td>
-                        <td className="px-5 py-3 text-xs text-muted-foreground">
-                          <p className="max-w-[160px] truncate">{s.department ?? "—"}</p>
-                          <p className="text-muted-foreground/70">Yr {s.year ?? "—"} · Sec {s.section ?? "—"}</p>
-                        </td>
-                        <td className="px-5 py-3 text-muted-foreground">{s.gender ?? "—"}</td>
-                        <td className="px-5 py-3">
-                          <div className="flex flex-wrap gap-1">
-                            {s.languages.length === 0 ? <span className="text-xs text-muted-foreground">—</span>
-                              : s.languages.map((l) => (
-                                <span key={l} className="rounded border border-border bg-muted/40 px-1.5 py-0.5 text-[10px] text-muted-foreground">{l}</span>
-                              ))}
-                          </div>
-                        </td>
-                        <td className="px-5 py-3">
-                          <p className="text-xs text-muted-foreground">{s.project_type ?? "—"}</p>
-                          {s.project_title && <p className="max-w-[140px] truncate text-[10px] text-muted-foreground/70">{s.project_title}</p>}
-                        </td>
-                        <td className="px-5 py-3">
-                          {s.verified
-                            ? <GlowingBadge variant="success" pulse={false}>Verified</GlowingBadge>
-                            : <GlowingBadge variant="warning" pulse={false}>Pending</GlowingBadge>}
-                        </td>
-                        <td className="px-5 py-3">
-                          <div className="flex flex-wrap gap-1.5">
-                            <Button variant="outline" className="px-2.5 py-1 text-xs" loading={verifying === s.id} onClick={() => toggleVerify(s)}>
-                              {s.verified ? "Unverify" : "Verify"}
-                            </Button>
-                            {s.role === "admin"
-                              ? <GlowingBadge variant="info" pulse={false}>Admin</GlowingBadge>
-                              : <Button variant="outline" className="px-2.5 py-1 text-xs" loading={promoting === s.phone} onClick={() => promote(s.phone ?? "", s.name)}>Promote</Button>}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
-          )}
-
-          {/* ── Teams tab ── */}
-          {tab === "teams" && (
-            <div className="flex flex-col gap-4">
-              {/* Matchmaker panel */}
-              <Card className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between border-2 border-primary/20 bg-primary/5">
-                <div>
-                  <p className="font-bold text-primary">Mentor Auto-Matchmaker</p>
-                  <p className="mt-0.5 text-sm text-muted-foreground">
-                    <span className="font-semibold text-warning">{unassigned.length} students</span> are not in any team.
-                    Auto-assign them into balanced groups of up to 6 (≥ 2 female, ≥ 2 departments).
-                  </p>
-                </div>
-                <Button
-                  onClick={runMatchmaker}
-                  loading={matching}
-                  disabled={unassigned.length === 0}
-                  className="shrink-0 bg-primary/90 hover:bg-primary text-primary-foreground"
-                >
-                  ⚡ Auto-assign teams
-                </Button>
-              </Card>
-
+            {/* ── Students tab ── */}
+            {tab === "students" && (
               <Card className="overflow-hidden p-0">
-                <div className="flex items-center justify-between border-b border-border px-5 py-4">
-                  <h3 className="text-base font-bold">All teams</h3>
-                  <Button variant="outline" onClick={exportTeams}>⬇ Export CSV</Button>
+                <div className="flex flex-col gap-3 border-b border-border px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
+                  <h3 className="text-base font-bold">Student registrations</h3>
+                  <div className="flex flex-wrap gap-2">
+                    <Input
+                      value={q} onChange={(e) => setQ(e.target.value)}
+                      placeholder="Search name, reg no, email…" className="w-full sm:w-56"
+                    />
+                    <Select value={dept} onChange={(e) => setDept(e.target.value)} className="w-full sm:w-48">
+                      <option value="">All departments</option>
+                      {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
+                    </Select>
+                    <Select value={gender} onChange={(e) => setGender(e.target.value)} className="w-full sm:w-36">
+                      <option value="">All genders</option>
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                    </Select>
+                    <Select value={verified} onChange={(e) => setVerified(e.target.value)} className="w-full sm:w-40">
+                      <option value="all">All statuses</option>
+                      <option value="verified">Verified</option>
+                      <option value="unverified">Unverified</option>
+                    </Select>
+                    <Button variant="outline" onClick={exportStudents}>Export CSV</Button>
+                  </div>
                 </div>
+
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[900px] text-left text-sm">
+                  <table className="w-full min-w-[1000px] text-left text-sm">
                     <thead>
-                      <tr className="border-b border-border text-[11px] uppercase tracking-wider text-muted-foreground">
-                        {["Team", "Members", "Depts", "Female", "Problem", "Status", "Actions"].map((h) => (
-                          <th key={h} className="px-5 py-3 font-semibold">{h}</th>
-                        ))}
+                      <tr className="border-b border-border text-xs uppercase tracking-wider text-muted-foreground">
+                        <th className="px-5 py-3 font-semibold">Student</th>
+                        <th className="px-5 py-3 font-semibold">Register No</th>
+                        <th className="px-5 py-3 font-semibold">Dept · Year · Sec</th>
+                        <th className="px-5 py-3 font-semibold">Gender</th>
+                        <th className="px-5 py-3 font-semibold">Languages</th>
+                        <th className="px-5 py-3 font-semibold">Project</th>
+                        <th className="px-5 py-3 font-semibold">Status</th>
+                        <th className="px-5 py-3 font-semibold">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {teams.length === 0 && (
-                        <tr><td colSpan={7} className="px-5 py-10 text-center text-sm text-muted-foreground">No teams yet.</td></tr>
-                      )}
-                      {teams.map((t) => (
-                        <tr key={t.team.id} className="border-b border-border/60 last:border-0 hover:bg-muted/20">
-                          <td className="px-5 py-3">
-                            <p className="font-semibold">{t.team.name}</p>
-                            <p className="text-xs text-muted-foreground">Leader · {t.leader?.name ?? "—"}</p>
+                      {students.length === 0 && (
+                        <tr>
+                          <td colSpan={8} className="px-5 py-10 text-center text-sm text-muted-foreground">
+                            No registrations match your filters.
                           </td>
+                        </tr>
+                      )}
+                      {students.map((s) => (
+                        <tr key={s.id} className="border-b border-border/60 last:border-0 hover:bg-muted/20">
                           <td className="px-5 py-3">
-                            <div className="flex items-center gap-2">
-                              <div className="flex -space-x-2">
-                                {t.members.slice(0, 5).map((m) => (
-                                  <Avatar key={m.id} name={m.name} className="size-7 text-[9px] ring-2 ring-background" />
-                                ))}
+                            <div className="flex items-center gap-2.5">
+                              <Avatar name={s.name} src={s.avatar_url} className="size-8 text-[10px]" />
+                              <div className="leading-tight">
+                                <p className="font-semibold">{s.name}</p>
+                                <p className="text-xs text-muted-foreground">{s.email ?? "—"}</p>
+                                <p className="text-xs text-muted-foreground">{s.phone ?? "—"}</p>
                               </div>
-                              <span className="text-xs text-muted-foreground">{t.members.length}/6</span>
                             </div>
                           </td>
-                          <td className="px-5 py-3 tabular-nums text-muted-foreground">{t.stats.deptCount}</td>
-                          <td className="px-5 py-3 tabular-nums text-muted-foreground">{t.stats.girlCount}</td>
-                          <td className="max-w-[200px] px-5 py-3 text-xs text-muted-foreground truncate">
-                            {problemMap.get(t.team.problem_id ?? "") ?? "—"}
+                          <td className="px-5 py-3 font-mono text-xs text-muted-foreground">{s.register_no ?? "—"}</td>
+                          <td className="px-5 py-3 text-muted-foreground">
+                            {s.department ?? "—"}
+                            {s.year && <span className="text-xs text-muted-foreground/70"> · Yr {s.year}</span>}
+                            {s.section && <span className="text-xs text-muted-foreground/70"> · Sec {s.section}</span>}
+                          </td>
+                          <td className="px-5 py-3 text-muted-foreground">{s.gender ?? "—"}</td>
+                          <td className="px-5 py-3">
+                            <div className="flex max-w-[180px] flex-wrap gap-1">
+                              {(s.languages ?? []).length === 0
+                                ? <span className="text-xs text-muted-foreground">—</span>
+                                : (s.languages ?? []).map((l) => (
+                                    <span key={l} className="rounded border border-border bg-muted/40 px-1.5 py-0.5 text-[10px] text-muted-foreground">{l}</span>
+                                  ))
+                              }
+                            </div>
+                          </td>
+                          <td className="px-5 py-3 text-muted-foreground">{s.project_type ?? "—"}</td>
+                          <td className="px-5 py-3">
+                            {s.verified
+                              ? <GlowingBadge variant="success" pulse={false}>Verified</GlowingBadge>
+                              : <GlowingBadge variant="warning" pulse={false}>Pending</GlowingBadge>}
                           </td>
                           <td className="px-5 py-3">
-                            {t.stats.valid
-                              ? <GlowingBadge variant="success" pulse={false}>Valid</GlowingBadge>
-                              : <GlowingBadge variant="warning" pulse={false} title={t.stats.reason}>Invalid</GlowingBadge>}
-                          </td>
-                          <td className="px-5 py-3">
-                            <div className="flex gap-1.5">
-                              <Button variant="outline" className="px-2.5 py-1 text-xs"
-                                onClick={() => setDialogTeam(t)}>
-                                Manage
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <Button variant="outline" className="px-2.5 py-1 text-xs" loading={verifying === s.id} onClick={() => toggleVerify(s)}>
+                                {s.verified ? "Unverify" : "Verify"}
                               </Button>
-                              <Button variant="danger" className="px-2.5 py-1 text-xs"
-                                loading={deleting === t.team.id} onClick={() => deleteTeam(t)}>
-                                Delete
-                              </Button>
+                              {s.role === "admin"
+                                ? <GlowingBadge variant="info" pulse={false}>Admin</GlowingBadge>
+                                : <Button variant="outline" className="px-2.5 py-1 text-xs" loading={promoting === s.phone} onClick={() => promote(s.phone ?? "", s.name)}>Promote</Button>
+                              }
                             </div>
                           </td>
                         </tr>
@@ -627,54 +826,139 @@ export default function AdminPage() {
                   </table>
                 </div>
               </Card>
-            </div>
-          )}
+            )}
 
-          {/* ── Analytics tab ── */}
-          {tab === "analytics" && (
-            <div className="grid gap-5 md:grid-cols-2">
-              <Card className="p-5">
-                <h3 className="mb-4 text-base font-bold">Registrations by Department</h3>
-                <BarChart rows={byDept} color="#c9a227" />
-              </Card>
-              <Card className="p-5">
-                <h3 className="mb-4 text-base font-bold">Registrations by Year</h3>
-                <BarChart rows={byYear} color="#6d7bdd" />
-              </Card>
-              <Card className="p-5">
-                <h3 className="mb-4 text-base font-bold">Project Type Distribution</h3>
-                <BarChart rows={byProject} color="#34d399" />
-              </Card>
-              <Card className="p-5">
-                <h3 className="mb-4 text-base font-bold">Gender Distribution</h3>
-                <BarChart rows={byGender} color="#f472b6" />
-                <div className="mt-5 grid grid-cols-2 gap-3">
-                  {byGender.map((r) => (
-                    <div key={r.label} className="rounded-xl border border-border bg-muted/30 p-3 text-center">
-                      <p className="text-2xl font-black tabular-nums">{r.value}</p>
-                      <p className="text-xs text-muted-foreground">{r.label}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {students.length ? Math.round((r.value / students.length) * 100) : 0}%
+
+            {/* ── Teams tab ── */}
+            {tab === "teams" && (
+              <div className="flex flex-col gap-4">
+                {/* Matchmaker panel */}
+                <Card className="p-5">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h3 className="text-sm font-bold">Auto-assign unassigned students</h3>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {unassigned === 0
+                          ? "All students are already in a team."
+                          : `${unassigned} student${unassigned !== 1 ? "s" : ""} are not yet in any team. The algorithm clusters them into groups of up to 6, placing ≥2 females per team and mixing departments.`}
                       </p>
                     </div>
-                  ))}
-                </div>
-              </Card>
-            </div>
-          )}
+                    <Button
+                      variant="outline"
+                      loading={autoAssigning}
+                      disabled={unassigned === 0}
+                      onClick={autoAssign}
+                      className="shrink-0"
+                    >
+                      ⚡ Run matchmaker
+                    </Button>
+                  </div>
+                </Card>
 
-          {tab === "problems" && (
-            <ProblemsManager problems={problems} themes={themes} onReload={load} />
-          )}
-        </div>
-      )}
-    </main>
+                {/* Teams table */}
+                <Card className="overflow-hidden p-0">
+                  <div className="flex items-center justify-between border-b border-border px-5 py-4">
+                    <h3 className="text-base font-bold">Teams</h3>
+                    <Button variant="outline" onClick={exportTeams}>Export CSV</Button>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[900px] text-left text-sm">
+                      <thead>
+                        <tr className="border-b border-border text-xs uppercase tracking-wider text-muted-foreground">
+                          <th className="px-5 py-3 font-semibold">Team</th>
+                          <th className="px-5 py-3 font-semibold">Members</th>
+                          <th className="px-5 py-3 font-semibold">Depts</th>
+                          <th className="px-5 py-3 font-semibold">Female</th>
+                          <th className="px-5 py-3 font-semibold">Problem</th>
+                          <th className="px-5 py-3 font-semibold">Status</th>
+                          <th className="px-5 py-3 font-semibold">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {teams.length === 0 && (
+                          <tr>
+                            <td colSpan={7} className="px-5 py-10 text-center text-sm text-muted-foreground">
+                              No teams formed yet.
+                            </td>
+                          </tr>
+                        )}
+                        {teams.map((t) => (
+                          <tr key={t.team.id} className="border-b border-border/60 last:border-0 hover:bg-muted/20">
+                            <td className="px-5 py-3">
+                              <p className="font-semibold">{t.team.name}</p>
+                              <p className="text-xs text-muted-foreground">Leader · {t.leader?.name ?? "—"}</p>
+                            </td>
+                            <td className="px-5 py-3">
+                              <div className="flex items-center gap-2">
+                                <div className="flex -space-x-2">
+                                  {t.members.slice(0, 4).map((m) => (
+                                    <Avatar key={m.id} name={m.name} className="size-7 text-[9px] ring-2 ring-background" />
+                                  ))}
+                                </div>
+                                <span className="text-xs text-muted-foreground">{t.members.length}/6</span>
+                              </div>
+                            </td>
+                            <td className="px-5 py-3 tabular-nums text-muted-foreground">{t.stats.deptCount}</td>
+                            <td className="px-5 py-3 tabular-nums text-muted-foreground">{t.stats.girlCount}</td>
+                            <td className="max-w-[220px] px-5 py-3 text-xs text-muted-foreground">
+                              {problemMap.get(t.team.problem_id ?? "") ?? "—"}
+                            </td>
+                            <td className="px-5 py-3">
+                              {t.stats.valid
+                                ? <GlowingBadge variant="success" pulse={false}>Valid</GlowingBadge>
+                                : <GlowingBadge variant="warning" pulse={false} title={t.stats.reason}>Invalid</GlowingBadge>}
+                            </td>
+                            <td className="px-5 py-3">
+                              <div className="flex gap-1.5">
+                                <Button
+                                  variant="outline"
+                                  className="px-2.5 py-1 text-xs"
+                                  onClick={() => setMemberDialogTeam(t)}
+                                >
+                                  Members
+                                </Button>
+                                <Button
+                                  variant="danger"
+                                  className="px-2.5 py-1 text-xs"
+                                  loading={deleting === t.team.id}
+                                  onClick={() => deleteTeam(t)}
+                                >
+                                  Delete
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+              </div>
+            )}
+
+            {/* ── Analytics tab ── */}
+            {tab === "analytics" && <AnalyticsView profiles={profiles} teams={teams} />}
+
+            {/* ── Problems tab ── */}
+            {tab === "problems" && <ProblemsManager problems={problems} themes={themes} onReload={load} />}
+          </div>
+        )}
+      </main>
+    </>
   );
 }
 
-// ── Problems manager (unchanged logic, re-included) ───────────────────────────
-function ProblemsManager({ problems, themes, onReload }: {
-  problems: Problem[]; themes: Theme[]; onReload: () => Promise<void>;
+
+// ─── Problems manager (unchanged logic, kept inline) ─────────────────────────
+
+function ProblemsManager({
+  problems,
+  themes,
+  onReload,
+}: {
+  problems: Problem[];
+  themes: Theme[];
+  onReload: () => Promise<void>;
 }) {
   const toast = useToast();
   const [saving, setSaving] = useState(false);
@@ -692,8 +976,7 @@ function ProblemsManager({ problems, themes, onReload }: {
     setSaving(true);
     const res = await data.api.upsertProblem({
       id: form.id || null, title: form.title,
-      category: form.category || null, description: form.description || null,
-      themeId: form.themeId || null,
+      category: form.category || null, description: form.description || null, themeId: form.themeId || null,
     });
     if (res.error) toast("error", res.error);
     else { toast("success", form.id ? "Problem updated" : "Problem added"); reset(); await onReload(); }
@@ -701,7 +984,7 @@ function ProblemsManager({ problems, themes, onReload }: {
   }
 
   async function remove(id: string, title: string) {
-    if (!window.confirm(`Delete problem "${title}"?`)) return;
+    if (!window.confirm(`Delete problem "${title}"? Teams using it will lose their link.`)) return;
     setDeleting(id);
     const res = await data.api.deleteProblem(id);
     if (res.error) toast("error", res.error);
@@ -709,68 +992,94 @@ function ProblemsManager({ problems, themes, onReload }: {
     setDeleting(null);
   }
 
-  return (
-    <div className="grid gap-5 lg:grid-cols-[1fr_400px]">
-      <Card className="overflow-hidden p-0">
-        <div className="border-b border-border px-5 py-4">
-          <h3 className="text-base font-bold">Problem statements ({problems.length})</h3>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="border-b border-border text-[11px] uppercase tracking-wider text-muted-foreground">
-                {["Title", "Category", "Description", "Actions"].map((h) => (
-                  <th key={h} className="px-5 py-3 font-semibold">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {problems.length === 0 && (
-                <tr><td colSpan={4} className="px-5 py-10 text-center text-sm text-muted-foreground">No problem statements yet.</td></tr>
-              )}
-              {problems.map((p) => (
-                <tr key={p.id} className="border-b border-border/60 last:border-0 hover:bg-muted/20">
-                  <td className="max-w-[220px] px-5 py-3 font-semibold">{p.title}</td>
-                  <td className="px-5 py-3 text-muted-foreground">{p.category ?? "—"}</td>
-                  <td className="max-w-[300px] px-5 py-3 text-xs text-muted-foreground">
-                    <p className="line-clamp-2">{p.description ?? "—"}</p>
-                  </td>
-                  <td className="px-5 py-3">
-                    <div className="flex gap-1.5">
-                      <Button variant="outline" className="px-2.5 py-1 text-xs" onClick={() => startEdit(p)}>Edit</Button>
-                      <Button variant="danger" className="px-2.5 py-1 text-xs" loading={deleting === p.id} onClick={() => remove(p.id, p.title)}>Delete</Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+  const grouped = themes.map((th) => ({ theme: th, items: problems.filter((p) => p.theme_id === th.id) }));
+  const unthemed = problems.filter((p) => !p.theme_id);
 
-      <Card className="h-fit p-5">
-        <h3 className="mb-4 text-base font-bold">{form.id ? "Edit problem" : "Add problem"}</h3>
-        <form onSubmit={save} className="flex flex-col gap-3">
-          <Input label="Title" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="Problem title" required />
-          <Input label="Category" value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))} placeholder="e.g. Health, Agriculture…" />
-          <label className="block w-full">
-            <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">Description</span>
-            <textarea value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-              placeholder="Brief description…" rows={4}
-              className="w-full resize-none rounded-xl border border-border bg-background/60 px-3.5 py-2.5 text-sm text-foreground outline-none transition-all placeholder:text-muted-foreground/70 focus:border-ring/70" />
-          </label>
-          {themes.length > 0 && (
-            <Select label="Theme" value={form.themeId} onChange={(e) => setForm((f) => ({ ...f, themeId: e.target.value }))}>
-              <option value="">No theme</option>
-              {themes.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-            </Select>
-          )}
-          <div className="flex gap-2 pt-1">
-            <Button type="submit" loading={saving} className="flex-1">{form.id ? "Update" : "Add problem"}</Button>
+  return (
+    <div className="flex flex-col gap-6">
+      <Card className="p-5">
+        <h3 className="text-base font-bold">{form.id ? "Edit problem" : "Add problem"}</h3>
+        <form onSubmit={save} className="mt-4 flex flex-col gap-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Input label="Title" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="Problem statement title" required />
+            <div className="grid grid-cols-2 gap-3">
+              <Input label="Category" value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))} placeholder="e.g. ML / AI" />
+              <Select label="Theme" value={form.themeId} onChange={(e) => setForm((f) => ({ ...f, themeId: e.target.value }))}>
+                <option value="">No theme</option>
+                {themes.map((th) => <option key={th.id} value={th.id}>{th.name}</option>)}
+              </Select>
+            </div>
+          </div>
+          <Input label="Description" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} placeholder="Short description of the problem" />
+          <div className="flex gap-2">
+            <Button type="submit" loading={saving}>{form.id ? "Save changes" : "Add problem"}</Button>
             {form.id && <Button type="button" variant="ghost" onClick={reset}>Cancel</Button>}
           </div>
         </form>
       </Card>
+
+      {grouped.map(({ theme, items }) => (
+        <div key={theme.id}>
+          <h4 className="mb-2 text-sm font-bold uppercase tracking-widest text-muted-foreground">{theme.name}</h4>
+          <div className="flex flex-col gap-2">
+            {items.length === 0 && (
+              <p className="rounded-lg border border-dashed border-border px-4 py-3 text-xs text-muted-foreground">No problems in this theme yet.</p>
+            )}
+            {items.map((p) => (
+              <ProblemRow key={p.id} problem={p} deleting={deleting === p.id} onEdit={() => startEdit(p)} onDelete={() => remove(p.id, p.title)} />
+            ))}
+          </div>
+        </div>
+      ))}
+
+      <div>
+        <h4 className="mb-2 text-sm font-bold uppercase tracking-widest text-muted-foreground">Other problems</h4>
+        <div className="flex flex-col gap-2">
+          {unthemed.length === 0 && (
+            <p className="rounded-lg border border-dashed border-border px-4 py-3 text-xs text-muted-foreground">All problems are assigned to a theme.</p>
+          )}
+          {unthemed.map((p) => (
+            <ProblemRow key={p.id} problem={p} deleting={deleting === p.id} onEdit={() => startEdit(p)} onDelete={() => remove(p.id, p.title)} />
+          ))}
+        </div>
+      </div>
+
+      <p className="text-center text-xs text-muted-foreground">
+        {problems.length} problem statement{problems.length === 1 ? "" : "s"} across {themes.length} theme{themes.length === 1 ? "" : "s"}
+      </p>
     </div>
+  );
+}
+
+function ProblemRow({ problem, deleting, onEdit, onDelete }: { problem: Problem; deleting: boolean; onEdit: () => void; onDelete: () => void }) {
+  return (
+    <div className="flex items-start justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3">
+      <div className="min-w-0">
+        <p className="text-sm font-semibold">{problem.title}</p>
+        {problem.category && <span className="text-xs text-primary">{problem.category}</span>}
+        {problem.description && <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{problem.description}</p>}
+      </div>
+      <div className="flex shrink-0 gap-1.5">
+        <Button variant="outline" className="px-2.5 py-1 text-xs" onClick={onEdit}>Edit</Button>
+        <Button variant="danger" className="px-2.5 py-1 text-xs" loading={deleting} onClick={onDelete}>Delete</Button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Stat card ────────────────────────────────────────────────────────────────
+
+function StatCard({ label, value, accent }: { label: string; value: number; accent: string }) {
+  const color = ({
+    ring: "text-primary border-primary/30 bg-primary/10",
+    accent: "text-accent border-accent/30 bg-accent/10",
+    success: "text-success border-success/30 bg-success/10",
+    warning: "text-warning border-warning/30 bg-warning/10",
+  } as Record<string, string>)[accent] ?? "";
+  return (
+    <Card className="p-5">
+      <p className={`inline-flex rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ${color}`}>{label}</p>
+      <p className="mt-2 text-3xl font-black tabular-nums">{value}</p>
+    </Card>
   );
 }

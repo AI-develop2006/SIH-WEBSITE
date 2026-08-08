@@ -306,3 +306,15 @@ export async function checkEmailExists(email: string): Promise<{ exists: boolean
   if (error) return { exists: false, error: error.message };
   return { exists: !!data, error: null };
 }
+
+export async function checkPhoneExists(phone: string): Promise<{ exists: boolean; error: string | null }> {
+  const supabase = assertSupabase();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("phone", phone.trim())
+    .maybeSingle();
+
+  if (error) return { exists: false, error: error.message };
+  return { exists: !!data, error: null };
+}

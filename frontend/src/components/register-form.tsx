@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { assertSupabase, isSupabaseConfigured } from "@/lib/supabase/client";
-import { ensureProfile, checkRegisterNoExists, checkEmailExists } from "@/lib/data";
+import { ensureProfile, checkRegisterNoExists, checkEmailExists, checkPhoneExists } from "@/lib/data";
 import { useToast } from "@/components/unlumen-ui/toast";
 import { Button } from "@/components/unlumen-ui/button";
 import { Input, Select } from "@/components/unlumen-ui/input";
@@ -262,6 +262,12 @@ export function RegisterForm() {
         if (emailCheck.error) throw new Error(emailCheck.error);
         if (emailCheck.exists) {
           throw new Error(`Email address "${form.email}" is already registered. Please use a different email or log in.`);
+        }
+
+        const phoneCheck = await checkPhoneExists(form.phone.trim());
+        if (phoneCheck.error) throw new Error(phoneCheck.error);
+        if (phoneCheck.exists) {
+          throw new Error(`Phone number "${form.phone}" is already registered. Please use a different phone number.`);
         }
       } catch (err) {
         toast("error", err instanceof Error ? err.message : "Validation failed");

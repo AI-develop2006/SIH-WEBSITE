@@ -222,9 +222,11 @@ export default function LandingPage() {
           </nav>
 
           <div className="flex items-center gap-1.5 sm:gap-2">
-            <Button variant="ghost" className="hidden sm:inline-flex text-[#8fa0c0] hover:text-[#e8c058] px-2.5 py-1.5 text-xs sm:px-3 sm:py-2 sm:text-sm" onClick={() => navigate("/login")}>
-              Log in
-            </Button>
+            <span className="hidden sm:inline-flex">
+              <Button variant="ghost" className="text-[#8fa0c0] hover:text-[#e8c058] px-2.5 py-1.5 text-xs sm:px-3 sm:py-2 sm:text-sm" onClick={() => navigate("/login")}>
+                Log in
+              </Button>
+            </span>
             <Button onClick={() => navigate("/register")} className="bg-[#c9a227] text-[#06090f] hover:bg-[#e8c058] font-bold border-0 px-2.5 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm">
               Apply Now
             </Button>

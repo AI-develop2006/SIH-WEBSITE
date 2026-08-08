@@ -361,7 +361,7 @@ export function RegisterForm() {
   }
 
   return (
-    <div className="flex min-h-[65vh] lg:h-[72vh] flex-col overflow-hidden">
+    <div className="flex flex-col">
       <div className="mb-8">
         <p className="font-caveat text-2xl text-[#dba328]">Smart India Hackathon 2026</p>
         <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">{STEPS[step].title}</h1>
@@ -387,9 +387,9 @@ export function RegisterForm() {
         </div>
       )}
 
-      <form onSubmit={submit} className="flex grow flex-col justify-between overflow-hidden">
-        <article ref={scrollRef} className="divide-y divide-border grow flex flex-col overflow-y-auto pr-1">
-          <section className="py-8 grow flex flex-col justify-start">
+      <form onSubmit={submit} className="flex flex-col justify-start">
+        <article ref={scrollRef} className="divide-y divide-border flex flex-col pr-1">
+          <section className="py-6 flex flex-col justify-start">
             <div className="mb-5 flex items-baseline justify-between gap-3">
               <h2 className="text-lg font-semibold tracking-tight">Section {STEPS[step].n} of {STEPS.length}</h2>
               <span className="text-[11px] font-semibold uppercase tracking-widest text-[#dba328]">
@@ -400,13 +400,13 @@ export function RegisterForm() {
             {/* Steps slider wrapper */}
             <div className="relative overflow-hidden w-full">
               <div
-                className="flex transition-transform duration-500 ease-out-expo"
+                className="flex items-start transition-transform duration-500 ease-out-expo"
                 style={{
                   transform: `translateX(-${step * 100}%)`,
                 }}
               >
                 {/* Step 0: Personal details */}
-                <div className="w-full shrink-0 flex flex-col gap-4">
+                <div className={cn("w-full shrink-0 flex flex-col gap-4 transition-all duration-300", step !== 0 && "h-0 overflow-hidden opacity-0 pointer-events-none")}>
                   <Field label="Name (Full Name in Capital)" required hint="Eg. NAVEEN K">
                     <Input
                       value={form.name}
@@ -448,7 +448,7 @@ export function RegisterForm() {
                 </div>
 
                 {/* Step 1: Academic details */}
-                <div className="w-full shrink-0 flex flex-col gap-4">
+                <div className={cn("w-full shrink-0 flex flex-col gap-4 transition-all duration-300", step !== 1 && "h-0 overflow-hidden opacity-0 pointer-events-none")}>
                   <Field label="Department" required>
                     <Select value={form.department} onChange={(e) => set("department", e.target.value)} required={step === 1}>
                       <option value="">Choose</option>
@@ -510,7 +510,7 @@ export function RegisterForm() {
                 </div>
 
                 {/* Step 2: Skills & Domain Interest */}
-                <div className="w-full shrink-0 flex flex-col gap-4">
+                <div className={cn("w-full shrink-0 flex flex-col gap-4 transition-all duration-300", step !== 2 && "h-0 overflow-hidden opacity-0 pointer-events-none")}>
                   <Field label="Language known" required>
                     <div className="flex flex-wrap gap-2">
                       {LANGUAGE_OPTIONS.map((lang) => (
@@ -622,7 +622,7 @@ export function RegisterForm() {
                 </div>
 
                 {/* Step 3: Project details (Dynamic Step) */}
-                <div className="w-full shrink-0 flex flex-col gap-4">
+                <div className={cn("w-full shrink-0 flex flex-col gap-4 transition-all duration-300", step !== 3 && "h-0 overflow-hidden opacity-0 pointer-events-none")}>
                   {/* Project type selector at top */}
                   <Field label="Select project type" required>
                     <div className="flex flex-wrap gap-2">
@@ -776,7 +776,7 @@ export function RegisterForm() {
                 </div>
 
                 {/* Step 4: Review & declaration */}
-                <div className="w-full shrink-0 flex flex-col gap-4">
+                <div className={cn("w-full shrink-0 flex flex-col gap-4 transition-all duration-300", step !== 4 && "h-0 overflow-hidden opacity-0 pointer-events-none")}>
                   <ReviewRow label="Name" value={form.name} />
                   <div className="grid gap-4 sm:grid-cols-2">
                     <ReviewRow label="Register No" value={form.registerNo} />

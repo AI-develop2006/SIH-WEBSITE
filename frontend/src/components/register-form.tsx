@@ -8,7 +8,7 @@ import { useToast } from "@/components/unlumen-ui/toast";
 import { Button } from "@/components/unlumen-ui/button";
 import { Input, Select } from "@/components/unlumen-ui/input";
 import { cn } from "@/lib/utils";
-import { DEPARTMENTS, YEARS, LANGUAGE_OPTIONS, PROJECT_TYPES, HARDWARE_ROLES, SOFTWARE_ROLES, OTHER_ROLES } from "@/lib/constants";
+import { DEPARTMENTS, YEARS, LANGUAGE_OPTIONS, PROJECT_TYPES, HARDWARE_ROLES, SOFTWARE_ROLES } from "@/lib/constants";
 
 const STEPS = [
   { n: 1, title: "Personal details", subtitle: "Your name and contact information" },
@@ -51,6 +51,7 @@ type FormState = {
   languages: string[];
   linkedin: string;
   domainInterests: string[];
+  otherRolesText: string;
   projectType: string;
   // Project specific fields
   projectTitle: string;
@@ -78,6 +79,7 @@ const INITIAL: FormState = {
   languages: [],
   linkedin: "",
   domainInterests: [],
+  otherRolesText: "",
   projectType: "",
   projectTitle: "",
   projectDescription: "",
@@ -133,7 +135,9 @@ export function RegisterForm() {
     if (s === 2) {
       if (form.languages.length === 0) return "Select at least one language you know";
       if (!/^https?:\/\/[\w.-]/.test(form.linkedin.trim())) return "Enter a valid LinkedIn profile URL";
-      if (form.domainInterests.length === 0) return "Select at least one domain interest role";
+      if (form.domainInterests.length === 0 && !form.otherRolesText.trim()) {
+        return "Select at least one domain interest role or type a custom role";
+      }
     }
     if (s === 3) {
       if (!form.projectType) return "Select your project type";
@@ -251,7 +255,10 @@ export function RegisterForm() {
         gender: form.gender,
         languages: form.languages,
         linkedin: form.linkedin.trim(),
-        domain_interests: form.domainInterests,
+        domain_interests: [
+          ...form.domainInterests,
+          ...(form.otherRolesText.trim() ? form.otherRolesText.split(",").map(r => r.trim()).filter(Boolean) : [])
+        ],
         project_type: form.projectType,
         role: "student",
         project_title: form.projectTitle.trim(),
@@ -596,25 +603,14 @@ export function RegisterForm() {
                       {/* Other Roles */}
                       <div>
                         <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-purple-400/80 flex items-center gap-1.5">
-                          <span>🎯</span> Other Roles
+                          <span>🎯</span> Other Roles (Optional)
                         </p>
-                        <div className="flex flex-wrap gap-2">
-                          {OTHER_ROLES.map((role) => (
-                            <button
-                              key={role}
-                              type="button"
-                              onClick={() => set("domainInterests", form.domainInterests.includes(role) ? form.domainInterests.filter((r) => r !== role) : [...form.domainInterests, role])}
-                              className={cn(
-                                "rounded-full border px-3.5 py-1.5 text-xs font-medium transition-all",
-                                form.domainInterests.includes(role)
-                                  ? "border-purple-500/60 bg-purple-500/15 text-purple-400 shadow-[0_0_10px_-4px_rgba(168,85,247,0.5)]"
-                                  : "border-border text-muted-foreground hover:border-purple-500/40 hover:text-purple-300"
-                              )}
-                            >
-                              {role}
-                            </button>
-                          ))}
-                        </div>
+                        <Input
+                          type="text"
+                          value={form.otherRolesText}
+                          onChange={(e) => set("otherRolesText", e.target.value)}
+                          placeholder="Type your custom roles (e.g. UI/UX Design, Technical Writer...)"
+                        />
                       </div>
                     </div>
                     {form.domainInterests.length > 0 && (
@@ -791,6 +787,7 @@ export function RegisterForm() {
                     <ReviewRow label="Section" value={form.section} />
                     <ReviewRow label="Gender" value={form.gender} />
                     <ReviewRow label="Languages known" value={form.languages.join(", ")} />
+                    <ReviewRow label="Domain Interests" value={[...form.domainInterests, ...(form.otherRolesText.trim() ? [form.otherRolesText.trim()] : [])].join(", ")} />
                     <ReviewRow label="Project type" value={form.projectType} />
                   </div>
                   <ReviewRow label="LinkedIn profile" value={form.linkedin} link />

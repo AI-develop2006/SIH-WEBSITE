@@ -876,7 +876,7 @@ function ReviewRow({ label, value, link }: { label: string; value: string; link?
           {value}
         </a>
       ) : (
-        <p className="truncate text-sm font-semibold">{value}</p>
+        <p className={cn("text-sm font-semibold", label === "Project Description" ? "whitespace-pre-wrap break-words" : "truncate")}>{value}</p>
       )}
     </div>
   );

@@ -138,6 +138,7 @@ export default function LandingPage() {
   const navigate = useNavigate();
   const [timelineData, setTimelineData] = useState<any[]>([]);
   const [dbConnected, setDbConnected] = useState<boolean | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     supabase?.auth.getSession().then(({ data }) => {
@@ -227,9 +228,54 @@ export default function LandingPage() {
             <Button onClick={() => navigate("/register")} className="bg-[#c9a227] text-[#06090f] hover:bg-[#e8c058] font-bold border-0 px-2.5 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm">
               Apply Now
             </Button>
+            {/* Hamburger Menu Button */}
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="inline-flex items-center justify-center p-2 rounded-lg border border-[rgba(201,162,39,0.18)] bg-card/50 text-[#8fa0c0] hover:text-[#e8c058] lg:hidden"
+              aria-label="Toggle navigation menu"
+            >
+              {mobileMenuOpen ? (
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.8" stroke="currentColor" className="size-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                </svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.8" stroke="currentColor" className="size-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                </svg>
+              )}
+            </button>
           </div>
         </div>
       </header>
+
+      {/* Mobile navigation panel */}
+      {mobileMenuOpen && (
+        <div className="lg:hidden border-b border-[rgba(201,162,39,0.18)] bg-[#050b18]/95 backdrop-blur-md px-5 py-4 flex flex-col gap-2 transition-all sticky top-[4.5rem] z-30 shadow-lg">
+          {NAV_LINKS.map((l) => (
+            <a
+              key={l.href}
+              href={l.href}
+              onClick={() => setMobileMenuOpen(false)}
+              className="rounded-lg px-4 py-2.5 text-sm font-medium text-slate-200 hover:bg-muted/40 hover:text-[#e8c058] transition-all"
+            >
+              {l.label}
+            </a>
+          ))}
+          <div className="h-px bg-border/50 my-2" />
+          <a
+            href="/login"
+            onClick={(e) => {
+              e.preventDefault();
+              setMobileMenuOpen(false);
+              navigate("/login");
+            }}
+            className="rounded-lg px-4 py-2.5 text-sm font-semibold text-[#8fa0c0] hover:text-[#e8c058] transition-all"
+          >
+            Log in
+          </a>
+        </div>
+      )}
 
       <main>
         <section className="relative overflow-hidden">
@@ -249,7 +295,7 @@ export default function LandingPage() {
 
 
 
-              <div className="reveal flex flex-wrap items-center justify-center gap-3" style={{ marginTop: "100px" }}>
+              <div className="reveal flex flex-wrap items-center justify-center gap-3 mt-10 sm:mt-24">
                 <Button onClick={() => navigate("/register")} className="bg-[#c9a227] text-[#06090f] hover:bg-[#e8c058] font-bold border-0 px-6 py-2.5 shadow-lg shadow-black/20">
                   Apply Now
                 </Button>
@@ -262,7 +308,7 @@ export default function LandingPage() {
         </section>
 
         {/* ── Timeline ── */}
-        <section id="timeline" className="relative overflow-hidden mx-auto w-full max-w-4xl px-5 py-20 sm:py-28" style={{ marginTop: "100px" }}>
+        <section id="timeline" className="relative overflow-hidden mx-auto w-full max-w-4xl px-5 py-12 sm:py-28 mt-10 sm:mt-24">
           <div className="mx-auto max-w-2xl text-center">
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Key dates</h2>
             <p className="mt-3 text-muted-foreground">

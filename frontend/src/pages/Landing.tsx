@@ -70,11 +70,6 @@ const FEATURES = [
     icon: "spark",
   },
   {
-    title: "Passwordless Authentication",
-    body: "Register securely and log in using your college Register Number with zero password hassle.",
-    icon: "shield",
-  },
-  {
     title: "Live Milestone Feed",
     body: "Track key dates, evaluation timelines, and announcements directly on your student dashboard.",
     icon: "inbox",
@@ -375,11 +370,11 @@ export default function LandingPage() {
               Everything for your registration, in one place
             </h2>
             <p className="mt-3 text-muted-foreground">
-              Dynamic project details, passwordless logins, and real-time timeline feeds for the SIH 2026 registration.
+              Dynamic project details, easy secure logins, and real-time timeline feeds for the SIH 2026 registration.
             </p>
           </div>
 
-          <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {FEATURES.map((f) => (
               <div
                 key={f.title}

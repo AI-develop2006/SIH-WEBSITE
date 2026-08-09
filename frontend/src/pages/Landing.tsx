@@ -105,7 +105,7 @@ const FAQS = [
   { q: "How are teams formed for the hackathon?", a: "Teams are constructed dynamically by our college review mentors based on your department, project type (Hardware/Software/Both), and coding skills. You do not need to form teams manually." },
   { q: "What credentials do I use to log in?", a: "You do not need to create or remember a password. Simply enter your college Register Number (e.g. 24UAI123) to log in directly to your student dashboard." },
   { q: "Who can use this portal?", a: "It is built exclusively for the internal SIH 2026 participant pool of Sri Manakula Vinayagar Engineering College. Students apply with their project preferences and wait for team matching." },
-  { q: "How do I register?", a: "Click 'Apply Now' and fill out the form steps: basic details, academic department, coding stack, project title/description, PPT link, and repository URL." },
+  { q: "How do I register?", a: "Click 'Register Now' and fill out the form steps: basic details, academic department, coding stack, project title/description, PPT link, and repository URL." },
 ];
 
 const ICONS: Record<string, React.ReactNode> = {
@@ -228,7 +228,7 @@ export default function LandingPage() {
               </Button>
             </span>
             <Button onClick={() => navigate("/register")} className="bg-[#c9a227] text-[#06090f] hover:bg-[#e8c058] font-bold border-0 px-2.5 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm">
-              Apply Now
+              Register Now
             </Button>
             {/* Hamburger Menu Button */}
             <button
@@ -298,8 +298,8 @@ export default function LandingPage() {
 
 
               <div className="reveal flex flex-wrap items-center justify-center gap-3 mt-10 sm:mt-24">
-                <Button onClick={() => navigate("/register")} className="bg-[#c9a227] text-[#06090f] hover:bg-[#e8c058] font-bold border-0 px-6 py-2.5 shadow-lg shadow-black/20">
-                  Apply Now
+                <Button onClick={() => navigate("/register")} className="bg-[#c9a227] text-[#06090f] hover:bg-[#e8c058] font-bold border-0 px-6 py-2.5 shadow-lg shadow-black/20 w-full sm:w-auto">
+                  Register Now
                 </Button>
                 <Button variant="outline" className="border-white/30 bg-black/40 text-white hover:bg-white/10 hover:text-white px-6 py-2.5 backdrop-blur-md shadow-lg shadow-black/20" onClick={() => navigate("/login")}>
                   Log in
@@ -476,9 +476,9 @@ export default function LandingPage() {
               </p>
               <Button
                 onClick={() => navigate("/register")}
-                className="mt-8 bg-[#c9a227] text-[#06090f] hover:bg-[#e8c058] font-bold border-0 px-6 py-2.5"
+                className="mt-8 bg-[#c9a227] text-[#06090f] hover:bg-[#e8c058] font-bold border-0 px-6 py-2.5 w-full sm:w-auto"
               >
-                Apply Now
+                Register Now
               </Button>
             </div>
           </div>
@@ -487,7 +487,7 @@ export default function LandingPage() {
 
       <RuixenGradientFooter gradientHeight="16vh" stops={["#050b18", "#081026", "#c9a227"]}>
         <div className="mx-auto w-full max-w-[1536px] px-5 pt-14">
-          <div className="flex flex-col gap-10 pb-14 sm:flex-row sm:justify-between">
+          <div className="flex flex-col gap-10 pb-14 sm:flex-row sm:items-start sm:justify-between">
             <div className="max-w-xs">
               <div className="flex items-center gap-3">
                 <img src="/logo.png" alt="Sri Manakula Vinayagars Engineering College" className="h-16 w-auto brightness-110 contrast-125" />
@@ -498,7 +498,7 @@ export default function LandingPage() {
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-10 sm:grid-cols-3">
+            <div className="grid grid-cols-2 gap-10">
               <FooterCol
                 title="Product"
                 links={[
@@ -506,14 +506,6 @@ export default function LandingPage() {
                   { label: "How it works", href: "#how" },
                   { label: "Rules", href: "#rules" },
                   { label: "FAQ", href: "#faq" },
-                ]}
-              />
-              <FooterCol
-                title="Get started"
-                links={[
-                  { label: "Apply now", href: "/register" },
-                  { label: "Log in", href: "/login" },
-                  { label: "Dashboard", href: "/dashboard" },
                 ]}
               />
               <FooterCol

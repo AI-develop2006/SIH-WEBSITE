@@ -70,7 +70,7 @@ type FormState = {
   githubRepo: string;
   declared: boolean;
   // SIH History Questionnaire
-  sihParticipant: boolean;
+  sihParticipant: boolean | null;
   sihNumParticipations: string;
   sihParticipationYear: string;
   sihProblemStatement: string;
@@ -108,13 +108,13 @@ const INITIAL: FormState = {
   googleDrivePpt: "",
   githubRepo: "",
   declared: false,
-  sihParticipant: false,
-  sihNumParticipations: "1",
+  sihParticipant: null,
+  sihNumParticipations: "",
   sihParticipationYear: "",
   sihProblemStatement: "",
-  sihProjectDomain: "Software",
+  sihProjectDomain: "",
   sihProjectRole: "",
-  sihPositionReached: "Participated",
+  sihPositionReached: "",
   sihNodalCenter: "",
 };
 
@@ -162,8 +162,8 @@ export function RegisterForm() {
     }
     if (s === 2) {
       if (form.languages.length === 0) return "Select at least one language you know";
-      if (form.linkedin.trim() && !/^https?:\/\/[\w.-]/.test(form.linkedin.trim())) {
-        return "Enter a valid LinkedIn profile URL";
+      if (form.linkedin.trim() && !/^https?:\/\/(www\.)?linkedin\.com\/in\/[\w-]{3,100}\/?$/.test(form.linkedin.trim())) {
+        return "Enter a valid LinkedIn profile URL (e.g. https://www.linkedin.com/in/yourname)";
       }
       if (!form.resumeLink.trim() || !/^https?:\/\/[\w.-]/.test(form.resumeLink.trim())) {
         return "Enter a valid Resume URL (Google Drive/OneDrive link)";
@@ -223,16 +223,20 @@ export function RegisterForm() {
       }
     }
     if (s === 4) {
+      if (form.sihParticipant === null) return "Please select whether you have participated in SIH before";
       if (form.sihParticipant) {
+        if (!form.sihNumParticipations) return "Select the number of times you participated in SIH";
         if (!form.sihParticipationYear.trim() || isNaN(Number(form.sihParticipationYear.trim()))) {
           return "Enter a valid year of participation (e.g. 2024)";
         }
         if (!form.sihProblemStatement.trim()) {
           return "Enter the problem statement chosen during participation";
         }
+        if (!form.sihProjectDomain) return "Select the project domain for your SIH participation";
         if (!form.sihProjectRole.trim()) {
           return "Enter your role in that project";
         }
+        if (!form.sihPositionReached) return "Select the position you reached in SIH";
         const needsNodal = ["Shortlisted for SIH", "Finalist", "Runners", "Winners"].includes(form.sihPositionReached);
         if (needsNodal && !form.sihNodalCenter.trim()) {
           return "Enter the Nodal Center where the competition was held";
@@ -423,7 +427,7 @@ export function RegisterForm() {
               <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
             </svg>
           </div>
-          
+
           <h3 className="text-lg font-black text-foreground mt-6">Establishing Student Account</h3>
           <p className="text-xs text-muted-foreground leading-relaxed mt-2">
             Provisioning your credentials in the college registry. Please do not close or reload this window.
@@ -516,11 +520,11 @@ export function RegisterForm() {
                     />
                   </Field>
                   <div className="grid gap-4 sm:grid-cols-2">
-                    <Field label="Register No" required hint="Eg. 711522CS001">
+                    <Field label="Register No" required hint="Eg. 24UAI123">
                       <Input
                         value={form.registerNo}
                         onChange={(e) => set("registerNo", e.target.value.toUpperCase())}
-                        placeholder="Eg. 711522CS001"
+                        placeholder="Eg. 24UAI123"
                         className="uppercase"
                         required={step === 0}
                       />
@@ -530,12 +534,12 @@ export function RegisterForm() {
                         type="tel"
                         value={form.phone}
                         onChange={(e) => set("phone", e.target.value)}
-                        placeholder="9876500001"
+                        placeholder="9345668544"
                         required={step === 0}
                       />
                     </Field>
                   </div>
-                  <Field label="Email" required hint="We'll use this email to verify your account, so kindly use your SMVEC college email ID (ending with @smvec.ac.in) for further login process.">
+                  <Field label="College Email" required hint="We'll use this email to verify your account, so kindly use your SMVEC college email ID (ending with @smvec.ac.in) for further login process.">
                     <Input
                       type="email"
                       value={form.email}
@@ -550,7 +554,7 @@ export function RegisterForm() {
                 <div className={cn("w-full shrink-0 flex flex-col gap-4 transition-all duration-300", step !== 1 && "h-0 overflow-hidden opacity-0 pointer-events-none")}>
                   <Field label="Department" required>
                     <Select value={form.department} onChange={(e) => set("department", e.target.value)} required={step === 1}>
-                      <option value="">Choose</option>
+                      <option value="" disabled>— Select Department —</option>
                       {DEPARTMENTS.map((d) => (
                         <option key={d} value={d}>
                           {d}
@@ -561,7 +565,7 @@ export function RegisterForm() {
                   <div className="grid gap-4 sm:grid-cols-3">
                     <Field label="Year" required>
                       <Select value={form.year} onChange={(e) => set("year", e.target.value)} required={step === 1}>
-                        <option value="">Choose</option>
+                        <option value="" disabled>— Select Year —</option>
                         {YEARS.map((y) => (
                           <option key={y} value={y}>
                             {y}
@@ -580,7 +584,7 @@ export function RegisterForm() {
                     </Field>
                     <Field label="Gender" required>
                       <Select value={form.gender} onChange={(e) => set("gender", e.target.value)} required={step === 1}>
-                        <option value="">Choose</option>
+                        <option value="" disabled>— Select Gender —</option>
                         <option value="Male">Male</option>
                         <option value="Female">Female</option>
                       </Select>
@@ -630,12 +634,12 @@ export function RegisterForm() {
                     </div>
                   </Field>
                   <div className="grid gap-4 sm:grid-cols-2">
-                    <Field label="LinkedIn profile URL (Optional)">
+                    <Field label="LinkedIn profile URL (Optional)" hint="Format: https://www.linkedin.com/in/yourname">
                       <Input
                         type="url"
                         value={form.linkedin}
                         onChange={(e) => set("linkedin", e.target.value)}
-                        placeholder="https://www.linkedin.com/in/you"
+                        placeholder="https://www.linkedin.com/in/yourname"
                       />
                     </Field>
                     <Field label="Resume Link" required hint="Google Drive / OneDrive shared link">
@@ -809,7 +813,7 @@ export function RegisterForm() {
                         )}
                       </Field>
                       {form.projectType === "Hardware" && (
-                        <Field label="GitHub Profile Link (Optional)">
+                        <Field label="GitHub Profile Link (Optional)" hint="Your GitHub profile must be set to Public">
                           <Input
                             type="url"
                             value={form.githubProfile}
@@ -857,7 +861,7 @@ export function RegisterForm() {
                           <p className="mt-1 text-xs text-muted-foreground">{form.softwareDomain.length} selected</p>
                         )}
                       </Field>
-                      <Field label="GitHub Repository URL" required>
+                      <Field label="GitHub Repository URL" required hint="⚠️ Your repository must be set to Public on GitHub">
                         <Input
                           type="url"
                           value={form.githubRepo}
@@ -871,7 +875,7 @@ export function RegisterForm() {
 
                   {/* GitHub Profile for Software and Hardware & Software (Required) */}
                   {(form.projectType === "Software" || form.projectType === "Hardware & Software") && (
-                    <Field label="GitHub Profile Link" required>
+                    <Field label="GitHub Profile Link" required hint="Your GitHub profile must be set to Public">
                       <Input
                         type="url"
                         value={form.githubProfile}
@@ -899,10 +903,14 @@ export function RegisterForm() {
                 <div className={cn("w-full shrink-0 flex flex-col gap-4 transition-all duration-300", step !== 4 && "h-0 overflow-hidden opacity-0 pointer-events-none")}>
                   <Field label="Have you participated in SIH (Smart India Hackathon) before?" required>
                     <Select
-                      value={form.sihParticipant ? "Yes" : "No"}
-                      onChange={(e) => set("sihParticipant", e.target.value === "Yes")}
+                      value={form.sihParticipant === null ? "" : form.sihParticipant ? "Yes" : "No"}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        set("sihParticipant", val === "" ? null : val === "Yes");
+                      }}
                       required={step === 4}
                     >
+                      <option value="" disabled>— Select —</option>
                       <option value="No">No</option>
                       <option value="Yes">Yes</option>
                     </Select>
@@ -917,6 +925,7 @@ export function RegisterForm() {
                             onChange={(e) => set("sihNumParticipations", e.target.value)}
                             required={step === 4 && form.sihParticipant}
                           >
+                            <option value="" disabled>— Select —</option>
                             <option value="1">1 time</option>
                             <option value="2">2 times</option>
                             <option value="3">3 times or more</option>
@@ -949,6 +958,7 @@ export function RegisterForm() {
                             onChange={(e) => set("sihProjectDomain", e.target.value)}
                             required={step === 4 && form.sihParticipant}
                           >
+                            <option value="" disabled>— Select Domain —</option>
                             <option value="Software">Software</option>
                             <option value="Hardware">Hardware</option>
                             <option value="Both">Both (Hardware & Software)</option>
@@ -970,6 +980,7 @@ export function RegisterForm() {
                           onChange={(e) => set("sihPositionReached", e.target.value)}
                           required={step === 4 && form.sihParticipant}
                         >
+                          <option value="" disabled>— Select Position —</option>
                           <option value="Participated">Participated</option>
                           <option value="Shortlisted in Internal Hackathon">Shortlisted in Internal Hackathon</option>
                           <option value="Shortlisted for SIH">Shortlisted for SIH (Main Round)</option>
@@ -1029,7 +1040,7 @@ export function RegisterForm() {
                       )}
                     </div>
                   )}
-                  
+
                   {form.projectType && (
                     <div className="mt-2 border-t border-border/60 pt-4 flex flex-col gap-4">
                       <ReviewRow label="Project Title" value={form.projectTitle} />

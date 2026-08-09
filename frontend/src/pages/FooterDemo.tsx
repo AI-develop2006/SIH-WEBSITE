@@ -34,7 +34,7 @@ export default function FooterDemo() {
             href="/register"
             className="rounded-lg bg-[#DBA328] px-4 py-2 text-sm font-semibold text-[#36429B] hover:opacity-90"
           >
-            Apply Now
+            Register Now
           </a>
         </div>
       </header>
@@ -69,7 +69,7 @@ export default function FooterDemo() {
               <DemoFooterCol
                 title="Get started"
                 links={[
-                  { label: "Apply now", href: "/register" },
+                  { label: "Register now", href: "/register" },
                   { label: "Log in", href: "/login" },
                   { label: "Dashboard", href: "/dashboard" },
                 ]}

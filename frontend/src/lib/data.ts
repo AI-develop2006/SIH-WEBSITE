@@ -66,6 +66,17 @@ export async function ensureProfile(uid: string, meta: Record<string, unknown>):
   if (error) throw new Error(error.message);
 }
 
+export async function updateProfile(uid: string, profileData: any): Promise<{ error: string | null }> {
+  const supabase = assertSupabase();
+  const { error } = await supabase
+    .from("profiles")
+    .update(profileData)
+    .eq("id", uid);
+
+  if (error) return { error: error.message };
+  return { error: null };
+}
+
 export async function fetchEnrichedTeams(): Promise<ApiResult<EnrichedTeam[]>> {
   const supabase = assertSupabase();
   const [{ data: teams, error: e1 }, { data: members, error: e2 }, { data: profiles, error: e3 }] =

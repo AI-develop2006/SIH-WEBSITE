@@ -13,6 +13,9 @@ import { CollegeBrand } from "@/components/college-brand";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Card } from "@/components/unlumen-ui/card";
 import { GlowingBadge } from "@/components/unlumen-ui/glowing-badge";
+import { useToast } from "@/components/unlumen-ui/toast";
+import { Input, Select } from "@/components/unlumen-ui/input";
+import { DEPARTMENTS, YEARS } from "@/lib/constants";
 
 const TIMELINE_FALLBACK = [
   { step: "01", date: "6 Aug 2026", label: "Portal opens", description: "Registration portal goes live. Create your account and fill in your profile.", status: "done" },
@@ -23,6 +26,7 @@ const TIMELINE_FALLBACK = [
 
 export default function DashboardPage() {
   const navigate = useNavigate();
+  const toast = useToast();
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [timeline, setTimeline] = useState<any[]>([]);
@@ -30,6 +34,104 @@ export default function DashboardPage() {
   const [setup, setSetup] = useState(false);
   const [announcement, setAnnouncement] = useState<any | null>(null);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'timeline' | 'profile' | 'notifications'>('dashboard');
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState<any>(null);
+  const [updating, setUpdating] = useState(false);
+
+  const startEdit = () => {
+    if (!profile) return;
+    setEditForm({
+      phone: profile.phone ?? "",
+      department: profile.department ?? "",
+      year: profile.year ?? "",
+      section: profile.section ?? "",
+      gender: profile.gender ?? "",
+      languages: profile.languages?.join(", ") ?? "",
+      linkedin: profile.linkedin ?? "",
+      resume_link: profile.resume_link ?? "",
+      project_type: profile.project_type ?? "",
+      project_title: profile.project_title ?? "",
+      project_description: profile.project_description ?? "",
+      software_domain: profile.software_domain ?? "",
+      hardware_domain: profile.hardware_domain ?? "",
+      github: profile.github ?? "",
+      github_repo: profile.github_repo ?? "",
+      youtube_link: profile.youtube_link ?? "",
+      google_drive_ppt: profile.google_drive_ppt ?? "",
+      sih_participant: profile.sih_participant ?? false,
+      sih_num_participations: profile.sih_num_participations?.toString() ?? "",
+      sih_participation_year: profile.sih_participation_year?.toString() ?? "",
+      sih_problem_statement: profile.sih_problem_statement ?? "",
+      sih_project_domain: profile.sih_project_domain ?? "",
+      sih_project_role: profile.sih_project_role ?? "",
+      sih_position_reached: profile.sih_position_reached ?? "",
+      sih_nodal_center: profile.sih_nodal_center ?? "",
+    });
+    setIsEditing(true);
+  };
+
+  const saveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profile) return;
+    setUpdating(true);
+    try {
+      if (!editForm.phone.trim()) throw new Error("Phone number is required");
+      if (!editForm.department) throw new Error("Select your department");
+      if (!editForm.year) throw new Error("Select your year");
+      if (!editForm.section.trim()) throw new Error("Section is required");
+      if (!editForm.gender) throw new Error("Select your gender");
+      if (!editForm.resume_link.trim()) throw new Error("Resume Link is required");
+
+      if (editForm.sih_participant) {
+        if (!editForm.sih_num_participations) throw new Error("Select SIH participations count");
+        if (!editForm.sih_participation_year) throw new Error("Enter SIH participation year");
+        if (!editForm.sih_problem_statement) throw new Error("Enter SIH problem statement");
+        if (!editForm.sih_project_domain) throw new Error("Select SIH project domain");
+        if (!editForm.sih_project_role) throw new Error("Enter SIH project role");
+        if (!editForm.sih_position_reached) throw new Error("Select SIH position reached");
+      }
+
+      const payload = {
+        phone: editForm.phone.trim(),
+        department: editForm.department,
+        year: editForm.year,
+        section: editForm.section.trim(),
+        gender: editForm.gender,
+        languages: editForm.languages.split(",").map((l: string) => l.trim()).filter(Boolean),
+        linkedin: editForm.linkedin.trim() || null,
+        resume_link: editForm.resume_link.trim(),
+        project_type: editForm.project_type || null,
+        project_title: editForm.project_title.trim() || null,
+        project_description: editForm.project_description.trim() || null,
+        software_domain: editForm.software_domain.trim() || null,
+        hardware_domain: editForm.hardware_domain.trim() || null,
+        github: editForm.github.trim() || null,
+        github_repo: editForm.github_repo.trim() || null,
+        youtube_link: editForm.youtube_link.trim() || null,
+        google_drive_ppt: editForm.google_drive_ppt.trim() || null,
+        sih_participant: editForm.sih_participant,
+        sih_num_participations: editForm.sih_participant && editForm.sih_num_participations ? Number(editForm.sih_num_participations) : null,
+        sih_participation_year: editForm.sih_participant && editForm.sih_participation_year ? Number(editForm.sih_participation_year) : null,
+        sih_problem_statement: editForm.sih_participant ? editForm.sih_problem_statement.trim() : null,
+        sih_project_domain: editForm.sih_participant ? editForm.sih_project_domain : null,
+        sih_project_role: editForm.sih_participant ? editForm.sih_project_role.trim() : null,
+        sih_position_reached: editForm.sih_participant ? editForm.sih_position_reached : null,
+        sih_nodal_center: (editForm.sih_participant && ["Shortlisted for SIH", "Finalist", "Runners", "Winners"].includes(editForm.sih_position_reached)) ? editForm.sih_nodal_center.trim() : null,
+      };
+
+      const { error } = await data.updateProfile(profile.id, payload);
+      if (error) throw new Error(error);
+
+      setProfile((prev: any) => ({ ...prev, ...payload }));
+      setIsEditing(false);
+      toast("success", "Profile updated successfully!");
+    } catch (err) {
+      toast("error", err instanceof Error ? err.message : "Failed to update profile");
+    } finally {
+      setUpdating(false);
+    }
+  };
 
   const refresh = useCallback(async () => {
     if (!profile) return;
@@ -162,9 +264,19 @@ export default function DashboardPage() {
 
   const profileCard = profile && (
     <Card className="p-0 overflow-hidden">
-      <div className="px-6 py-4 border-b border-border bg-muted/10">
-        <h3 className="text-base font-bold">Your Registered Profile</h3>
-        <p className="text-xs text-muted-foreground">Verify your submitted information below</p>
+      <div className="px-6 py-4 border-b border-border bg-muted/10 flex items-center justify-between">
+        <div>
+          <h3 className="text-base font-bold">Your Registered Profile</h3>
+          <p className="text-xs text-muted-foreground">Verify your submitted information below</p>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          className="border-[#c9a227]/40 text-[#c9a227] hover:bg-[#c9a227]/10 px-3 py-1.5 text-xs font-bold"
+          onClick={startEdit}
+        >
+          Edit Profile
+        </Button>
       </div>
       <div className="p-6 flex flex-col gap-5 divide-y divide-border/60">
         <div className="flex items-center gap-4 pb-2">
@@ -447,7 +559,7 @@ export default function DashboardPage() {
                 </svg>
               </div>
             )}
-            
+
             {/* Desktop Only header controls */}
             <div className="hidden lg:flex items-center gap-2">
               {profile?.role === "admin" && (
@@ -498,7 +610,7 @@ export default function DashboardPage() {
               <div className="mt-4 rounded-lg bg-card/60 border border-border/50 p-4">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-[#dba328] mb-1.5">Next Steps</h4>
                 <p className="text-xs leading-relaxed text-muted-foreground">
-                  Teams will be formulated and announced by the college evaluation mentors directly based on departments, tech stacks, and project preferences. There is no action required from your side right now. Please keep checking this portal for live updates as the timeline progresses.
+                  Teams will be formulated and announced in this portal based on departments, tech stacks, and project preferences. There is no action required from your side right now. Please keep checking this portal for live updates as the timeline progresses.
                 </p>
               </div>
             </Card>
@@ -545,7 +657,7 @@ export default function DashboardPage() {
               <div className="mt-4 rounded-lg bg-card/60 border border-border/50 p-4">
                 <h4 className="text-[10px] font-bold uppercase tracking-wider text-[#dba328] mb-1">Next Steps</h4>
                 <p className="text-[10.5px] leading-relaxed text-muted-foreground">
-                  Teams will be formulated and announced by the college evaluation mentors directly based on departments, tech stacks, and project preferences.
+                  Teams will be formulated and announced in this portal based on departments, tech stacks, and project preferences.
                 </p>
               </div>
             </Card>
@@ -696,6 +808,256 @@ export default function DashboardPage() {
           <span className="text-[10px] font-bold">Logout</span>
         </button>
       </div>
+
+      {/* Edit Profile Modal */}
+      {isEditing && editForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm overflow-y-auto">
+          <div className="relative w-full max-w-2xl bg-card border border-border/80 rounded-2xl shadow-2xl p-6 md:p-8 max-h-[90vh] overflow-y-auto animate-page-enter">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-border/60 pb-4 mb-6">
+              <div>
+                <h3 className="text-lg font-bold text-foreground">Edit Profile Details</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">Update your academic, project, and SIH history details</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEditing(false)}
+                className="text-muted-foreground hover:text-foreground transition-colors p-1"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Modal Form */}
+            <form onSubmit={saveProfile} className="flex flex-col gap-6">
+              {/* Section 1: Academic & Personal */}
+              <div className="flex flex-col gap-4">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-[#dba328]">Academic &amp; Personal Info</h4>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Input
+                    label="Phone Number"
+                    value={editForm.phone}
+                    onChange={(e) => setEditForm((f: any) => ({ ...f, phone: e.target.value }))}
+                    required
+                  />
+                  <Select
+                    label="Gender"
+                    value={editForm.gender}
+                    onChange={(e) => setEditForm((f: any) => ({ ...f, gender: e.target.value }))}
+                    required
+                  >
+                    <option value="" disabled>Select Gender</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                  </Select>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <Select
+                    label="Department"
+                    value={editForm.department}
+                    onChange={(e) => setEditForm((f: any) => ({ ...f, department: e.target.value }))}
+                    required
+                  >
+                    <option value="" disabled>Select Department</option>
+                    {DEPARTMENTS.map((dept) => (
+                      <option key={dept} value={dept}>{dept}</option>
+                    ))}
+                  </Select>
+                  <Select
+                    label="Year"
+                    value={editForm.year}
+                    onChange={(e) => setEditForm((f: any) => ({ ...f, year: e.target.value }))}
+                    required
+                  >
+                    <option value="" disabled>Select Year</option>
+                    {YEARS.map((yr) => (
+                      <option key={yr} value={yr}>{yr}</option>
+                    ))}
+                  </Select>
+                  <Input
+                    label="Section"
+                    value={editForm.section}
+                    onChange={(e) => setEditForm((f: any) => ({ ...f, section: e.target.value.toUpperCase() }))}
+                    required
+                  />
+                </div>
+                <Input
+                  label="Languages Known"
+                  value={editForm.languages}
+                  onChange={(e) => setEditForm((f: any) => ({ ...f, languages: e.target.value }))}
+                  placeholder="e.g. C, Python, JavaScript (comma separated)"
+                />
+              </div>
+
+              {/* Section 2: Profiles & Links */}
+              <div className="flex flex-col gap-4 border-t border-border/40 pt-4">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-[#dba328]">Profiles &amp; Links</h4>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Input
+                    label="LinkedIn Profile"
+                    value={editForm.linkedin}
+                    onChange={(e) => setEditForm((f: any) => ({ ...f, linkedin: e.target.value }))}
+                    placeholder="https://linkedin.com/in/username"
+                  />
+                  <Input
+                    label="Resume Link"
+                    value={editForm.resume_link}
+                    onChange={(e) => setEditForm((f: any) => ({ ...f, resume_link: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Input
+                    label="GitHub Profile"
+                    value={editForm.github}
+                    onChange={(e) => setEditForm((f: any) => ({ ...f, github: e.target.value }))}
+                    placeholder="https://github.com/username"
+                  />
+                  <Input
+                    label="GitHub Repository Link"
+                    value={editForm.github_repo}
+                    onChange={(e) => setEditForm((f: any) => ({ ...f, github_repo: e.target.value }))}
+                    placeholder="https://github.com/username/project"
+                  />
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Input
+                    label="YouTube Link (Video Demo)"
+                    value={editForm.youtube_link}
+                    onChange={(e) => setEditForm((f: any) => ({ ...f, youtube_link: e.target.value }))}
+                    placeholder="https://youtube.com/watch?v=..."
+                  />
+                  <Input
+                    label="Google Drive PPT Link"
+                    value={editForm.google_drive_ppt}
+                    onChange={(e) => setEditForm((f: any) => ({ ...f, google_drive_ppt: e.target.value }))}
+                    placeholder="https://drive.google.com/..."
+                  />
+                </div>
+              </div>
+
+              {/* Section 3: Project Info */}
+              <div className="flex flex-col gap-4 border-t border-border/40 pt-4">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-[#dba328]">Project Information</h4>
+                <Select
+                  label="Project Type"
+                  value={editForm.project_type}
+                  onChange={(e) => setEditForm((f: any) => ({ ...f, project_type: e.target.value }))}
+                >
+                  <option value="">None Selected</option>
+                  <option value="Software">Software</option>
+                  <option value="Hardware">Hardware</option>
+                  <option value="Hardware & Software">Hardware &amp; Software</option>
+                </Select>
+                <Input
+                  label="Project Title"
+                  value={editForm.project_title}
+                  onChange={(e) => setEditForm((f: any) => ({ ...f, project_title: e.target.value }))}
+                />
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground">Project Description</label>
+                  <textarea
+                    value={editForm.project_description}
+                    onChange={(e) => setEditForm((f: any) => ({ ...f, project_description: e.target.value }))}
+                    className="w-full min-h-[100px] rounded-lg border border-border bg-input px-3.5 py-2.5 text-sm text-foreground outline-none focus:border-ring/50"
+                  />
+                </div>
+              </div>
+
+              {/* Section 4: SIH Questionnaire */}
+              <div className="flex flex-col gap-4 border-t border-border/40 pt-4">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-purple-400">SIH Participation history</h4>
+                <Select
+                  label="Have you participated in SIH before?"
+                  value={editForm.sih_participant ? "Yes" : "No"}
+                  onChange={(e) => setEditForm((f: any) => ({ ...f, sih_participant: e.target.value === "Yes" }))}
+                >
+                  <option value="No">No</option>
+                  <option value="Yes">Yes</option>
+                </Select>
+                {editForm.sih_participant && (
+                  <div className="flex flex-col gap-4 animate-page-enter">
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Select
+                        label="No. of times participated"
+                        value={editForm.sih_num_participations}
+                        onChange={(e) => setEditForm((f: any) => ({ ...f, sih_num_participations: e.target.value }))}
+                      >
+                        <option value="" disabled>Select</option>
+                        <option value="1">1 time</option>
+                        <option value="2">2 times</option>
+                        <option value="3">3 times or more</option>
+                      </Select>
+                      <Input
+                        label="Year of Participation"
+                        value={editForm.sih_participation_year}
+                        onChange={(e) => setEditForm((f: any) => ({ ...f, sih_participation_year: e.target.value }))}
+                        placeholder="e.g. 2024"
+                      />
+                    </div>
+                    <Input
+                      label="Problem Statement Chosen"
+                      value={editForm.sih_problem_statement}
+                      onChange={(e) => setEditForm((f: any) => ({ ...f, sih_problem_statement: e.target.value }))}
+                    />
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Select
+                        label="Project Domain"
+                        value={editForm.sih_project_domain}
+                        onChange={(e) => setEditForm((f: any) => ({ ...f, sih_project_domain: e.target.value }))}
+                      >
+                        <option value="" disabled>Select Domain</option>
+                        <option value="Software">Software</option>
+                        <option value="Hardware">Hardware</option>
+                        <option value="Both">Both (Hardware & Software)</option>
+                      </Select>
+                      <Input
+                        label="Role in that Project"
+                        value={editForm.sih_project_role}
+                        onChange={(e) => setEditForm((f: any) => ({ ...f, sih_project_role: e.target.value }))}
+                      />
+                    </div>
+                    <Select
+                      label="Position Reached"
+                      value={editForm.sih_position_reached}
+                      onChange={(e) => setEditForm((f: any) => ({ ...f, sih_position_reached: e.target.value }))}
+                    >
+                      <option value="" disabled>Select Position</option>
+                      <option value="Participated">Participated</option>
+                      <option value="Shortlisted in Internal Hackathon">Shortlisted in Internal Hackathon</option>
+                      <option value="Shortlisted for SIH">Shortlisted for SIH (Main Round)</option>
+                      <option value="Finalist">Finalist</option>
+                      <option value="Runners">Runners</option>
+                      <option value="Winners">Winners</option>
+                    </Select>
+                    {["Shortlisted for SIH", "Finalist", "Runners", "Winners"].includes(editForm.sih_position_reached) && (
+                      <Input
+                        label="Nodal Center Name"
+                        value={editForm.sih_nodal_center}
+                        onChange={(e) => setEditForm((f: any) => ({ ...f, sih_nodal_center: e.target.value }))}
+                        placeholder="e.g. IIT Kharagpur"
+                      />
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Actions Footer */}
+              <div className="flex items-center justify-end gap-3 border-t border-border/60 pt-4 mt-2">
+                <Button type="button" variant="ghost" onClick={() => setIsEditing(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" loading={updating}>
+                  Save Changes
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

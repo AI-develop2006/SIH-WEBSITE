@@ -84,14 +84,25 @@ export function AuthCard() {
                 placeholder="e.g. 24UAI123"
                 required
               />
-              <Input
-                label="Password"
-                type="password"
-                value={form.password}
-                onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-                placeholder="Your custom password"
-                required
-              />
+              <div className="flex flex-col gap-1.5">
+                <Input
+                  label="Password"
+                  type="password"
+                  value={form.password}
+                  onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                  placeholder="Your custom password"
+                  required
+                />
+                <div className="text-right">
+                  <button
+                    type="button"
+                    onClick={() => navigate("/forgot-password")}
+                    className="text-xs font-semibold text-[#c9a227] hover:underline"
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+              </div>
             </div>
           </section>
         </article>

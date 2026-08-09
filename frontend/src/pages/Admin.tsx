@@ -39,8 +39,6 @@ export default function AdminPage() {
   const [verified, setVerified] = useState("all");
   const [projType, setProjType] = useState("");
 
-  const [promoting, setPromoting] = useState<string | null>(null);
-  const [verifying, setVerifying] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -138,29 +136,7 @@ export default function AdminPage() {
   const unassigned = students.length - teams.reduce((n, t) => n + t.members.length, 0);
   const verifiedCount = students.filter((s) => s.verified).length;
 
-  async function promote(phone: string, name: string) {
-    setPromoting(phone);
-    const res = await data.api.promoteAdmin(phone);
-    if (res.error) {
-      toast("error", res.error);
-    } else {
-      toast("success", `${name} is now an admin`);
-      await load();
-    }
-    setPromoting(null);
-  }
 
-  async function toggleVerify(p: Profile) {
-    setVerifying(p.id);
-    const res = await data.api.verifyStudent(p.id, !p.verified);
-    if (res.error) {
-      toast("error", res.error);
-    } else {
-      toast("success", p.verified ? `Verification removed for ${p.name}` : `${p.name} verified`);
-      await load();
-    }
-    setVerifying(null);
-  }
 
   async function deleteTeam(t: EnrichedTeam) {
     if (!window.confirm(`Delete team "${t.team.name}"? This cannot be undone.`)) return;
@@ -303,7 +279,7 @@ export default function AdminPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-5 pb-16">
+    <main className="mx-auto flex flex-col min-h-screen w-full max-w-[1536px] px-5 pb-16">
       <header className="sticky top-0 z-40 -mx-5 mb-6 border-b border-border bg-background/80 px-5 backdrop-blur">
         <div className="flex h-16 items-center justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -362,9 +338,9 @@ export default function AdminPage() {
 
           {tab === "students" && (
             <Card className="overflow-hidden p-0">
-              <div className="flex flex-col gap-3 border-b border-border px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
-                <h3 className="text-base font-bold">Student registrations</h3>
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <div className="flex flex-col gap-4 border-b border-border px-5 py-4 xl:flex-row xl:items-center xl:justify-between">
+                <h3 className="text-base font-bold text-nowrap">Student registrations</h3>
+                <div className="flex flex-wrap items-center gap-2">
                   <Input
                     value={q}
                     onChange={(e) => setQ(e.target.value)}
@@ -412,6 +388,7 @@ export default function AdminPage() {
                       <th className="px-5 py-3 font-semibold">Languages</th>
                       <th className="px-5 py-3 font-semibold">Domain Interest</th>
                       <th className="px-5 py-3 font-semibold">Project</th>
+                      <th className="px-5 py-3 font-semibold">Registered At</th>
                       <th className="px-5 py-3 font-semibold">Status</th>
                       <th className="px-5 py-3 font-semibold">Role</th>
                     </tr>
@@ -419,7 +396,7 @@ export default function AdminPage() {
                   <tbody>
                     {students.length === 0 && (
                       <tr>
-                        <td colSpan={8} className="px-5 py-10 text-center text-sm text-muted-foreground">
+                        <td colSpan={10} className="px-5 py-10 text-center text-sm text-muted-foreground">
                           No registrations match your filters.
                         </td>
                       </tr>
@@ -529,6 +506,14 @@ export default function AdminPage() {
                             </div>
                           </div>
                         </td>
+                        <td className="px-5 py-3 text-muted-foreground whitespace-nowrap text-xs">
+                          {s.created_at
+                            ? new Date(s.created_at).toLocaleString("en-IN", {
+                                dateStyle: "medium",
+                                timeStyle: "short",
+                              })
+                            : "—"}
+                        </td>
                         <td className="px-5 py-3">
                           {s.verified ? (
                             <GlowingBadge variant="success" pulse={false}>
@@ -541,30 +526,15 @@ export default function AdminPage() {
                           )}
                         </td>
                         <td className="px-5 py-3">
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <Button
-                              variant="outline"
-                              className="px-2.5 py-1 text-xs"
-                              loading={verifying === s.id}
-                              onClick={() => toggleVerify(s)}
-                            >
-                              {s.verified ? "Unverify" : "Verify"}
-                            </Button>
-                            {s.role === "admin" ? (
-                              <GlowingBadge variant="info" pulse={false}>
-                                Admin
-                              </GlowingBadge>
-                            ) : (
-                              <Button
-                                variant="outline"
-                                className="px-2.5 py-1 text-xs"
-                                loading={promoting === s.phone}
-                                onClick={() => promote(s.phone ?? "", s.name)}
-                              >
-                                Promote
-                              </Button>
-                            )}
-                          </div>
+                          {s.role === "admin" ? (
+                            <GlowingBadge variant="info" pulse={false}>
+                              Admin
+                            </GlowingBadge>
+                          ) : (
+                            <span className="text-xs font-semibold text-muted-foreground bg-muted/30 border border-border/40 px-2 py-0.5 rounded">
+                              Student
+                            </span>
+                          )}
                         </td>
                       </tr>
                     ))}

@@ -193,7 +193,7 @@ export default function AdminPage() {
         sih_nodal_center: s.sih_nodal_center ?? "",
         sih_history_full: Array.isArray(s.sih_history) && s.sih_history.length > 0
           ? s.sih_history.map((h: any, i: number) => 
-              `[P#${i + 1}] Year: ${h.year}, Domain: ${h.project_domain}, PS: ${h.problem_statement}, Role: ${h.project_role}, Position: ${h.position_reached}${h.nodal_center ? `, Nodal: ${h.nodal_center}` : ""}`
+              `[P#${i + 1}] Year: ${h.year}, Domain: ${h.project_domain}, PS: ${h.problem_statement}, Role: ${h.project_role}, Position: ${h.position_reached}${h.nodal_center ? `, Nodal: ${h.nodal_center}` : ""}${h.certificate_link ? `, Certificate: ${h.certificate_link}` : ""}`
             ).join(" | ")
           : s.sih_participant
             ? `Year: ${s.sih_participation_year}, Domain: ${s.sih_project_domain}, PS: ${s.sih_problem_statement}, Role: ${s.sih_project_role}, Position: ${s.sih_position_reached}${s.sih_nodal_center ? `, Nodal: ${s.sih_nodal_center}` : ""}`

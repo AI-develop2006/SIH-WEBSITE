@@ -73,8 +73,9 @@ export default function DashboardPage() {
         projectDomain: entry.project_domain ?? "",
         projectRole: entry.project_role ?? "",
         positionReached: entry.position_reached ?? "",
-        nodalCenter: entry.nodal_center ?? ""
-      })) : [{ year: "", problemStatement: "", projectDomain: "", projectRole: "", positionReached: "", nodalCenter: "" }],
+        nodalCenter: entry.nodal_center ?? "",
+        certificateLink: entry.certificate_link ?? ""
+      })) : [{ year: "", problemStatement: "", projectDomain: "", projectRole: "", positionReached: "", nodalCenter: "", certificateLink: "" }],
     });
     setIsEditing(true);
   };
@@ -101,6 +102,13 @@ export default function DashboardPage() {
           if (!entry.projectDomain) throw new Error(`Select the project domain for ${label}`);
           if (!entry.projectRole.trim()) throw new Error(`Enter your role in that project for ${label}`);
           if (!entry.positionReached) throw new Error(`Select the position reached for ${label}`);
+          const needsNodal = ["Shortlisted for SIH", "Finalist", "Runners", "Winners"].includes(entry.positionReached);
+          if (needsNodal) {
+            if (!entry.nodalCenter.trim()) throw new Error(`Enter the Nodal Center where ${label} was held`);
+            if (!entry.certificateLink.trim() || !/^https?:\/\/[\w.-]/.test(entry.certificateLink.trim())) {
+              throw new Error(`Enter a valid Public Drive link for your certificate for ${label}`);
+            }
+          }
         }
       }
 
@@ -136,7 +144,8 @@ export default function DashboardPage() {
           project_domain: entry.projectDomain,
           project_role: entry.projectRole.trim(),
           position_reached: entry.positionReached,
-          nodal_center: ["Shortlisted for SIH", "Finalist", "Runners", "Winners"].includes(entry.positionReached) ? entry.nodalCenter.trim() : null
+          nodal_center: ["Shortlisted for SIH", "Finalist", "Runners", "Winners"].includes(entry.positionReached) ? entry.nodalCenter.trim() : null,
+          certificate_link: ["Shortlisted for SIH", "Finalist", "Runners", "Winners"].includes(entry.positionReached) ? entry.certificateLink.trim() : null
         })) : [],
       };
 
@@ -531,9 +540,19 @@ export default function DashboardPage() {
                       <p className="text-xs font-semibold text-foreground mt-0.5">{entry.problem_statement}</p>
                     </div>
                     {entry.nodal_center && (
-                      <div className="mt-2">
-                        <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Nodal Center</span>
-                        <p className="text-xs font-semibold text-foreground mt-0.5">{entry.nodal_center}</p>
+                      <div className="mt-2 flex flex-wrap gap-x-6 gap-y-2">
+                        <div>
+                          <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground block">Nodal Center</span>
+                          <p className="text-xs font-semibold text-foreground mt-0.5">{entry.nodal_center}</p>
+                        </div>
+                        {entry.certificate_link && (
+                          <div>
+                            <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground block">Certificate Link</span>
+                            <a href={entry.certificate_link} target="_blank" rel="noreferrer" className="text-xs font-semibold text-[#dba328] hover:underline mt-0.5 block">
+                              View Certificate ↗
+                            </a>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -1030,7 +1049,7 @@ export default function DashboardPage() {
 
               {/* Section 4: SIH Questionnaire */}
               <div className="flex flex-col gap-4 border-t border-border/40 pt-4">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-purple-400">SIH Participation history</h4>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-purple-400">SIH Participation History</h4>
                 <Select
                   label="Have you participated in SIH before?"
                   value={editForm.sih_participant ? "Yes" : "No"}
@@ -1040,7 +1059,7 @@ export default function DashboardPage() {
                       ...f,
                       sih_participant: isYes,
                       sih_num_participations: isYes ? f.sih_num_participations || "1" : "",
-                      sih_history: isYes ? (f.sih_history && f.sih_history.length > 0 ? f.sih_history : [{ year: "", problemStatement: "", projectDomain: "", projectRole: "", positionReached: "", nodalCenter: "" }]) : []
+                      sih_history: isYes ? (f.sih_history && f.sih_history.length > 0 ? f.sih_history : [{ year: "", problemStatement: "", projectDomain: "", projectRole: "", positionReached: "", nodalCenter: "", certificateLink: "" }]) : []
                     }));
                   }}
                 >
@@ -1055,7 +1074,7 @@ export default function DashboardPage() {
                       onChange={(e) => {
                         const count = parseInt(e.target.value) || 1;
                         setEditForm((f: any) => {
-                          const newHistory = Array.from({ length: count }, (_, i) => f.sih_history[i] || { year: "", projectDomain: "", problemStatement: "", projectRole: "", positionReached: "", nodalCenter: "" });
+                          const newHistory = Array.from({ length: count }, (_, i) => f.sih_history[i] || { year: "", projectDomain: "", problemStatement: "", projectRole: "", positionReached: "", nodalCenter: "", certificateLink: "" });
                           return {
                             ...f,
                             sih_num_participations: e.target.value,
@@ -1140,12 +1159,20 @@ export default function DashboardPage() {
                           </Select>
 
                           {["Shortlisted for SIH", "Finalist", "Runners", "Winners"].includes(entry.positionReached) && (
-                            <Input
-                              label="Nodal Center Name"
-                              value={entry.nodalCenter}
-                              onChange={(e) => setEntry("nodalCenter", e.target.value)}
-                              placeholder="e.g. IIT Kharagpur"
-                            />
+                            <div className="grid gap-4 sm:grid-cols-2">
+                              <Input
+                                label="Nodal Center Name"
+                                value={entry.nodalCenter}
+                                onChange={(e) => setEntry("nodalCenter", e.target.value)}
+                                placeholder="e.g. IIT Kharagpur"
+                              />
+                              <Input
+                                label="Public Drive Link for Certificate"
+                                value={entry.certificateLink}
+                                onChange={(e) => setEntry("certificateLink", e.target.value)}
+                                placeholder="https://drive.google.com/..."
+                              />
+                            </div>
                           )}
                         </div>
                       );

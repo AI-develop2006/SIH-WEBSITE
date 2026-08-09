@@ -45,6 +45,8 @@ export interface SihHistoryEntry {
   project_domain: string;
   project_role: string;
   position_reached: string;
+  nodal_center?: string | null;
+  certificate_link?: string | null;
 }
 
 export type Team = {

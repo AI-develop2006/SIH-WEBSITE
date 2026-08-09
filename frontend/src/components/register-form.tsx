@@ -85,6 +85,7 @@ type FormState = {
     projectRole: string;
     positionReached: string;
     nodalCenter: string;
+    certificateLink: string;
   }>;
 };
 
@@ -132,6 +133,7 @@ const INITIAL: FormState = {
       projectRole: "",
       positionReached: "",
       nodalCenter: "",
+      certificateLink: "",
     }
   ],
 };
@@ -168,6 +170,7 @@ export function RegisterForm() {
               projectRole: "",
               positionReached: "",
               nodalCenter: "",
+              certificateLink: "",
             });
           }
         } else if (currentHistory.length > count) {
@@ -183,6 +186,7 @@ export function RegisterForm() {
           projectRole: "",
           positionReached: "",
           nodalCenter: "",
+          certificateLink: "",
         }];
         updated.sihNumParticipations = "";
       }
@@ -297,8 +301,13 @@ export function RegisterForm() {
             return `Select the position you reached for ${label}`;
           }
           const needsNodal = ["Shortlisted for SIH", "Finalist", "Runners", "Winners"].includes(entry.positionReached);
-          if (needsNodal && !entry.nodalCenter.trim()) {
-            return `Enter the Nodal Center where ${label} was held`;
+          if (needsNodal) {
+            if (!entry.nodalCenter.trim()) {
+              return `Enter the Nodal Center where ${label} was held`;
+            }
+            if (!entry.certificateLink.trim() || !/^https?:\/\/[\w.-]/.test(entry.certificateLink.trim())) {
+              return `Enter a valid Public Drive link for your certificate for ${label}`;
+            }
           }
         }
       }
@@ -428,7 +437,8 @@ export function RegisterForm() {
           project_domain: entry.projectDomain,
           project_role: entry.projectRole.trim(),
           position_reached: entry.positionReached,
-          nodal_center: ["Shortlisted for SIH", "Finalist", "Runners", "Winners"].includes(entry.positionReached) ? entry.nodalCenter.trim() : null
+          nodal_center: ["Shortlisted for SIH", "Finalist", "Runners", "Winners"].includes(entry.positionReached) ? entry.nodalCenter.trim() : null,
+          certificate_link: ["Shortlisted for SIH", "Finalist", "Runners", "Winners"].includes(entry.positionReached) ? entry.certificateLink.trim() : null
         })) : [],
       };
 
@@ -1084,14 +1094,25 @@ export function RegisterForm() {
                               </Field>
 
                               {["Shortlisted for SIH", "Finalist", "Runners", "Winners"].includes(entry.positionReached) && (
-                                <Field label="Nodal Center Name" required hint="Where the final SIH competition was hosted">
-                                  <Input
-                                    value={entry.nodalCenter}
-                                    onChange={(e) => setEntry("nodalCenter", e.target.value)}
-                                    placeholder="e.g. IIT Kharagpur / LPU Punjab"
-                                    required={step === 4 && !!form.sihParticipant}
-                                  />
-                                </Field>
+                                <div className="grid gap-4 sm:grid-cols-2">
+                                  <Field label="Nodal Center Name" required hint="Where the final SIH competition was hosted">
+                                    <Input
+                                      value={entry.nodalCenter}
+                                      onChange={(e) => setEntry("nodalCenter", e.target.value)}
+                                      placeholder="e.g. IIT Kharagpur / LPU Punjab"
+                                      required={step === 4 && !!form.sihParticipant}
+                                    />
+                                  </Field>
+                                  <Field label="Public Drive Link for Certificate" required hint="⚠️ Public Google Drive link for your certificate">
+                                    <Input
+                                      type="url"
+                                      value={entry.certificateLink}
+                                      onChange={(e) => setEntry("certificateLink", e.target.value)}
+                                      placeholder="https://drive.google.com/..."
+                                      required={step === 4 && !!form.sihParticipant}
+                                    />
+                                  </Field>
+                                </div>
                               )}
                             </div>
                           );
@@ -1135,8 +1156,11 @@ export function RegisterForm() {
                             <ReviewRow label="Position Reached" value={entry.positionReached} />
                           </div>
                           <ReviewRow label="Problem Statement" value={entry.problemStatement} />
-                          {["Shortlisted for SIH", "Finalist", "Runners", "Winners"].includes(entry.positionReached) && entry.nodalCenter && (
-                            <ReviewRow label="Nodal Center" value={entry.nodalCenter} />
+                          {["Shortlisted for SIH", "Finalist", "Runners", "Winners"].includes(entry.positionReached) && (
+                            <div className="grid gap-2 sm:grid-cols-2 mt-1">
+                              {entry.nodalCenter && <ReviewRow label="Nodal Center" value={entry.nodalCenter} />}
+                              {entry.certificateLink && <ReviewRow label="Certificate Link" value={entry.certificateLink} link />}
+                            </div>
                           )}
                         </div>
                       ))}

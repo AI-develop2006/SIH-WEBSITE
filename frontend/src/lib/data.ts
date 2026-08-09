@@ -60,6 +60,7 @@ export async function ensureProfile(uid: string, meta: Record<string, unknown>):
       sih_project_role: (meta.sih_project_role as string) ?? null,
       sih_position_reached: (meta.sih_position_reached as string) ?? null,
       sih_nodal_center: (meta.sih_nodal_center as string) ?? null,
+      sih_history: Array.isArray(meta.sih_history) ? meta.sih_history : [],
     },
     { onConflict: "id" }
   );

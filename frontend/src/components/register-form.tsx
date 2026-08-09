@@ -78,6 +78,14 @@ type FormState = {
   sihProjectRole: string;
   sihPositionReached: string;
   sihNodalCenter: string;
+  sihHistory: Array<{
+    year: string;
+    problemStatement: string;
+    projectDomain: string;
+    projectRole: string;
+    positionReached: string;
+    nodalCenter: string;
+  }>;
 };
 
 const INITIAL: FormState = {
@@ -116,6 +124,16 @@ const INITIAL: FormState = {
   sihProjectRole: "",
   sihPositionReached: "",
   sihNodalCenter: "",
+  sihHistory: [
+    {
+      year: "",
+      problemStatement: "",
+      projectDomain: "",
+      projectRole: "",
+      positionReached: "",
+      nodalCenter: "",
+    }
+  ],
 };
 
 export function RegisterForm() {
@@ -135,8 +153,42 @@ export function RegisterForm() {
     }
   }, [step]);
 
-  const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
-    setForm((f) => ({ ...f, [key]: value }));
+  const set = <K extends keyof FormState>(key: K, value: FormState[K]) => {
+    setForm((f) => {
+      let updated = { ...f, [key]: value };
+      if (key === "sihNumParticipations") {
+        const count = Number(value) || 1;
+        const currentHistory = [...f.sihHistory];
+        if (currentHistory.length < count) {
+          while (currentHistory.length < count) {
+            currentHistory.push({
+              year: "",
+              problemStatement: "",
+              projectDomain: "",
+              projectRole: "",
+              positionReached: "",
+              nodalCenter: "",
+            });
+          }
+        } else if (currentHistory.length > count) {
+          currentHistory.splice(count);
+        }
+        updated.sihHistory = currentHistory;
+      }
+      if (key === "sihParticipant" && !value) {
+        updated.sihHistory = [{
+          year: "",
+          problemStatement: "",
+          projectDomain: "",
+          projectRole: "",
+          positionReached: "",
+          nodalCenter: "",
+        }];
+        updated.sihNumParticipations = "";
+      }
+      return updated;
+    });
+  };
 
   const toggleLanguage = (lang: string) =>
     set("languages", form.languages.includes(lang) ? form.languages.filter((l) => l !== lang) : [...form.languages, lang]);
@@ -226,20 +278,28 @@ export function RegisterForm() {
       if (form.sihParticipant === null) return "Please select whether you have participated in SIH before";
       if (form.sihParticipant) {
         if (!form.sihNumParticipations) return "Select the number of times you participated in SIH";
-        if (!form.sihParticipationYear.trim() || isNaN(Number(form.sihParticipationYear.trim()))) {
-          return "Enter a valid year of participation (e.g. 2024)";
-        }
-        if (!form.sihProblemStatement.trim()) {
-          return "Enter the problem statement chosen during participation";
-        }
-        if (!form.sihProjectDomain) return "Select the project domain for your SIH participation";
-        if (!form.sihProjectRole.trim()) {
-          return "Enter your role in that project";
-        }
-        if (!form.sihPositionReached) return "Select the position you reached in SIH";
-        const needsNodal = ["Shortlisted for SIH", "Finalist", "Runners", "Winners"].includes(form.sihPositionReached);
-        if (needsNodal && !form.sihNodalCenter.trim()) {
-          return "Enter the Nodal Center where the competition was held";
+        for (let i = 0; i < form.sihHistory.length; i++) {
+          const entry = form.sihHistory[i];
+          const label = `Participation #${i + 1}`;
+          if (!entry.year) {
+            return `Select the year of participation for ${label}`;
+          }
+          if (!entry.problemStatement.trim()) {
+            return `Enter the problem statement chosen for ${label}`;
+          }
+          if (!entry.projectDomain) {
+            return `Select the project domain for ${label}`;
+          }
+          if (!entry.projectRole.trim()) {
+            return `Enter your role in that project for ${label}`;
+          }
+          if (!entry.positionReached) {
+            return `Select the position you reached for ${label}`;
+          }
+          const needsNodal = ["Shortlisted for SIH", "Finalist", "Runners", "Winners"].includes(entry.positionReached);
+          if (needsNodal && !entry.nodalCenter.trim()) {
+            return `Enter the Nodal Center where ${label} was held`;
+          }
         }
       }
     }
@@ -356,12 +416,20 @@ export function RegisterForm() {
         // SIH Questionnaire
         sih_participant: form.sihParticipant,
         sih_num_participations: form.sihParticipant ? Number(form.sihNumParticipations) : null,
-        sih_participation_year: form.sihParticipant && form.sihParticipationYear ? Number(form.sihParticipationYear) : null,
-        sih_problem_statement: form.sihParticipant ? form.sihProblemStatement.trim() : null,
-        sih_project_domain: form.sihParticipant ? form.sihProjectDomain : null,
-        sih_project_role: form.sihParticipant ? form.sihProjectRole.trim() : null,
-        sih_position_reached: form.sihParticipant ? form.sihPositionReached : null,
-        sih_nodal_center: (form.sihParticipant && ["Shortlisted for SIH", "Finalist", "Runners", "Winners"].includes(form.sihPositionReached)) ? form.sihNodalCenter.trim() : null,
+        sih_participation_year: form.sihParticipant && form.sihHistory[0] ? Number(form.sihHistory[0].year) : null,
+        sih_problem_statement: form.sihParticipant && form.sihHistory[0] ? form.sihHistory[0].problemStatement.trim() : null,
+        sih_project_domain: form.sihParticipant && form.sihHistory[0] ? form.sihHistory[0].projectDomain : null,
+        sih_project_role: form.sihParticipant && form.sihHistory[0] ? form.sihHistory[0].projectRole.trim() : null,
+        sih_position_reached: form.sihParticipant && form.sihHistory[0] ? form.sihHistory[0].positionReached : null,
+        sih_nodal_center: (form.sihParticipant && form.sihHistory[0] && ["Shortlisted for SIH", "Finalist", "Runners", "Winners"].includes(form.sihHistory[0].positionReached)) ? form.sihHistory[0].nodalCenter.trim() : null,
+        sih_history: form.sihParticipant ? form.sihHistory.map(entry => ({
+          year: entry.year,
+          problem_statement: entry.problemStatement.trim(),
+          project_domain: entry.projectDomain,
+          project_role: entry.projectRole.trim(),
+          position_reached: entry.positionReached,
+          nodal_center: ["Shortlisted for SIH", "Finalist", "Runners", "Winners"].includes(entry.positionReached) ? entry.nodalCenter.trim() : null
+        })) : [],
       };
 
       const { data, error } = await supabase.auth.signUp({
@@ -916,14 +984,18 @@ export function RegisterForm() {
                     </Select>
                   </Field>
 
-                  {form.sihParticipant && (
-                    <div className="flex flex-col gap-4 animate-page-enter">
-                      <div className="grid gap-4 sm:grid-cols-2">
+                    {form.sihParticipant && (
+                      <div className="flex flex-col gap-6 animate-page-enter">
                         <Field label="No. of times participated" required>
                           <Select
                             value={form.sihNumParticipations}
-                            onChange={(e) => set("sihNumParticipations", e.target.value)}
-                            required={step === 4 && form.sihParticipant}
+                            onChange={(e) => {
+                              const count = parseInt(e.target.value);
+                              set("sihNumParticipations", e.target.value);
+                              const newHistory = Array.from({ length: count }, (_, i) => form.sihHistory[i] || { year: "", projectDomain: "", problemStatement: "", projectRole: "", positionReached: "", nodalCenter: "" });
+                              set("sihHistory", newHistory);
+                            }}
+                            required={step === 4 && !!form.sihParticipant}
                           >
                             <option value="" disabled>— Select —</option>
                             <option value="1">1 time</option>
@@ -931,78 +1003,102 @@ export function RegisterForm() {
                             <option value="3">3 times or more</option>
                           </Select>
                         </Field>
-                        <Field label="Year of Participation" required hint="e.g. 2024">
-                          <Input
-                            type="number"
-                            value={form.sihParticipationYear}
-                            onChange={(e) => set("sihParticipationYear", e.target.value)}
-                            placeholder="e.g. 2024"
-                            required={step === 4 && form.sihParticipant}
-                          />
-                        </Field>
+
+                        {form.sihHistory.map((entry, index) => {
+                          const setEntry = <EK extends keyof typeof entry>(key: EK, val: typeof entry[EK]) => {
+                            const updatedHistory = [...form.sihHistory];
+                            updatedHistory[index] = { ...updatedHistory[index], [key]: val };
+                            set("sihHistory", updatedHistory);
+                          };
+
+                          return (
+                            <div key={index} className="flex flex-col gap-4 border border-border/40 bg-card/10 backdrop-blur-sm rounded-xl p-5 relative">
+                              <span className="text-xs font-black uppercase tracking-wider text-purple-400">
+                                Participation #{index + 1} Details
+                              </span>
+
+                              <div className="grid gap-4 sm:grid-cols-2">
+                                <Field label="Year of Participation" required>
+                                  <Select
+                                    value={entry.year}
+                                    onChange={(e) => setEntry("year", e.target.value)}
+                                    required={step === 4 && !!form.sihParticipant}
+                                  >
+                                    <option value="" disabled>— Select Year —</option>
+                                    <option value="2025">2025</option>
+                                    <option value="2024">2024</option>
+                                    <option value="2023">2023</option>
+                                    <option value="2022">2022</option>
+                                    <option value="2020">2020</option>
+                                    <option value="2019">2019</option>
+                                    <option value="2018">2018</option>
+                                    <option value="2017">2017</option>
+                                  </Select>
+                                </Field>
+                                <Field label="Project Domain" required>
+                                  <Select
+                                    value={entry.projectDomain}
+                                    onChange={(e) => setEntry("projectDomain", e.target.value)}
+                                    required={step === 4 && !!form.sihParticipant}
+                                  >
+                                    <option value="" disabled>— Select Domain —</option>
+                                    <option value="Software">Software</option>
+                                    <option value="Hardware">Hardware</option>
+                                    <option value="Both">Both (Hardware & Software)</option>
+                                  </Select>
+                                </Field>
+                              </div>
+
+                              <Field label="Problem Statement Chosen" required hint="The title or PS code you worked on">
+                                <Input
+                                  value={entry.problemStatement}
+                                  onChange={(e) => setEntry("problemStatement", e.target.value)}
+                                  placeholder="e.g. Smart Traffic Management System (SIH1450)"
+                                  required={step === 4 && !!form.sihParticipant}
+                                />
+                              </Field>
+
+                              <Field label="Role in that Project" required>
+                                <Input
+                                  value={entry.projectRole}
+                                  onChange={(e) => setEntry("projectRole", e.target.value)}
+                                  placeholder="e.g. Frontend Developer / Team Leader"
+                                  required={step === 4 && !!form.sihParticipant}
+                                />
+                              </Field>
+
+                              <Field label="Position Reached" required>
+                                <Select
+                                  value={entry.positionReached}
+                                  onChange={(e) => setEntry("positionReached", e.target.value)}
+                                  required={step === 4 && !!form.sihParticipant}
+                                >
+                                  <option value="" disabled>— Select Position —</option>
+                                  <option value="Participated">Participated</option>
+                                  <option value="Shortlisted in Internal Hackathon">Shortlisted in Internal Hackathon</option>
+                                  <option value="Shortlisted for SIH">Shortlisted for SIH (Main Round)</option>
+                                  <option value="Finalist">Finalist</option>
+                                  <option value="Runners">Runners</option>
+                                  <option value="Winners">Winners</option>
+                                </Select>
+                              </Field>
+
+                              {["Shortlisted for SIH", "Finalist", "Runners", "Winners"].includes(entry.positionReached) && (
+                                <Field label="Nodal Center Name" required hint="Where the final SIH competition was hosted">
+                                  <Input
+                                    value={entry.nodalCenter}
+                                    onChange={(e) => setEntry("nodalCenter", e.target.value)}
+                                    placeholder="e.g. IIT Kharagpur / LPU Punjab"
+                                    required={step === 4 && !!form.sihParticipant}
+                                  />
+                                </Field>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
-
-                      <Field label="Problem Statement Chosen" required hint="The title or PS code you worked on">
-                        <Input
-                          value={form.sihProblemStatement}
-                          onChange={(e) => set("sihProblemStatement", e.target.value)}
-                          placeholder="e.g. Smart Traffic Management System (SIH1450)"
-                          required={step === 4 && form.sihParticipant}
-                        />
-                      </Field>
-
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <Field label="Project Domain" required>
-                          <Select
-                            value={form.sihProjectDomain}
-                            onChange={(e) => set("sihProjectDomain", e.target.value)}
-                            required={step === 4 && form.sihParticipant}
-                          >
-                            <option value="" disabled>— Select Domain —</option>
-                            <option value="Software">Software</option>
-                            <option value="Hardware">Hardware</option>
-                            <option value="Both">Both (Hardware & Software)</option>
-                          </Select>
-                        </Field>
-                        <Field label="Role in that Project" required>
-                          <Input
-                            value={form.sihProjectRole}
-                            onChange={(e) => set("sihProjectRole", e.target.value)}
-                            placeholder="e.g. Frontend Developer / Team Leader"
-                            required={step === 4 && form.sihParticipant}
-                          />
-                        </Field>
-                      </div>
-
-                      <Field label="Position Reached" required>
-                        <Select
-                          value={form.sihPositionReached}
-                          onChange={(e) => set("sihPositionReached", e.target.value)}
-                          required={step === 4 && form.sihParticipant}
-                        >
-                          <option value="" disabled>— Select Position —</option>
-                          <option value="Participated">Participated</option>
-                          <option value="Shortlisted in Internal Hackathon">Shortlisted in Internal Hackathon</option>
-                          <option value="Shortlisted for SIH">Shortlisted for SIH (Main Round)</option>
-                          <option value="Finalist">Finalist</option>
-                          <option value="Runners">Runners</option>
-                          <option value="Winners">Winners</option>
-                        </Select>
-                      </Field>
-
-                      {["Shortlisted for SIH", "Finalist", "Runners", "Winners"].includes(form.sihPositionReached) && (
-                        <Field label="Nodal Center Name" required hint="Where the final SIH competition was hosted">
-                          <Input
-                            value={form.sihNodalCenter}
-                            onChange={(e) => set("sihNodalCenter", e.target.value)}
-                            placeholder="e.g. IIT Kharagpur / LPU Punjab"
-                            required={step === 4 && form.sihParticipant}
-                          />
-                        </Field>
-                      )}
-                    </div>
-                  )}
-                </div>
+                    )}
+                  </div>
 
                 {/* Step 5: Review & declaration */}
                 <div className={cn("w-full shrink-0 flex flex-col gap-4 transition-all duration-300", step !== 5 && "h-0 overflow-hidden opacity-0 pointer-events-none")}>
@@ -1027,17 +1123,23 @@ export function RegisterForm() {
                   {form.sihParticipant && (
                     <div className="mt-2 border-t border-border/60 pt-4 flex flex-col gap-3 text-left">
                       <p className="text-xs font-black uppercase tracking-wider text-purple-400">SIH Participation History</p>
-                      <div className="grid gap-4 sm:grid-cols-2 bg-muted/20 p-3 rounded-lg border border-border/40">
-                        <ReviewRow label="Times Participated" value={`${form.sihNumParticipations} time(s)`} />
-                        <ReviewRow label="Year of Participation" value={form.sihParticipationYear} />
-                        <ReviewRow label="Project Domain" value={form.sihProjectDomain} />
-                        <ReviewRow label="Role in Project" value={form.sihProjectRole} />
-                      </div>
-                      <ReviewRow label="Problem Statement" value={form.sihProblemStatement} />
-                      <ReviewRow label="Position Reached" value={form.sihPositionReached} />
-                      {["Shortlisted for SIH", "Finalist", "Runners", "Winners"].includes(form.sihPositionReached) && form.sihNodalCenter && (
-                        <ReviewRow label="Nodal Center" value={form.sihNodalCenter} />
-                      )}
+                      <ReviewRow label="Times Participated" value={`${form.sihNumParticipations} time(s)`} />
+                      
+                      {form.sihHistory.map((entry, index) => (
+                        <div key={index} className="flex flex-col gap-2 bg-muted/20 p-3 rounded-lg border border-border/40 mt-1">
+                          <span className="text-[10px] font-black uppercase tracking-wide text-purple-400 font-bold">Participation #{index + 1}</span>
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            <ReviewRow label="Year" value={entry.year} />
+                            <ReviewRow label="Project Domain" value={entry.projectDomain} />
+                            <ReviewRow label="Role in Project" value={entry.projectRole} />
+                            <ReviewRow label="Position Reached" value={entry.positionReached} />
+                          </div>
+                          <ReviewRow label="Problem Statement" value={entry.problemStatement} />
+                          {["Shortlisted for SIH", "Finalist", "Runners", "Winners"].includes(entry.positionReached) && entry.nodalCenter && (
+                            <ReviewRow label="Nodal Center" value={entry.nodalCenter} />
+                          )}
+                        </div>
+                      ))}
                     </div>
                   )}
 

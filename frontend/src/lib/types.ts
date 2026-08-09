@@ -36,7 +36,16 @@ export type Profile = {
   sih_project_role: string | null;
   sih_position_reached: string | null;
   sih_nodal_center: string | null;
+  sih_history?: SihHistoryEntry[] | null;
 };
+
+export interface SihHistoryEntry {
+  year: string;
+  problem_statement: string;
+  project_domain: string;
+  project_role: string;
+  position_reached: string;
+}
 
 export type Team = {
   id: string;

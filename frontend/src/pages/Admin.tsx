@@ -191,6 +191,13 @@ export default function AdminPage() {
         sih_project_role: s.sih_project_role ?? "",
         sih_position_reached: s.sih_position_reached ?? "",
         sih_nodal_center: s.sih_nodal_center ?? "",
+        sih_history_full: Array.isArray(s.sih_history) && s.sih_history.length > 0
+          ? s.sih_history.map((h: any, i: number) => 
+              `[P#${i + 1}] Year: ${h.year}, Domain: ${h.project_domain}, PS: ${h.problem_statement}, Role: ${h.project_role}, Position: ${h.position_reached}${h.nodal_center ? `, Nodal: ${h.nodal_center}` : ""}`
+            ).join(" | ")
+          : s.sih_participant
+            ? `Year: ${s.sih_participation_year}, Domain: ${s.sih_project_domain}, PS: ${s.sih_problem_statement}, Role: ${s.sih_project_role}, Position: ${s.sih_position_reached}${s.sih_nodal_center ? `, Nodal: ${s.sih_nodal_center}` : ""}`
+            : "",
         verified: s.verified ? "Yes" : "No",
         created_at: s.created_at,
       })),
@@ -225,6 +232,7 @@ export default function AdminPage() {
         { key: "sih_project_role", label: "SIH Project Role" },
         { key: "sih_position_reached", label: "SIH Position Reached" },
         { key: "sih_nodal_center", label: "SIH Nodal Center" },
+        { key: "sih_history_full", label: "SIH Full History Details" },
         { key: "verified", label: "Verified" },
         { key: "created_at", label: "Registered On" },
       ]
@@ -476,6 +484,18 @@ export default function AdminPage() {
                               <p className="text-[9px] text-amber-400/80 truncate" title={s.hardware_domain}>
                                 HW: {s.hardware_domain}
                               </p>
+                            )}
+                            {s.sih_participant && (
+                              <div className="mt-1.5 bg-purple-500/10 border border-purple-500/35 rounded px-2 py-0.5 text-[9px] text-purple-300">
+                                <span className="font-bold">SIH History ({s.sih_num_participations}x): </span>
+                                {Array.isArray(s.sih_history) && s.sih_history.length > 0 ? (
+                                  <span className="font-medium text-purple-200">
+                                    {s.sih_history.map((h: any) => `${h.year} (${h.project_domain})`).join(", ")}
+                                  </span>
+                                ) : (
+                                  <span className="font-medium text-purple-200">{s.sih_participation_year}</span>
+                                )}
+                              </div>
                             )}
                             <div className="flex flex-wrap gap-2 mt-1.5">
                               {s.linkedin && (

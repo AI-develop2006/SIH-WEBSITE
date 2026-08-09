@@ -67,6 +67,14 @@ export default function DashboardPage() {
       sih_project_role: profile.sih_project_role ?? "",
       sih_position_reached: profile.sih_position_reached ?? "",
       sih_nodal_center: profile.sih_nodal_center ?? "",
+      sih_history: Array.isArray(profile.sih_history) ? profile.sih_history.map((entry: any) => ({
+        year: entry.year?.toString() ?? "",
+        problemStatement: entry.problem_statement ?? "",
+        projectDomain: entry.project_domain ?? "",
+        projectRole: entry.project_role ?? "",
+        positionReached: entry.position_reached ?? "",
+        nodalCenter: entry.nodal_center ?? ""
+      })) : [{ year: "", problemStatement: "", projectDomain: "", projectRole: "", positionReached: "", nodalCenter: "" }],
     });
     setIsEditing(true);
   };
@@ -85,11 +93,15 @@ export default function DashboardPage() {
 
       if (editForm.sih_participant) {
         if (!editForm.sih_num_participations) throw new Error("Select SIH participations count");
-        if (!editForm.sih_participation_year) throw new Error("Enter SIH participation year");
-        if (!editForm.sih_problem_statement) throw new Error("Enter SIH problem statement");
-        if (!editForm.sih_project_domain) throw new Error("Select SIH project domain");
-        if (!editForm.sih_project_role) throw new Error("Enter SIH project role");
-        if (!editForm.sih_position_reached) throw new Error("Select SIH position reached");
+        for (let i = 0; i < editForm.sih_history.length; i++) {
+          const entry = editForm.sih_history[i];
+          const label = `Participation #${i + 1}`;
+          if (!entry.year) throw new Error(`Select the year of participation for ${label}`);
+          if (!entry.problemStatement.trim()) throw new Error(`Enter the problem statement for ${label}`);
+          if (!entry.projectDomain) throw new Error(`Select the project domain for ${label}`);
+          if (!entry.projectRole.trim()) throw new Error(`Enter your role in that project for ${label}`);
+          if (!entry.positionReached) throw new Error(`Select the position reached for ${label}`);
+        }
       }
 
       const payload = {
@@ -112,12 +124,20 @@ export default function DashboardPage() {
         google_drive_ppt: editForm.google_drive_ppt.trim() || null,
         sih_participant: editForm.sih_participant,
         sih_num_participations: editForm.sih_participant && editForm.sih_num_participations ? Number(editForm.sih_num_participations) : null,
-        sih_participation_year: editForm.sih_participant && editForm.sih_participation_year ? Number(editForm.sih_participation_year) : null,
-        sih_problem_statement: editForm.sih_participant ? editForm.sih_problem_statement.trim() : null,
-        sih_project_domain: editForm.sih_participant ? editForm.sih_project_domain : null,
-        sih_project_role: editForm.sih_participant ? editForm.sih_project_role.trim() : null,
-        sih_position_reached: editForm.sih_participant ? editForm.sih_position_reached : null,
-        sih_nodal_center: (editForm.sih_participant && ["Shortlisted for SIH", "Finalist", "Runners", "Winners"].includes(editForm.sih_position_reached)) ? editForm.sih_nodal_center.trim() : null,
+        sih_participation_year: editForm.sih_participant && editForm.sih_history[0] ? Number(editForm.sih_history[0].year) : null,
+        sih_problem_statement: editForm.sih_participant && editForm.sih_history[0] ? editForm.sih_history[0].problemStatement.trim() : null,
+        sih_project_domain: editForm.sih_participant && editForm.sih_history[0] ? editForm.sih_history[0].projectDomain : null,
+        sih_project_role: editForm.sih_participant && editForm.sih_history[0] ? editForm.sih_history[0].projectRole.trim() : null,
+        sih_position_reached: editForm.sih_participant && editForm.sih_history[0] ? editForm.sih_history[0].positionReached : null,
+        sih_nodal_center: (editForm.sih_participant && editForm.sih_history[0] && ["Shortlisted for SIH", "Finalist", "Runners", "Winners"].includes(editForm.sih_history[0].positionReached)) ? editForm.sih_history[0].nodalCenter.trim() : null,
+        sih_history: editForm.sih_participant ? editForm.sih_history.map((entry: any) => ({
+          year: entry.year,
+          problem_statement: entry.problemStatement.trim(),
+          project_domain: entry.projectDomain,
+          project_role: entry.projectRole.trim(),
+          position_reached: entry.positionReached,
+          nodal_center: ["Shortlisted for SIH", "Finalist", "Runners", "Winners"].includes(entry.positionReached) ? entry.nodalCenter.trim() : null
+        })) : [],
       };
 
       const { error } = await data.updateProfile(profile.id, payload);
@@ -478,40 +498,81 @@ export default function DashboardPage() {
         {profile.sih_participant && (
           <div className="pt-4 mt-4 border-t border-border/40 text-left">
             <span className="text-[10px] uppercase font-black tracking-wider text-purple-400">SIH Participation History</span>
-            <div className="mt-2 grid gap-4 grid-cols-1 sm:grid-cols-2 bg-muted/10 p-3 rounded-lg border border-border/20">
-              <div>
-                <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Times Participated</span>
-                <p className="text-xs font-semibold mt-0.5 text-foreground">{profile.sih_num_participations} time(s)</p>
-              </div>
-              <div>
-                <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Year of Participation</span>
-                <p className="text-xs font-semibold mt-0.5 text-foreground">{profile.sih_participation_year}</p>
-              </div>
-              <div>
-                <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Project Domain</span>
-                <p className="text-xs font-semibold mt-0.5 text-foreground">{profile.sih_project_domain}</p>
-              </div>
-              <div>
-                <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Role in Project</span>
-                <p className="text-xs font-semibold mt-0.5 text-foreground">{profile.sih_project_role}</p>
-              </div>
+            <div className="mt-2">
+              <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground font-semibold">Times Participated: </span>
+              <span className="text-xs font-semibold mt-0.5 text-foreground">{profile.sih_num_participations} time(s)</span>
             </div>
-            <div className="mt-3 flex flex-col gap-2">
-              <div>
-                <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Problem Statement</span>
-                <p className="text-xs font-semibold text-foreground">{profile.sih_problem_statement}</p>
+            
+            {Array.isArray(profile.sih_history) && profile.sih_history.length > 0 ? (
+              <div className="flex flex-col gap-3 mt-3">
+                {profile.sih_history.map((entry: any, index: number) => (
+                  <div key={index} className="bg-muted/10 p-3 rounded-lg border border-border/20">
+                    <span className="text-[9px] uppercase font-black tracking-wider text-purple-400 font-bold block mb-2">Participation #{index + 1}</span>
+                    <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
+                      <div>
+                        <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Year</span>
+                        <p className="text-xs font-semibold mt-0.5 text-foreground">{entry.year}</p>
+                      </div>
+                      <div>
+                        <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Project Domain</span>
+                        <p className="text-xs font-semibold mt-0.5 text-foreground">{entry.project_domain}</p>
+                      </div>
+                      <div>
+                        <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Role in Project</span>
+                        <p className="text-xs font-semibold mt-0.5 text-foreground">{entry.project_role}</p>
+                      </div>
+                      <div>
+                        <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Position Reached</span>
+                        <p className="text-xs font-semibold mt-0.5 text-foreground">{entry.position_reached}</p>
+                      </div>
+                    </div>
+                    <div className="mt-2">
+                      <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Problem Statement</span>
+                      <p className="text-xs font-semibold text-foreground mt-0.5">{entry.problem_statement}</p>
+                    </div>
+                    {entry.nodal_center && (
+                      <div className="mt-2">
+                        <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Nodal Center</span>
+                        <p className="text-xs font-semibold text-foreground mt-0.5">{entry.nodal_center}</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
-              <div>
-                <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Position Reached</span>
-                <p className="text-xs font-semibold text-foreground">{profile.sih_position_reached}</p>
-              </div>
-              {profile.sih_nodal_center && (
-                <div>
-                  <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Nodal Center</span>
-                  <p className="text-xs font-semibold text-foreground">{profile.sih_nodal_center}</p>
+            ) : (
+              <div className="mt-3">
+                <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 bg-muted/10 p-3 rounded-lg border border-border/20">
+                  <div>
+                    <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground font-semibold">Year of Participation</span>
+                    <p className="text-xs font-semibold mt-0.5 text-foreground">{profile.sih_participation_year}</p>
+                  </div>
+                  <div>
+                    <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground font-semibold">Project Domain</span>
+                    <p className="text-xs font-semibold mt-0.5 text-foreground">{profile.sih_project_domain}</p>
+                  </div>
+                  <div>
+                    <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground font-semibold">Role in Project</span>
+                    <p className="text-xs font-semibold mt-0.5 text-foreground">{profile.sih_project_role}</p>
+                  </div>
                 </div>
-              )}
-            </div>
+                <div className="mt-3 flex flex-col gap-2">
+                  <div>
+                    <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground font-semibold">Problem Statement</span>
+                    <p className="text-xs font-semibold text-foreground">{profile.sih_problem_statement}</p>
+                  </div>
+                  <div>
+                    <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground font-semibold">Position Reached</span>
+                    <p className="text-xs font-semibold text-foreground">{profile.sih_position_reached}</p>
+                  </div>
+                  {profile.sih_nodal_center && (
+                    <div>
+                      <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground font-semibold">Nodal Center</span>
+                      <p className="text-xs font-semibold text-foreground">{profile.sih_nodal_center}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -973,74 +1034,122 @@ export default function DashboardPage() {
                 <Select
                   label="Have you participated in SIH before?"
                   value={editForm.sih_participant ? "Yes" : "No"}
-                  onChange={(e) => setEditForm((f: any) => ({ ...f, sih_participant: e.target.value === "Yes" }))}
+                  onChange={(e) => {
+                    const isYes = e.target.value === "Yes";
+                    setEditForm((f: any) => ({
+                      ...f,
+                      sih_participant: isYes,
+                      sih_num_participations: isYes ? f.sih_num_participations || "1" : "",
+                      sih_history: isYes ? (f.sih_history && f.sih_history.length > 0 ? f.sih_history : [{ year: "", problemStatement: "", projectDomain: "", projectRole: "", positionReached: "", nodalCenter: "" }]) : []
+                    }));
+                  }}
                 >
                   <option value="No">No</option>
                   <option value="Yes">Yes</option>
                 </Select>
                 {editForm.sih_participant && (
-                  <div className="flex flex-col gap-4 animate-page-enter">
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <Select
-                        label="No. of times participated"
-                        value={editForm.sih_num_participations}
-                        onChange={(e) => setEditForm((f: any) => ({ ...f, sih_num_participations: e.target.value }))}
-                      >
-                        <option value="" disabled>Select</option>
-                        <option value="1">1 time</option>
-                        <option value="2">2 times</option>
-                        <option value="3">3 times or more</option>
-                      </Select>
-                      <Input
-                        label="Year of Participation"
-                        value={editForm.sih_participation_year}
-                        onChange={(e) => setEditForm((f: any) => ({ ...f, sih_participation_year: e.target.value }))}
-                        placeholder="e.g. 2024"
-                      />
-                    </div>
-                    <Input
-                      label="Problem Statement Chosen"
-                      value={editForm.sih_problem_statement}
-                      onChange={(e) => setEditForm((f: any) => ({ ...f, sih_problem_statement: e.target.value }))}
-                    />
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <Select
-                        label="Project Domain"
-                        value={editForm.sih_project_domain}
-                        onChange={(e) => setEditForm((f: any) => ({ ...f, sih_project_domain: e.target.value }))}
-                      >
-                        <option value="" disabled>Select Domain</option>
-                        <option value="Software">Software</option>
-                        <option value="Hardware">Hardware</option>
-                        <option value="Both">Both (Hardware & Software)</option>
-                      </Select>
-                      <Input
-                        label="Role in that Project"
-                        value={editForm.sih_project_role}
-                        onChange={(e) => setEditForm((f: any) => ({ ...f, sih_project_role: e.target.value }))}
-                      />
-                    </div>
+                  <div className="flex flex-col gap-6 animate-page-enter">
                     <Select
-                      label="Position Reached"
-                      value={editForm.sih_position_reached}
-                      onChange={(e) => setEditForm((f: any) => ({ ...f, sih_position_reached: e.target.value }))}
+                      label="No. of times participated"
+                      value={editForm.sih_num_participations}
+                      onChange={(e) => {
+                        const count = parseInt(e.target.value) || 1;
+                        setEditForm((f: any) => {
+                          const newHistory = Array.from({ length: count }, (_, i) => f.sih_history[i] || { year: "", projectDomain: "", problemStatement: "", projectRole: "", positionReached: "", nodalCenter: "" });
+                          return {
+                            ...f,
+                            sih_num_participations: e.target.value,
+                            sih_history: newHistory
+                          };
+                        });
+                      }}
                     >
-                      <option value="" disabled>Select Position</option>
-                      <option value="Participated">Participated</option>
-                      <option value="Shortlisted in Internal Hackathon">Shortlisted in Internal Hackathon</option>
-                      <option value="Shortlisted for SIH">Shortlisted for SIH (Main Round)</option>
-                      <option value="Finalist">Finalist</option>
-                      <option value="Runners">Runners</option>
-                      <option value="Winners">Winners</option>
+                      <option value="" disabled>Select</option>
+                      <option value="1">1 time</option>
+                      <option value="2">2 times</option>
+                      <option value="3">3 times or more</option>
                     </Select>
-                    {["Shortlisted for SIH", "Finalist", "Runners", "Winners"].includes(editForm.sih_position_reached) && (
-                      <Input
-                        label="Nodal Center Name"
-                        value={editForm.sih_nodal_center}
-                        onChange={(e) => setEditForm((f: any) => ({ ...f, sih_nodal_center: e.target.value }))}
-                        placeholder="e.g. IIT Kharagpur"
-                      />
-                    )}
+
+                    {(editForm.sih_history || []).map((entry: any, index: number) => {
+                      const setEntry = (key: string, val: string) => {
+                        setEditForm((f: any) => {
+                          const updated = [...f.sih_history];
+                          updated[index] = { ...updated[index], [key]: val };
+                          return { ...f, sih_history: updated };
+                        });
+                      };
+
+                      return (
+                        <div key={index} className="flex flex-col gap-4 border border-border/40 bg-card/10 backdrop-blur-sm rounded-xl p-4 relative">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-purple-400">
+                            Participation #{index + 1}
+                          </span>
+
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            <Select
+                              label="Year of Participation"
+                              value={entry.year}
+                              onChange={(e) => setEntry("year", e.target.value)}
+                            >
+                              <option value="" disabled>Select Year</option>
+                              <option value="2025">2025</option>
+                              <option value="2024">2024</option>
+                              <option value="2023">2023</option>
+                              <option value="2022">2022</option>
+                              <option value="2020">2020</option>
+                              <option value="2019">2019</option>
+                              <option value="2018">2018</option>
+                              <option value="2017">2017</option>
+                            </Select>
+                            <Select
+                              label="Project Domain"
+                              value={entry.projectDomain}
+                              onChange={(e) => setEntry("projectDomain", e.target.value)}
+                            >
+                              <option value="" disabled>Select Domain</option>
+                              <option value="Software">Software</option>
+                              <option value="Hardware">Hardware</option>
+                              <option value="Both">Both (Hardware & Software)</option>
+                            </Select>
+                          </div>
+
+                          <Input
+                            label="Problem Statement Chosen"
+                            value={entry.problemStatement}
+                            onChange={(e) => setEntry("problemStatement", e.target.value)}
+                          />
+
+                          <Input
+                            label="Role in that Project"
+                            value={entry.projectRole}
+                            onChange={(e) => setEntry("projectRole", e.target.value)}
+                          />
+
+                          <Select
+                            label="Position Reached"
+                            value={entry.positionReached}
+                            onChange={(e) => setEntry("positionReached", e.target.value)}
+                          >
+                            <option value="" disabled>Select Position</option>
+                            <option value="Participated">Participated</option>
+                            <option value="Shortlisted in Internal Hackathon">Shortlisted in Internal Hackathon</option>
+                            <option value="Shortlisted for SIH">Shortlisted for SIH (Main Round)</option>
+                            <option value="Finalist">Finalist</option>
+                            <option value="Runners">Runners</option>
+                            <option value="Winners">Winners</option>
+                          </Select>
+
+                          {["Shortlisted for SIH", "Finalist", "Runners", "Winners"].includes(entry.positionReached) && (
+                            <Input
+                              label="Nodal Center Name"
+                              value={entry.nodalCenter}
+                              onChange={(e) => setEntry("nodalCenter", e.target.value)}
+                              placeholder="e.g. IIT Kharagpur"
+                            />
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>

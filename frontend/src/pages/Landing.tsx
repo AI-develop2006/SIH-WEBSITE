@@ -513,23 +513,27 @@ export default function LandingPage() {
               />
             </div>
           </div>
-          <div className="border-t border-white/15 py-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p className="text-xs text-white/70">
-              © 2026 Sri Manakula Vinayagar Engineering College · SIH 2026 Team Builder
-            </p>
-            <a
-              href="/admin"
-              onClick={(e) => {
-                e.preventDefault();
-                navigate("/admin");
-              }}
-              className="text-xs font-semibold text-[#dba328]/30 hover:text-[#dba328] transition-colors flex items-center gap-1.5 opacity-40 hover:opacity-100"
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-              </svg>
-              <span>Admin Portal</span>
+          <div className="border-t border-white/15 py-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex flex-col items-start gap-2">
+              <p className="text-xs text-white/70">
+                © 2026 Sri Manakula Vinayagar Engineering College · SIH 2026 Team Builder
+              </p>
+              <a
+                href="/admin"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/admin");
+                }}
+                className="text-xs font-semibold text-[#dba328] opacity-0 hover:opacity-50 transition-opacity duration-300 flex items-center gap-1.5 cursor-pointer"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+                <span>Admin Portal</span>
+              </a>
+            </div>
+            <div className="flex items-center">
               {dbConnected === null && (
                 <span className="size-2 rounded-full bg-neutral-500 animate-pulse" title="Checking database connection..." />
               )}
@@ -539,7 +543,7 @@ export default function LandingPage() {
               {dbConnected === false && (
                 <span className="size-2 rounded-full bg-rose-500 shadow-[0_0_8px_#f43f5e]" title="Database disconnected" />
               )}
-            </a>
+            </div>
           </div>
         </div>
       </RuixenGradientFooter>

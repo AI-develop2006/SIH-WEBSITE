@@ -194,6 +194,10 @@ export default function DashboardPage() {
         navigate("/", { replace: true });
         return;
       }
+      if (p.role === "mentor") {
+        navigate("/mentor", { replace: true });
+        return;
+      }
       if (p.role === "admin") {
         navigate("/admin", { replace: true });
         return;

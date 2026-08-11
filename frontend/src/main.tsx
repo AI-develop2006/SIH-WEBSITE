@@ -9,6 +9,7 @@ import LoginPage from "@/pages/Login";
 import RegisterPage from "@/pages/Register";
 import DashboardPage from "@/pages/Dashboard";
 import AdminPage from "@/pages/Admin";
+import MentorDashboardPage from "@/pages/mentor/MentorDashboard";
 import FooterDemoPage from "@/pages/FooterDemo";
 import ForgotPasswordPage from "@/pages/ForgotPassword";
 
@@ -28,6 +29,7 @@ createRoot(document.getElementById("root")!).render(
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/admin" element={<AdminPage />} />
+          <Route path="/mentor" element={<MentorDashboardPage />} />
           <Route path="/demo" element={<FooterDemoPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />

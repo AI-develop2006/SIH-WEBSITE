@@ -181,7 +181,6 @@ export function MyTeamView({
                   <div className="leading-tight">
                     <p className="text-sm font-semibold">
                       {m.name}
-                      {m.id === myTeam.team.leader_id && <span className="ml-1.5 text-xs text-ring">Leader</span>}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {m.department ?? "—"} · {m.section ?? "—"} · {m.gender}

@@ -27,7 +27,7 @@ export function TeamCard({
         <div>
           <h3 className="text-lg font-bold tracking-tight">{team.team.name}</h3>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            Led by {team.leader?.name ?? "—"} {team.leader?.gender === "Female" && "♀"}
+            Team Code: {team.team.team_code ?? "SIH2K26#—"}
           </p>
         </div>
         {s.valid ? (
@@ -51,7 +51,6 @@ export function TeamCard({
           >
             <Avatar name={m.name} src={m.avatar_url} className="size-6 text-[9px]" />
             {m.name}
-            {m.id === team.team.leader_id && <span className="text-ring">· L</span>}
           </span>
         ))}
       </div>

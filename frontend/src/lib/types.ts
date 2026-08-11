@@ -10,7 +10,7 @@ export type Profile = {
   phone: string | null;
   email: string | null;
   tech_stack: string[];
-  role: "student" | "admin";
+  role: "student" | "admin" | "mentor";
   register_no: string | null;
   year: string | null;
   languages: string[];
@@ -56,6 +56,8 @@ export type Team = {
   problem_id: string | null;
   theme_id: string | null;
   created_at: string;
+  team_code?: string | null;
+  approved?: boolean;
 };
 
 export type TeamMember = {

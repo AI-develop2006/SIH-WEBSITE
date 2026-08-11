@@ -184,6 +184,13 @@ async function rpc(name: string, params: Record<string, unknown>): Promise<RpcRe
   return { data: true, error: null };
 }
 
+async function rpcWithResult(name: string, params: Record<string, unknown>): Promise<ApiResult<string | null>> {
+  const supabase = assertSupabase();
+  const { data, error } = await supabase.rpc(name, params);
+  if (error) return { data: null, error: error.message };
+  return { data: data as string | null, error: null };
+}
+
 export const api = {
   createTeam: (name: string, problemId?: string) =>
     rpc("create_team", { p_name: name, p_problem_id: problemId ?? null }),
@@ -199,6 +206,16 @@ export const api = {
   verifyStudent: (userId: string, verified: boolean) =>
     rpc("verify_student", { p_user_id: userId, p_verified: verified }),
   deleteTeam: (teamId: string) => rpc("delete_team_admin", { p_team_id: teamId }),
+  addMemberDirectMentor: (teamId: string, memberId: string) =>
+    rpcWithResult("add_member_direct_mentor", { p_team_id: teamId, p_member_id: memberId }),
+  createTeamDirectMentor: (name: string, problemId: string, leaderId: string) =>
+    rpcWithResult("create_team_direct_mentor", { p_team_name: name, p_problem_id: problemId, p_leader_id: leaderId }),
+  createEmptyTeamMentor: (name: string) =>
+    rpc("create_empty_team_mentor", { p_team_name: name }),
+  removeMemberDirectMentor: (teamId: string, memberId: string) =>
+    rpc("remove_member_direct_mentor", { p_team_id: teamId, p_member_id: memberId }),
+  toggleTeamApproval: (teamId: string, approved: boolean) =>
+    rpc("toggle_team_approval", { p_team_id: teamId, p_approved: approved }),
   upsertProblem: (input: {
     id?: string | null;
     title: string;
@@ -289,6 +306,19 @@ export async function getEmailByRegisterNo(registerNo: string): Promise<{ email:
     .from("profiles")
     .select("email")
     .ilike("register_no", registerNo.trim())
+    .maybeSingle();
+
+  if (error) return { email: null, error: error.message };
+  return { email: data?.email ?? null, error: null };
+}
+
+export async function getEmailByMentorPhone(phone: string): Promise<{ email: string | null; error: string | null }> {
+  const supabase = assertSupabase();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("email")
+    .eq("phone", phone.trim())
+    .eq("role", "mentor")
     .maybeSingle();
 
   if (error) return { email: null, error: error.message };

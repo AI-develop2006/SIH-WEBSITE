@@ -39,7 +39,6 @@ export default function AdminPage() {
   const [verified, setVerified] = useState("all");
   const [projType, setProjType] = useState("");
 
-  const [deleting, setDeleting] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const [profilesRes, teamsRes, problemsRes, themesRes, timelineRes, announcementsRes] = await Promise.all([
@@ -138,17 +137,24 @@ export default function AdminPage() {
 
 
 
-  async function deleteTeam(t: EnrichedTeam) {
-    if (!window.confirm(`Delete team "${t.team.name}"? This cannot be undone.`)) return;
-    setDeleting(t.team.id);
-    const res = await data.api.deleteTeam(t.team.id);
-    if (res.error) {
-      toast("error", res.error);
-    } else {
-      toast("success", `Team "${t.team.name}" deleted`);
-      await load();
+
+
+  async function toggleTeamApproval(teamId: string, currentApproved: boolean) {
+    if (!currentApproved) {
+      const targetTeam = teams.find((t) => t.team.id === teamId);
+      if (targetTeam && targetTeam.members.length !== 6) {
+        toast("error", "Cannot publish team: A team must have exactly 6 members to be published to the portal.");
+        return;
+      }
     }
-    setDeleting(null);
+    try {
+      const res = await data.api.toggleTeamApproval(teamId, !currentApproved);
+      if (res.error) throw new Error(res.error);
+      toast("success", !currentApproved ? "Team published to portal!" : "Team hidden from portal.");
+      await load();
+    } catch (err) {
+      toast("error", err instanceof Error ? err.message : "Failed to toggle approval");
+    }
   }
 
   async function logout() {
@@ -573,28 +579,32 @@ export default function AdminPage() {
                 </Button>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[900px] text-left text-sm">
+                <table className="w-full min-w-[950px] text-left text-sm">
                   <thead>
                     <tr className="border-b border-border text-xs uppercase tracking-wider text-muted-foreground">
-                      <th className="px-5 py-3 font-semibold">Team</th>
+                      <th className="px-5 py-3 font-semibold">Team ID</th>
+                      <th className="px-5 py-3 font-semibold">Team Name</th>
                       <th className="px-5 py-3 font-semibold">Members</th>
                       <th className="px-5 py-3 font-semibold">Depts</th>
                       <th className="px-5 py-3 font-semibold">Female</th>
                       <th className="px-5 py-3 font-semibold">Problem</th>
                       <th className="px-5 py-3 font-semibold">Status</th>
-                      <th className="px-5 py-3 font-semibold">Actions</th>
+                      <th className="px-5 py-3 font-semibold">Show Team</th>
                     </tr>
                   </thead>
                   <tbody>
                     {teams.length === 0 && (
                       <tr>
-                        <td colSpan={7} className="px-5 py-10 text-center text-sm text-muted-foreground">
+                        <td colSpan={8} className="px-5 py-10 text-center text-sm text-muted-foreground">
                           No teams formed yet.
                         </td>
                       </tr>
                     )}
                     {teams.map((t) => (
                       <tr key={t.team.id} className="border-b border-border/60 last:border-0 hover:bg-muted/20">
+                        <td className="px-5 py-3 font-mono font-bold text-[#c9a227]">
+                          {t.team.team_code ?? "SIH2K26#—"}
+                        </td>
                         <td className="px-5 py-3">
                           <p className="font-semibold">{t.team.name}</p>
                           <p className="text-xs text-muted-foreground">Leader · {t.leader?.name ?? "—"}</p>
@@ -627,12 +637,16 @@ export default function AdminPage() {
                         </td>
                         <td className="px-5 py-3">
                           <Button
-                            variant="danger"
-                            className="px-2.5 py-1 text-xs"
-                            loading={deleting === t.team.id}
-                            onClick={() => deleteTeam(t)}
+                            type="button"
+                            className={cn(
+                              "px-3 py-1 text-xs font-bold border-0 rounded-lg",
+                              t.team.approved 
+                                ? "bg-success text-success-foreground hover:bg-success/80" 
+                                : "bg-[#c9a227] text-black hover:bg-[#e8c058]"
+                            )}
+                            onClick={() => toggleTeamApproval(t.team.id, !!t.team.approved)}
                           >
-                            Delete
+                            {t.team.approved ? "Hide Team" : "Show Team"}
                           </Button>
                         </td>
                       </tr>
@@ -643,7 +657,7 @@ export default function AdminPage() {
             </Card>
           )}
 
-          {tab === "problems" && <ProblemsManager problems={problems} themes={themes} onReload={load} />}
+          {tab === "problems" && <ProblemsManager problems={problems} themes={themes} />}
 
           {tablesMissing && (tab === "timeline" || tab === "announcements") && (
             <Card className="p-6 border-warning/30 bg-warning/5 text-center flex flex-col items-center gap-3">
@@ -714,68 +728,10 @@ export default function AdminPage() {
 function ProblemsManager({
   problems,
   themes,
-  onReload,
 }: {
   problems: Problem[];
   themes: Theme[];
-  onReload: () => Promise<void>;
 }) {
-  const toast = useToast();
-  const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState<string | null>(null);
-  const [form, setForm] = useState({ id: "", title: "", category: "", description: "", themeId: "" });
-
-  function reset() {
-    setForm({ id: "", title: "", category: "", description: "", themeId: "" });
-  }
-
-  function startEdit(p: Problem) {
-    setForm({
-      id: p.id,
-      title: p.title,
-      category: p.category ?? "",
-      description: p.description ?? "",
-      themeId: p.theme_id ?? "",
-    });
-  }
-
-  async function save(e: React.FormEvent) {
-    e.preventDefault();
-    if (!form.title.trim()) {
-      toast("error", "Problem title is required");
-      return;
-    }
-    setSaving(true);
-    const res = await data.api.upsertProblem({
-      id: form.id || null,
-      title: form.title,
-      category: form.category || null,
-      description: form.description || null,
-      themeId: form.themeId || null,
-    });
-    if (res.error) {
-      toast("error", res.error);
-    } else {
-      toast("success", form.id ? "Problem updated" : "Problem added");
-      reset();
-      await onReload();
-    }
-    setSaving(false);
-  }
-
-  async function remove(id: string, title: string) {
-    if (!window.confirm(`Delete problem "${title}"? Teams using it will lose their link.`)) return;
-    setDeleting(id);
-    const res = await data.api.deleteProblem(id);
-    if (res.error) {
-      toast("error", res.error);
-    } else {
-      toast("success", "Problem deleted");
-      await onReload();
-    }
-    setDeleting(null);
-  }
-
   const grouped = themes.map((th) => ({
     theme: th,
     items: problems.filter((p) => p.theme_id === th.id),
@@ -784,56 +740,6 @@ function ProblemsManager({
 
   return (
     <div className="flex flex-col gap-6">
-      <Card className="p-5">
-        <h3 className="text-base font-bold">{form.id ? "Edit problem" : "Add problem"}</h3>
-        <form onSubmit={save} className="mt-4 flex flex-col gap-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Input
-              label="Title"
-              value={form.title}
-              onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-              placeholder="Problem statement title"
-              required
-            />
-            <div className="grid grid-cols-2 gap-3">
-              <Input
-                label="Category"
-                value={form.category}
-                onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
-                placeholder="e.g. ML / AI"
-              />
-              <Select
-                label="Theme"
-                value={form.themeId}
-                onChange={(e) => setForm((f) => ({ ...f, themeId: e.target.value }))}
-              >
-                <option value="">No theme</option>
-                {themes.map((th) => (
-                  <option key={th.id} value={th.id}>
-                    {th.name}
-                  </option>
-                ))}
-              </Select>
-            </div>
-          </div>
-          <Input
-            label="Description"
-            value={form.description}
-            onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-            placeholder="Short description of the problem"
-          />
-          <div className="flex gap-2">
-            <Button type="submit" loading={saving}>
-              {form.id ? "Save changes" : "Add problem"}
-            </Button>
-            {form.id && (
-              <Button type="button" variant="ghost" onClick={reset}>
-                Cancel
-              </Button>
-            )}
-          </div>
-        </form>
-      </Card>
 
       {grouped.map(({ theme, items }) => (
         <div key={theme.id}>
@@ -848,9 +754,6 @@ function ProblemsManager({
               <ProblemRow
                 key={p.id}
                 problem={p}
-                deleting={deleting === p.id}
-                onEdit={() => startEdit(p)}
-                onDelete={() => remove(p.id, p.title)}
               />
             ))}
           </div>
@@ -869,9 +772,6 @@ function ProblemsManager({
             <ProblemRow
               key={p.id}
               problem={p}
-              deleting={deleting === p.id}
-              onEdit={() => startEdit(p)}
-              onDelete={() => remove(p.id, p.title)}
             />
           ))}
         </div>
@@ -887,31 +787,17 @@ function ProblemsManager({
 
 function ProblemRow({
   problem,
-  deleting,
-  onEdit,
-  onDelete,
 }: {
   problem: Problem;
-  deleting: boolean;
-  onEdit: () => void;
-  onDelete: () => void;
 }) {
   return (
     <div className="flex items-start justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3">
       <div className="min-w-0">
         <p className="text-sm font-semibold">{problem.title}</p>
-        {problem.category && <span className="text-xs text-primary">{problem.category}</span>}
+        {problem.category && <span className="text-xs text-[#c9a227]">{problem.category}</span>}
         {problem.description && (
           <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{problem.description}</p>
         )}
-      </div>
-      <div className="flex shrink-0 gap-1.5">
-        <Button variant="outline" className="px-2.5 py-1 text-xs" onClick={onEdit}>
-          Edit
-        </Button>
-        <Button variant="danger" className="px-2.5 py-1 text-xs" loading={deleting} onClick={onDelete}>
-          Delete
-        </Button>
       </div>
     </div>
   );
@@ -1280,64 +1166,11 @@ function AdminLoginForm({ onLoginSuccess }: { onLoginSuccess: () => void }) {
       });
 
       if (signInError) {
-        // 2. If it fails and credentials match smvecsihadmin2026@gmail.com and password sih2026, auto-register
-        if (email.trim() === "smvecsihadmin2026@gmail.com" && password.trim() === "sih2026") {
-          toast("info", "Admin account not found. Creating credentials in database...");
-          const { data: signUpData, error: signUpError } = await supabase!.auth.signUp({
-            email: email.trim(),
-            password: password.trim(),
-            options: {
-              data: {
-                name: "Admin Manager",
-                role: "admin",
-                gender: "Other",
-                phone: "admin-phone-2026",
-              },
-            },
-          });
-
-          if (signUpError) throw new Error(signUpError.message);
-
-          if (signUpData.user) {
-            await data.ensureProfile(signUpData.user.id, {
-              name: "Admin Manager",
-              email: email.trim(),
-              role: "admin",
-              gender: "Other",
-              phone: "admin-phone-2026",
-            });
-          }
-
-          if (signUpData.session) {
-            toast("success", "Admin account created and logged in!");
-            onLoginSuccess();
-          } else {
-            toast("success", "Admin account registered! Check inbox to confirm (or check Supabase settings).");
-          }
-          return;
-        } else {
-          throw new Error(signInError.message);
-        }
+        throw new Error(signInError.message);
       }
 
-      // 3. Login succeeded, check if user is admin
-      let { data: profile, error: profileError } = await data.getCurrentProfile();
-      if (profileError || !profile) {
-        // If the profile is missing but the logged-in user is the admin email, auto-restore the profile row
-        const { data: { user } } = await supabase!.auth.getUser();
-        if (user && user.email === "smvecsihadmin2026@gmail.com") {
-          await data.ensureProfile(user.id, {
-            name: "Admin Manager",
-            email: user.email,
-            role: "admin",
-            gender: "Other",
-            phone: "admin-phone-2026",
-          });
-          const retry = await data.getCurrentProfile();
-          profile = retry.data;
-          profileError = retry.error;
-        }
-      }
+      // 2. Login succeeded, check if user is admin
+      const { data: profile, error: profileError } = await data.getCurrentProfile();
 
       if (profileError || !profile) {
         throw new Error(profileError ?? "Profile data not found");

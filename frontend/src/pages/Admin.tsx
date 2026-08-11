@@ -157,6 +157,18 @@ export default function AdminPage() {
     }
   }
 
+  async function deleteTeam(teamId: string, name: string) {
+    if (!confirm(`Are you sure you want to delete ${name}? This will return all members to unassigned status.`)) return;
+    try {
+      const res = await data.api.deleteTeam(teamId);
+      if (res.error) throw new Error(res.error);
+      toast("success", "Team deleted successfully.");
+      await load();
+    } catch (err) {
+      toast("error", err instanceof Error ? err.message : "Failed to delete team");
+    }
+  }
+
   async function logout() {
     await supabase!.auth.signOut();
     setIsAuthenticated(false);
@@ -589,7 +601,7 @@ export default function AdminPage() {
                       <th className="px-5 py-3 font-semibold">Female</th>
                       <th className="px-5 py-3 font-semibold">Problem</th>
                       <th className="px-5 py-3 font-semibold">Status</th>
-                      <th className="px-5 py-3 font-semibold">Show Team</th>
+                      <th className="px-5 py-3 font-semibold">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -636,18 +648,27 @@ export default function AdminPage() {
                           )}
                         </td>
                         <td className="px-5 py-3">
-                          <Button
-                            type="button"
-                            className={cn(
-                              "px-3 py-1 text-xs font-bold border-0 rounded-lg",
-                              t.team.approved 
-                                ? "bg-success text-success-foreground hover:bg-success/80" 
-                                : "bg-[#c9a227] text-black hover:bg-[#e8c058]"
-                            )}
-                            onClick={() => toggleTeamApproval(t.team.id, !!t.team.approved)}
-                          >
-                            {t.team.approved ? "Hide Team" : "Show Team"}
-                          </Button>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              className={cn(
+                                "px-3 py-1 text-xs font-bold border-0 rounded-lg",
+                                t.team.approved 
+                                  ? "bg-success text-success-foreground hover:bg-success/80" 
+                                  : "bg-[#c9a227] text-black hover:bg-[#e8c058]"
+                              )}
+                              onClick={() => toggleTeamApproval(t.team.id, !!t.team.approved)}
+                            >
+                              {t.team.approved ? "Hide Team" : "Show Team"}
+                            </Button>
+                            <Button
+                              type="button"
+                              className="px-3 py-1 text-xs font-bold bg-danger text-white hover:bg-danger/80 border-0 rounded-lg"
+                              onClick={() => deleteTeam(t.team.id, t.team.team_code ?? t.team.name)}
+                            >
+                              Delete Team
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))}

@@ -116,4 +116,5 @@ export type Announcement = {
   content: string;
   active: boolean;
   created_at: string;
+  target?: "student" | "mentor" | "all";
 };

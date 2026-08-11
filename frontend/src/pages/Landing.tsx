@@ -134,16 +134,35 @@ export default function LandingPage() {
   const [timelineData, setTimelineData] = useState<any[]>([]);
   const [dbConnected, setDbConnected] = useState<boolean | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [announcement, setAnnouncement] = useState<any>(null);
+  const [showAnnouncementPopup, setShowAnnouncementPopup] = useState(false);
 
   useEffect(() => {
     supabase?.auth.getSession().then(({ data }) => {
       if (data.session) navigate("/dashboard", { replace: true });
     });
 
+    let timer: any;
     if (data.isConfigured()) {
       data.fetchTimelineEvents().then((res) => {
         if (res.data && res.data.length > 0) {
           setTimelineData(res.data);
+        }
+      });
+      data.fetchAnnouncements().then((res) => {
+        if (res.data && res.data.length > 0) {
+          const active = res.data.find(
+            (a: any) => a.active && (a.target === "student" || a.target === "all" || !a.target)
+          );
+          if (active) {
+            setAnnouncement(active);
+            const isDismissed = sessionStorage.getItem("sih_announcement_dismissed");
+            if (!isDismissed) {
+              timer = setTimeout(() => {
+                setShowAnnouncementPopup(true);
+              }, 3000);
+            }
+          }
         }
       });
       data.fetchThemes().then((res) => {
@@ -158,6 +177,10 @@ export default function LandingPage() {
     } else {
       setDbConnected(false);
     }
+
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
   }, [navigate]);
 
   const heroRef = useAnime<HTMLDivElement>((el) => {
@@ -547,6 +570,53 @@ export default function LandingPage() {
           </div>
         </div>
       </RuixenGradientFooter>
+
+      {/* ── Floating Top Announcement Banner ── */}
+      {showAnnouncementPopup && announcement && (
+        <div className="fixed top-6 left-1/2 z-50 w-[95%] max-w-xl rounded-xl border border-[rgba(201,162,39,0.25)] bg-[rgba(10,18,38,0.85)] backdrop-blur-lg p-4 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.5),0_0_15px_-3px_rgba(201,162,39,0.1)] flex flex-col gap-3 animate-slide-down">
+          {/* Close button at absolute top right */}
+          <button
+            onClick={() => {
+              sessionStorage.setItem("sih_announcement_dismissed", "true");
+              setShowAnnouncementPopup(false);
+            }}
+            className="absolute top-3 right-3 text-white/40 hover:text-white transition-colors p-1 cursor-pointer z-10"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+
+          <div className="flex items-start gap-3 flex-1 min-w-0 pr-4">
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-[rgba(201,162,39,0.1)] text-[#e8c058] animate-pulse mt-0.5">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+              </svg>
+            </span>
+            <div className="flex-1 min-w-0">
+              <p className="text-[12px] text-white/95 font-medium leading-relaxed whitespace-pre-wrap font-sans">
+                {announcement.content}
+              </p>
+            </div>
+          </div>
+          
+          {/* Center-aligned Register Now button at bottom */}
+          <div className="flex justify-center w-full mt-1.5">
+            <Button
+              onClick={() => {
+                sessionStorage.setItem("sih_announcement_dismissed", "true");
+                setShowAnnouncementPopup(false);
+                navigate("/register");
+              }}
+              className="text-[10px] font-bold px-5 py-1.5 bg-[#c9a227] text-[#06090f] hover:bg-[#e8c058] border-0 rounded-lg shadow-sm"
+            >
+              Register Now
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

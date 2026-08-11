@@ -59,12 +59,14 @@ export default function MentorDashboardPage() {
 
   // Reload action
   const [refreshCount, setRefreshCount] = useState(0);
+  const [announcement, setAnnouncement] = useState<any>(null);
 
   const load = useCallback(async () => {
-    const [profilesRes, teamsRes, problemsRes] = await Promise.all([
+    const [profilesRes, teamsRes, problemsRes, announcementsRes] = await Promise.all([
       data.fetchAllProfiles(),
       data.fetchEnrichedTeams(),
       data.fetchProblems(),
+      data.fetchAnnouncements(),
     ]);
 
     if (profilesRes.error) toast("error", profilesRes.error);
@@ -74,6 +76,13 @@ export default function MentorDashboardPage() {
     setProfiles(profilesRes.data ?? []);
     setTeams(teamsRes.data ?? []);
     setProblems(problemsRes.data ?? []);
+
+    if (announcementsRes.data) {
+      const active = announcementsRes.data.find(
+        (a: any) => a.active && (a.target === "mentor" || a.target === "all")
+      );
+      setAnnouncement(active ?? null);
+    }
   }, [toast]);
 
   useEffect(() => {
@@ -351,6 +360,29 @@ export default function MentorDashboardPage() {
           </button>
         ))}
       </div>
+
+      {/* Active Announcement (if any) */}
+      {announcement && (
+        <div className="mb-6 rounded-2xl border border-[rgba(201,162,39,0.30)] bg-card/60 backdrop-blur-xl p-5 overflow-hidden shadow-[0_0_30px_rgba(201,162,39,0.08)] relative">
+          <div className="absolute -right-10 -top-10 size-40 bg-[#c9a227]/5 rounded-full blur-3xl pointer-events-none" />
+          <div className="flex items-start gap-4">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[rgba(201,162,39,0.12)] text-[#e8c058] shadow-[0_0_15px_rgba(201,162,39,0.2)] animate-pulse">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+              </svg>
+            </span>
+            <div>
+              <span className="inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider text-[#e8c058] bg-[#c9a227]/10 px-2 py-0.5 rounded-md border border-[#c9a227]/20">
+                Latest Coordinator Announcement
+              </span>
+              <p className="mt-2 text-sm text-white/95 leading-relaxed font-semibold whitespace-pre-wrap font-sans">
+                {announcement.content}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Tab Pages */}
       {tab === "home" && (

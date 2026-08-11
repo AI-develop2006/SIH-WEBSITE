@@ -1030,10 +1030,10 @@ function TimelineManager({ timeline, onReload }: { timeline: TimelineEvent[]; on
 function AnnouncementsManager({ announcements, onReload }: { announcements: Announcement[]; onReload: () => Promise<void> }) {
   const toast = useToast();
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ id: "", content: "", active: true });
+  const [form, setForm] = useState({ id: "", content: "", active: true, target: "all" as "student" | "mentor" | "all" });
 
   function reset() {
-    setForm({ id: "", content: "", active: true });
+    setForm({ id: "", content: "", active: true, target: "all" });
   }
 
   function startEdit(a: Announcement) {
@@ -1041,6 +1041,7 @@ function AnnouncementsManager({ announcements, onReload }: { announcements: Anno
       id: a.id,
       content: a.content,
       active: a.active,
+      target: a.target ?? "all",
     });
   }
 
@@ -1055,6 +1056,7 @@ function AnnouncementsManager({ announcements, onReload }: { announcements: Anno
       id: form.id || undefined,
       content: form.content.trim(),
       active: form.active,
+      target: form.target,
     });
     if (res.error) {
       toast("error", res.error);
@@ -1071,6 +1073,7 @@ function AnnouncementsManager({ announcements, onReload }: { announcements: Anno
       id: a.id,
       content: a.content,
       active: !a.active,
+      target: a.target,
     });
     if (res.error) {
       toast("error", res.error);
@@ -1095,6 +1098,18 @@ function AnnouncementsManager({ announcements, onReload }: { announcements: Anno
               required
             />
           </div>
+          <div>
+            <span className="mb-1.5 block text-sm font-medium text-foreground">Target Audience</span>
+            <select
+              value={form.target}
+              onChange={(e) => setForm((f) => ({ ...f, target: e.target.value as any }))}
+              className="w-full rounded-lg border border-border bg-input px-3.5 py-2.5 text-sm text-foreground outline-none transition-all focus:border-ring/50 focus:shadow-[0_0_12px_-4px_rgba(201,162,39,0.3)]"
+            >
+              <option value="all">All (Students, Mentors, & Public Portal)</option>
+              <option value="student">Students Only (Student Portal & Public Portal)</option>
+              <option value="mentor">Mentors Only (Mentor Portal Only)</option>
+            </select>
+          </div>
           <div className="flex items-center gap-2">
             <input
               type="checkbox"
@@ -1104,7 +1119,7 @@ function AnnouncementsManager({ announcements, onReload }: { announcements: Anno
               className="accent-[#dba328]"
             />
             <label htmlFor="active" className="text-sm font-medium text-foreground cursor-pointer select-none">
-              Make this announcement active immediately (display it to students)
+              Make this announcement active immediately
             </label>
           </div>
           <div className="flex gap-2">
@@ -1148,6 +1163,9 @@ function AnnouncementsManager({ announcements, onReload }: { announcements: Anno
                   ) : (
                     <GlowingBadge variant="warning" pulse={false}>Inactive</GlowingBadge>
                   )}
+                  <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground bg-muted/40 px-2 py-0.5 rounded border border-border/40">
+                    Target: {a.target ?? "all"}
+                  </span>
                 </div>
                 <p className="text-sm font-medium text-foreground leading-relaxed whitespace-pre-wrap">{a.content}</p>
               </div>

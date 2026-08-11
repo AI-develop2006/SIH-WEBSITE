@@ -172,7 +172,9 @@ export default function DashboardPage() {
     setTimeline(timelineRes.data && timelineRes.data.length > 0 ? timelineRes.data : TIMELINE_FALLBACK);
 
     if (announcementsRes.data) {
-      const active = announcementsRes.data.find((a: any) => a.active);
+      const active = announcementsRes.data.find(
+        (a: any) => a.active && (a.target === "student" || a.target === "all" || !a.target)
+      );
       setAnnouncement(active ?? null);
     }
   }, [profile]);

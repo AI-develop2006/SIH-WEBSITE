@@ -17,6 +17,7 @@ import { TeamsTab } from "./components/TeamsTab";
 import { ProblemsTab } from "./components/ProblemsTab";
 import { CreateTeamModal } from "./components/CreateTeamModal";
 import { AssignStudentModal } from "./components/AssignStudentModal";
+import { EditProfileModal } from "./components/EditProfileModal";
 
 type Tab = "home" | "students" | "teams" | "problems";
 
@@ -53,6 +54,16 @@ export default function MentorDashboardPage() {
   const [selectedStudent, setSelectedStudent] = useState<Profile | null>(null);
   const [selectedTeamId, setSelectedTeamId] = useState("");
   const [busyAssign, setBusyAssign] = useState(false);
+
+  // Edit Profile Modal
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [profileForm, setProfileForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    domain: "Software",
+    department: ""
+  });
 
   // Create Team Modal
   const [showCreateTeamModal, setShowCreateTeamModal] = useState(false);
@@ -104,6 +115,17 @@ export default function MentorDashboardPage() {
       setMentorDomain(me.domain ?? "Software");
       setMentorDept(me.department ?? "");
       setMentorName(me.name ?? "Mentor");
+
+      // Auto-hide the dummy login email format from showing in input fields
+      const isDummyEmail = me.email && me.email.includes("@smvec.ac.in") && me.email.replace("@smvec.ac.in", "").trim() === (me.phone || "").trim();
+      setProfileForm({
+        name: me.name ?? "",
+        email: isDummyEmail ? "" : (me.email ?? ""),
+        phone: me.phone ?? "",
+        domain: me.domain ?? "Software",
+        department: me.department ?? ""
+      });
+
       setIsAuthenticated(true);
       await load();
       setLoading(false);
@@ -289,6 +311,64 @@ export default function MentorDashboardPage() {
     }
   }
 
+  async function handleProfileSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!profileForm.name.trim()) {
+      toast("error", "Name is required");
+      return;
+    }
+
+    setBusyAssign(true);
+    try {
+      const { data: me } = await data.getCurrentProfile();
+      if (!me) throw new Error("Could not retrieve current profile");
+
+      let targetEmail = profileForm.email.trim();
+      if (!targetEmail) {
+        // Fallback to dummy email so login remains active
+        targetEmail = `${profileForm.phone.trim()}@smvec.ac.in`;
+      }
+
+      const payload = {
+        name: profileForm.name.trim(),
+        email: targetEmail,
+        domain: profileForm.domain,
+        department: profileForm.department || null,
+        phone: profileForm.phone.trim()
+      };
+
+      const { error } = await data.updateProfile(me.id, payload);
+      if (error) throw new Error(error);
+
+      // Attempt to also update the auth.users metadata & email
+      try {
+        await supabase!.auth.updateUser({
+          email: targetEmail,
+          data: {
+            name: payload.name,
+            domain: payload.domain,
+            department: payload.department,
+            phone: payload.phone
+          }
+        });
+      } catch (authErr) {
+        console.warn("Auth user metadata update skipped or deferred:", authErr);
+      }
+
+      setMentorName(payload.name);
+      setMentorDomain(payload.domain);
+      setMentorDept(payload.department ?? "");
+      
+      toast("success", "Profile updated successfully!");
+      setShowProfileModal(false);
+      setRefreshCount((c) => c + 1);
+    } catch (err) {
+      toast("error", err instanceof Error ? err.message : "Failed to update profile");
+    } finally {
+      setBusyAssign(false);
+    }
+  }
+
   function handleTeamCardClick(teamId: string) {
     setFocusedTeamId(teamId);
     setTab("teams");
@@ -331,6 +411,13 @@ export default function MentorDashboardPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => setShowProfileModal(true)}
+              className="text-xs text-[#c9a227] hover:bg-[#c9a227]/10"
+            >
+              Edit Profile
+            </Button>
             <Button variant="ghost" onClick={logout} className="text-xs text-[#c9a227] hover:bg-[#c9a227]/10">
               Log out
             </Button>
@@ -452,6 +539,16 @@ export default function MentorDashboardPage() {
         busyAssign={busyAssign}
         handleAssignSubmit={handleAssignSubmit}
         setTab={setTab}
+      />
+
+      {/* Edit Profile Modal */}
+      <EditProfileModal
+        showProfileModal={showProfileModal}
+        setShowProfileModal={setShowProfileModal}
+        profileForm={profileForm}
+        setProfileForm={setProfileForm}
+        busyAssign={busyAssign}
+        handleProfileSubmit={handleProfileSubmit}
       />
     </main>
   );

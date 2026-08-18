@@ -1,0 +1,473 @@
+import express from "express";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+import { existsSync } from "node:fs";
+import dotenv from "dotenv";
+import { createClient } from "@supabase/supabase-js";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// Load environment variables locally
+if (existsSync(join(__dirname, ".env.local"))) {
+  dotenv.config({ path: join(__dirname, ".env.local") });
+} else if (existsSync(join(__dirname, "../frontend/.env.local"))) {
+  dotenv.config({ path: join(__dirname, "../frontend/.env.local") });
+} else if (existsSync(join(__dirname, ".env"))) {
+  dotenv.config({ path: join(__dirname, ".env") });
+} else {
+  dotenv.config();
+}
+
+import { runMigrations } from "./database.js";
+
+const app = express();
+const PORT = process.env.PORT || 3001;
+
+// Enable JSON request body parsing
+app.use(express.json());
+
+// Initialize Supabase backend client
+const supabaseUrl = process.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY;
+const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
+
+// Helper function to calculate team stats
+function computeStats(members = []) {
+  const RULES = { MAX_MEMBERS: 6, MIN_GIRLS: 2, MIN_DEPTS: 2 };
+  const memberCount = members.length;
+  const girlCount = members.filter((m) => m.gender === "Female").length;
+  const deptCount = new Set(members.map((m) => m.department).filter(Boolean)).size;
+
+  const reasons = [];
+  if (memberCount > RULES.MAX_MEMBERS) reasons.push(`max ${RULES.MAX_MEMBERS} members`);
+  if (girlCount < RULES.MIN_GIRLS) reasons.push(`at least ${RULES.MIN_GIRLS} female members`);
+  if (deptCount < RULES.MIN_DEPTS) reasons.push(`at least ${RULES.MIN_DEPTS} departments`);
+
+  return {
+    memberCount,
+    girlCount,
+    deptCount,
+    valid: reasons.length === 0,
+    reason: reasons.join(" · "),
+  };
+}
+
+// Allowed CORS origins
+const allowedOrigins = [
+  "https://sih-website-h8ajvlchv-srimaansrimaan543-2911s-projects.vercel.app",
+  "https://sih-website-101h.onrender.com",
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "http://localhost:3000",
+  "http://localhost:3001",
+  ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(",").map((s) => s.trim()) : [])
+];
+
+// CORS Middleware enforcing allowed frontend origin
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  const isAllowed =
+    !origin ||
+    allowedOrigins.includes(origin) ||
+    allowedOrigins.includes("*") ||
+    (origin && origin.endsWith(".vercel.app"));
+
+  if (isAllowed) {
+    res.header("Access-Control-Allow-Origin", origin || "*");
+  } else {
+    res.header("Access-Control-Allow-Origin", "https://sih-website-h8ajvlchv-srimaansrimaan543-2911s-projects.vercel.app");
+  }
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.header("Access-Control-Allow-Credentials", "true");
+
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
+// Trust proxy headers when deployed
+app.set("trust proxy", true);
+
+// WAF IP Whitelist Middleware
+const allowedIpsEnv = process.env.ALLOWED_IPS || "";
+const allowedIps = allowedIpsEnv
+  .split(",")
+  .map((ip) => ip.trim())
+  .filter(Boolean);
+
+app.use((req, res, next) => {
+  if (allowedIps.length === 0 || allowedIps.includes("*")) {
+    return next();
+  }
+
+  const cfIp = req.headers["cf-connecting-ip"];
+  const forwardedFor = req.headers["x-forwarded-for"];
+  const rawIp = (typeof cfIp === "string" && cfIp.trim())
+    ? cfIp.trim()
+    : (forwardedFor ? forwardedFor.split(",")[0].trim() : req.socket.remoteAddress || req.ip || "");
+
+  const clientIp = rawIp.replace(/^::ffff:/, "");
+
+  const isAllowed = allowedIps.some((allowed) => {
+    if (allowed === clientIp || allowed === rawIp) return true;
+    if ((allowed === "127.0.0.1" || allowed === "localhost") && (clientIp === "::1" || clientIp === "127.0.0.1")) {
+      return true;
+    }
+    return false;
+  });
+
+  if (!isAllowed) {
+    console.warn(`[WAF Access Blocked] IP: ${clientIp} on route: ${req.originalUrl}`);
+    return res.status(403).json({ error: "403 Forbidden: Access Restricted" });
+  }
+
+  next();
+});
+
+// Health check endpoints
+app.get(["/health", "/api/health"], (_req, res) => {
+  res.json({
+    status: "ok",
+    service: "admin-backend",
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// ==========================================
+// REST API ENDPOINTS FOR ADMIN OPERATIONS
+// ==========================================
+
+// 1. Auth Login
+app.post("/api/auth/login", async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: "Supabase client not configured in backend" });
+  const { email, password } = req.body;
+  if (!email || !password) return res.status(400).json({ error: "Email and password required" });
+
+  try {
+    const { data: authData, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+    if (signInError) return res.status(401).json({ error: signInError.message });
+
+    const user = authData.user;
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (profileError || !profile) return res.status(403).json({ error: "Profile not found" });
+    if (profile.role !== "admin") return res.status(403).json({ error: "Access denied. Admin role required." });
+
+    return res.json({ session: authData.session, user, profile });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// 2. Get Current Auth Status
+app.get("/api/auth/me", async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: "Supabase client not configured in backend" });
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ error: "Not authenticated" });
+  }
+  const token = authHeader.split(" ")[1];
+
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    if (error || !user) return res.status(401).json({ error: "Invalid token" });
+
+    const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
+    return res.json({ user, profile });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// 3. Fetch All Student Profiles
+app.get("/api/profiles", async (_req, res) => {
+  if (!supabase) return res.status(500).json({ error: "Supabase client not configured" });
+  const { data, error } = await supabase.from("profiles").select("*").order("name");
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json({ data: data ?? [] });
+});
+
+// 4. Fetch Enriched Teams List
+app.get("/api/teams", async (_req, res) => {
+  if (!supabase) return res.status(500).json({ error: "Supabase client not configured" });
+
+  try {
+    const [{ data: teams, error: e1 }, { data: members, error: e2 }, { data: profiles, error: e3 }] =
+      await Promise.all([
+        supabase.from("teams").select("*").order("created_at", { ascending: true }),
+        supabase.from("team_members").select("*"),
+        supabase.from("profiles").select("*"),
+      ]);
+
+    if (e1 || e2 || e3) return res.status(500).json({ error: (e1 || e2 || e3).message });
+
+    const profileMap = new Map((profiles || []).map((p) => [p.id, p]));
+    const enriched = (teams || []).map((team) => {
+      const teamMembers = (members || []).filter((m) => m.team_id === team.id);
+      const memberProfiles = teamMembers.map((m) => profileMap.get(m.member_id)).filter(Boolean);
+      const leader = profileMap.get(team.leader_id) ?? null;
+      return {
+        team,
+        leader,
+        members: memberProfiles,
+        stats: computeStats(memberProfiles),
+      };
+    });
+
+    return res.json({ data: enriched });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// 5. Toggle Team Approval
+app.post("/api/teams/:id/toggle-approval", async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: "Supabase client not configured" });
+  const { id } = req.params;
+  const { approved } = req.body;
+
+  const { error } = await supabase.rpc("toggle_team_approval", { p_team_id: id, p_approved: approved });
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json({ success: true });
+});
+
+// 6. Delete Team
+app.delete("/api/teams/:id", async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: "Supabase client not configured" });
+  const { id } = req.params;
+
+  const { error } = await supabase.rpc("delete_team_admin", { p_team_id: id });
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json({ success: true });
+});
+
+// 7. Fetch Problems
+app.get("/api/problems", async (_req, res) => {
+  if (!supabase) return res.status(500).json({ error: "Supabase client not configured" });
+  const { data, error } = await supabase.from("problems").select("*").order("title");
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json({ data: data ?? [] });
+});
+
+// 8. Fetch Themes
+app.get("/api/themes", async (_req, res) => {
+  if (!supabase) return res.status(500).json({ error: "Supabase client not configured" });
+  const { data, error } = await supabase.from("themes").select("*").order("name");
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json({ data: data ?? [] });
+});
+
+// 9. Upsert Problem
+app.post("/api/problems", async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: "Supabase client not configured" });
+  const input = req.body;
+
+  const { error } = await supabase.rpc("upsert_problem_admin", {
+    p_id: input.id ?? null,
+    p_title: input.title,
+    p_category: input.category ?? null,
+    p_description: input.description ?? null,
+    p_theme_id: input.themeId ?? null,
+  });
+
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json({ success: true });
+});
+
+// 10. Delete Problem
+app.delete("/api/problems/:id", async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: "Supabase client not configured" });
+  const { id } = req.params;
+  const { error } = await supabase.rpc("delete_problem_admin", { p_problem_id: id });
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json({ success: true });
+});
+
+// 11. Fetch Timeline Events
+app.get("/api/timeline", async (_req, res) => {
+  if (!supabase) return res.status(500).json({ error: "Supabase client not configured" });
+  const { data, error } = await supabase.from("timeline_events").select("*").order("sort_order", { ascending: true });
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json({ data: data ?? [] });
+});
+
+// 12. Upsert Timeline Event
+app.post("/api/timeline", async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: "Supabase client not configured" });
+  const event = req.body;
+  const { data, error } = await supabase.from("timeline_events").upsert(event).select().single();
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json({ data });
+});
+
+// 13. Delete Timeline Event
+app.delete("/api/timeline/:id", async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: "Supabase client not configured" });
+  const { id } = req.params;
+  const { error } = await supabase.from("timeline_events").delete().eq("id", id);
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json({ success: true });
+});
+
+// 14. Fetch Announcements
+app.get("/api/announcements", async (_req, res) => {
+  if (!supabase) return res.status(500).json({ error: "Supabase client not configured" });
+  const { data, error } = await supabase.from("announcements").select("*").order("created_at", { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json({ data: data ?? [] });
+});
+
+// 15. Upsert Announcement
+app.post("/api/announcements", async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: "Supabase client not configured" });
+  const announcement = req.body;
+  const { data, error } = await supabase.from("announcements").upsert(announcement).select().single();
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json({ data });
+});
+
+// 16. Delete Announcement
+app.delete("/api/announcements/:id", async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: "Supabase client not configured" });
+  const { id } = req.params;
+  const { error } = await supabase.from("announcements").delete().eq("id", id);
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json({ success: true });
+});
+
+// Helper for computing registration status
+function computeRegistrationStatus(setting) {
+  const manualStatus = setting?.manual_status ?? "open";
+  const closingDate = setting?.closing_date ? new Date(setting.closing_date) : null;
+  const now = new Date();
+
+  let isExpired = false;
+  if (closingDate && !isNaN(closingDate.getTime())) {
+    if (now >= closingDate) {
+      isExpired = true;
+    }
+  }
+
+  const isOpen = manualStatus === "open" && !isExpired;
+
+  return {
+    manual_status: manualStatus,
+    closing_date: setting?.closing_date || null,
+    closing_message: setting?.closing_message || "Registration for SIH Internal Hackathon 2026 is currently closed.",
+    is_open: isOpen,
+    is_expired: isExpired
+  };
+}
+
+// 17. Get Registration Settings
+app.get("/api/settings/registration", async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: "Supabase client not configured" });
+  try {
+    const { data, error } = await supabase
+      .from("system_settings")
+      .select("*")
+      .eq("key", "registration_control")
+      .maybeSingle();
+
+    if (error && !error.message.includes("does not exist")) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    const value = data?.value || { manual_status: "open", closing_date: null };
+    return res.json({ data: computeRegistrationStatus(value) });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// 18. Update Registration Settings
+app.post("/api/settings/registration", async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: "Supabase client not configured" });
+  const { manual_status, closing_date, closing_message } = req.body;
+
+  const payload = {
+    manual_status: manual_status === "closed" ? "closed" : "open",
+    closing_date: closing_date || null,
+    closing_message: closing_message || "Registration for SIH Internal Hackathon 2026 is currently closed."
+  };
+
+  try {
+    const { data, error } = await supabase
+      .from("system_settings")
+      .upsert({
+        key: "registration_control",
+        value: payload,
+        updated_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json({ data: computeRegistrationStatus(data.value) });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// Serve static files from Vite dist if present
+const distFolder = join(__dirname, "dist");
+const indexHtmlFile = join(distFolder, "index.html");
+
+if (existsSync(distFolder)) {
+  app.use(express.static(distFolder));
+}
+
+// Catch-all route
+app.get("*", (_req, res) => {
+  if (existsSync(indexHtmlFile)) {
+    return res.sendFile(indexHtmlFile);
+  }
+
+  res.status(200).send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <title>Admin Backend API Server</title>
+      <style>
+        body { font-family: system-ui, sans-serif; background: #09090b; color: #f4f4f5; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        .card { text-align: center; max-width: 480px; padding: 2.5rem; border: 1px solid #27272a; border-radius: 1rem; background: #121215; }
+        .badge { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 9999px; background: rgba(34, 197, 94, 0.1); color: #22c55e; border: 1px solid rgba(34, 197, 94, 0.3); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; margin-bottom: 1rem; }
+        h1 { font-size: 1.75rem; font-weight: 800; margin: 0 0 0.5rem 0; color: #ffffff; }
+        p { color: #a1a1aa; font-size: 0.9rem; line-height: 1.5; margin: 0 0 1.25rem 0; }
+        a { color: #38bdf8; text-decoration: none; font-weight: 600; }
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <span class="badge">Backend Active</span>
+        <h1>SIH Admin REST API Active</h1>
+        <p>Express server is accepting API requests on port <code>${PORT}</code>.</p>
+        <p><a href="/api/health">Check Health Status (/api/health) →</a></p>
+      </div>
+    </body>
+    </html>
+  `);
+});
+
+// Run migrations and then start server listener
+async function startServer() {
+  try {
+    await runMigrations();
+  } catch (err) {
+    console.error("Critical database migration failure. Continuing startup...", err);
+  }
+
+  app.listen(PORT, () => {
+    console.log(`Admin Backend REST API running on port ${PORT}`);
+  });
+}
+
+startServer();

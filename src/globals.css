@@ -1,0 +1,333 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-danger: var(--danger);
+  --color-warning: var(--warning);
+  --color-success: var(--success);
+  --font-sans: var(--font-roboto);
+  --font-mono: var(--font-geist-mono);
+  --font-caveat: "Caveat", cursive;
+}
+
+/* ── Premium Midnight Blue Theme (Single Theme - Dark Design) ── */
+:root {
+  --font-roboto: "Roboto", ui-sans-serif, system-ui, sans-serif;
+  --font-geist-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Midnight Blue Theme Colors */
+  --background: #050b18;
+  --foreground: #e8ecf7;
+  --card: #0a1226;
+  --card-foreground: #e8ecf7;
+  --muted: rgba(147, 197, 253, 0.08);
+  --muted-foreground: #94a3b8;
+  --border: rgba(147, 197, 253, 0.12);
+  --ring: #c9a227;
+  --primary: #c9a227;          /* SMVEC gold */
+  --primary-foreground: #050b18;
+  --accent: #e8c058;           /* lighter gold highlight */
+  --danger: #ef4444;
+  --warning: #f59e0b;
+  --success: #10b981;
+
+  /* Custom variables for the color orbs (Dark theme design) */
+  --orb-a: rgba(109, 123, 221, 0.22);
+  --orb-b: rgba(229, 185, 74, 0.16);
+  --orb-c: rgba(109, 123, 221, 0.12);
+
+  /* Deep blue structural colors */
+  --navy-deep:  #050b18;
+  --navy-mid:   #081026;
+  --navy-light: #101c3f;
+  --gold-rich:  #c9a227;
+  --gold-light: #e8c058;
+  --gold-dim:   rgba(201, 162, 39, 0.20);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  color: var(--foreground);
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: rgba(59, 130, 246, 0.25);
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(147, 197, 253, 0.15);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(147, 197, 253, 0.3);
+}
+
+/* ── Premium dark blue background ── */
+body {
+  background: var(--background);
+}
+
+/* ── Background grid overlay (fades out bottom & sides via radial mask) ── */
+.bg-grid {
+  background-image:
+    linear-gradient(to right, color-mix(in srgb, var(--foreground) 8%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, var(--foreground) 8%, transparent) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse 100% 90% at 50% 0%, black 70%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse 100% 90% at 50% 0%, black 70%, transparent 100%);
+}
+
+
+/* ── Glowing orb backdrop (slow drifting float animations) ── */
+.orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(120px);
+  pointer-events: none;
+  mix-blend-mode: plus-lighter;
+}
+
+@keyframes float-orb-1 {
+  0%, 100% {
+    transform: translate3d(0vw, 0vh, 0) scale(1);
+  }
+  33% {
+    transform: translate3d(5vw, -6vh, 0) scale(1.1);
+  }
+  66% {
+    transform: translate3d(-3vw, 4vh, 0) scale(0.95);
+  }
+}
+
+@keyframes float-orb-2 {
+  0%, 100% {
+    transform: translate3d(0vw, 0vh, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(-6vw, 8vh, 0) scale(1.15);
+  }
+}
+
+@keyframes float-orb-3 {
+  0%, 100% {
+    transform: translate3d(0vw, 0vh, 0) scale(1);
+  }
+  40% {
+    transform: translate3d(4vw, 6vh, 0) scale(0.9);
+  }
+}
+
+.orb-float-1 {
+  animation: float-orb-1 25s ease-in-out infinite alternate;
+}
+
+.orb-float-2 {
+  animation: float-orb-2 30s ease-in-out infinite alternate;
+}
+
+.orb-float-3 {
+  animation: float-orb-3 28s ease-in-out infinite alternate;
+}
+
+/* ── Glass card ── */
+.glass {
+  background: var(--card);
+  border: 1px solid var(--border);
+}
+
+/* ── Card interactive hover ── */
+.card-hover {
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, box-shadow;
+}
+.card-hover:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 20px 40px -15px rgba(201, 162, 39, 0.28);
+  border-color: rgba(201, 162, 39, 0.45);
+}
+
+/* ── Text gradient (gold → orange-gold) ── */
+.text-gradient {
+  background: linear-gradient(135deg, #ffe066 0%, #ff9800 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ── SMVEC navy panel background ── */
+.smvec-panel {
+  background: linear-gradient(160deg, #060c1a 0%, #0b1631 50%, #0f1e40 100%);
+}
+
+/* ── Gold shimmer bar for decorative dividers ── */
+.gold-bar {
+  height: 3px;
+  background: linear-gradient(90deg, transparent, var(--gold-rich, #c9a227), transparent);
+  border-radius: 999px;
+}
+
+/* ── Marquee ── */
+.marquee {
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to right, transparent, black 8%, black 92%, transparent);
+  mask-image:         linear-gradient(to right, transparent, black 8%, black 92%, transparent);
+}
+.marquee-track {
+  display: flex;
+  width: max-content;
+  animation: marquee 34s linear infinite;
+}
+.marquee:hover .marquee-track { animation-play-state: paused; }
+.marquee-group {
+  display: flex;
+  align-items: center;
+  gap: 2.5rem;
+  padding-right: 2.5rem;
+}
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+/* ── Shimmer ── */
+.shimmer {
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    rgba(201, 162, 39, 0.18) 50%,
+    transparent 80%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2.4s infinite;
+}
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+/* ── Float slow (legacy) ── */
+.animate-float-slow { animation: float-slow 9s ease-in-out infinite; }
+@keyframes float-slow {
+  0%, 100% { transform: translate3d(0,   0px, 0) scale(1);    }
+  50%       { transform: translate3d(0, -22px, 0) scale(1.06); }
+}
+
+/* ── Page navigation slide/fade enter transition ── */
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(40px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.page-transition {
+  animation: page-enter 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ── custom transition easing ── */
+.ease-out-expo {
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ── Registration Submission Data Sync Animation ── */
+@keyframes data-card-sync {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+    filter: drop-shadow(0 4px 20px rgba(59, 130, 246, 0.2));
+  }
+  25% {
+    transform: translateY(-40px) scale(1.05);
+    opacity: 1;
+    filter: drop-shadow(0 15px 30px rgba(59, 130, 246, 0.4));
+  }
+  45% {
+    transform: translateY(-20px) scale(0.95);
+    opacity: 0.9;
+  }
+  100% {
+    transform: translateY(180px) scale(0.08);
+    opacity: 0;
+    filter: blur(8px) drop-shadow(0 0 0px transparent);
+  }
+}
+
+@keyframes vault-pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 20px rgba(201, 162, 39, 0.1), inset 0 0 15px rgba(201, 162, 39, 0.05);
+    border-color: rgba(201, 162, 39, 0.3);
+  }
+  50% {
+    transform: scale(1.03);
+    box-shadow: 0 0 35px rgba(201, 162, 39, 0.35), inset 0 0 25px rgba(201, 162, 39, 0.15);
+    border-color: rgba(201, 162, 39, 0.75);
+  }
+}
+
+@keyframes stream-packet {
+  0% {
+    transform: translateY(0) scale(0.4);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(220px) scale(1.2);
+    opacity: 0;
+  }
+}
+
+.animate-card-sync {
+  animation: data-card-sync 2.2s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+.animate-vault-pulse {
+  animation: vault-pulse 1.8s ease-in-out infinite;
+}
+
+.animate-packet {
+  animation: stream-packet 1.6s ease-out infinite;
+}
+
+@keyframes slide-down {
+  from {
+    transform: translate3d(-50%, -120%, 0);
+    opacity: 0;
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-down {
+  animation: slide-down 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}

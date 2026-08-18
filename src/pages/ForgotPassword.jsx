@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { assertSupabase } from "@/lib/supabase/client";
 import * as data from "@/lib/data";
+import { CheckCircle } from "lucide-react";
 import { useToast } from "@/components/unlumen-ui/toast";
 import { Button } from "@/components/unlumen-ui/button";
 import { Input } from "@/components/unlumen-ui/input";
@@ -117,21 +118,21 @@ export default function ForgotPasswordPage() {
             <div className="bg-grid absolute inset-0 opacity-40" />
           </div>
           <div className="relative h-full lg:h-screen w-full max-w-xl mx-auto flex flex-col justify-start px-5 py-6 sm:px-6 lg:justify-center lg:py-20">
-            <div className="mt-8 flex justify-center lg:mt-0">
+            <div className="mt-4 lg:mt-0 flex justify-center">
               <a href="/" className="inline-flex">
-                <CollegeBrand className="scale-[1.5] sm:scale-[1.75] origin-center" />
+                <CollegeBrand className="scale-[1.3] sm:scale-[1.75] origin-center" />
               </a>
             </div>
-            <div className="mt-14 space-y-4 lg:mt-12">
-              <p className="font-caveat text-3xl text-[#e8c058]">Reset your password</p>
-              <h1 className="text-4xl font-bold leading-tight tracking-tight text-white sm:text-5xl">
+            <div className="mt-6 lg:mt-12 space-y-3 lg:space-y-4">
+              <p className="font-caveat text-2xl lg:text-3xl text-[#e8c058]">Reset your password</p>
+              <h1 className="text-3xl lg:text-4xl font-bold leading-tight tracking-tight text-white sm:text-5xl">
                 {step === 0 ? "Verify your student account." : "Create your new password."}
               </h1>
-              <p className="block font-caveat text-xl text-[#8fa0c0]">
+              <p className="hidden sm:block font-caveat text-xl text-[#8fa0c0]">
                 {step === 0 ? "— Enter your details to get started" : "— Make it at least 6 characters long"}
               </p>
             </div>
-            <div className="mt-10 gold-bar w-24" />
+            <div className="mt-6 lg:mt-10 gold-bar w-24" />
           </div>
         </div>
 
@@ -159,9 +160,7 @@ export default function ForgotPasswordPage() {
               /* Success state */
               <div className="flex flex-col items-center justify-center min-h-[50vh] text-center gap-6">
                 <div className="flex size-20 items-center justify-center rounded-full bg-[rgba(201,162,39,0.12)] border border-[rgba(201,162,39,0.3)]">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="size-10 text-[#c9a227]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                  </svg>
+                  <CheckCircle className="size-10 text-[#c9a227]" strokeWidth={1.5} />
                 </div>
                 <div>
                   <h2 className="text-2xl font-bold text-white">Password Reset Successful!</h2>

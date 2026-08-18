@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { assertSupabase, isSupabaseConfigured } from "@/lib/supabase/client";
 import { ensureProfile, checkRegisterNoExists, checkEmailExists, checkPhoneExists } from "@/lib/data";
+import { Loader } from "lucide-react";
 import { useToast } from "@/components/unlumen-ui/toast";
 import { Button } from "@/components/unlumen-ui/button";
 import { Input, Select } from "@/components/unlumen-ui/input";
@@ -510,9 +511,7 @@ function ensureHttp(url) {
           {/* Glowing check node */}
           <div className="relative flex size-20 items-center justify-center rounded-3xl border border-primary/20 bg-card shadow-2xl">
             <span className="absolute inset-0 rounded-3xl bg-primary/5 blur-lg animate-pulse" />
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-primary animate-bounce">
-              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-            </svg>
+            <Loader className="size-6 text-primary animate-bounce" strokeWidth={2.5} />
           </div>
 
           <h3 className="text-lg font-black text-foreground mt-6">Establishing Student Account</h3>

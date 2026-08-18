@@ -2,6 +2,19 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  AlertTriangle,
+  Home,
+  Users,
+  UsersRound,
+  FileText,
+  CalendarDays,
+  Megaphone,
+  Settings,
+  LayoutGrid,
+  Menu,
+  X,
+} from "lucide-react";
 import * as data from "@/lib/data";
 import { downloadCsv } from "@/lib/utils";
 import { DEPARTMENTS } from "@/lib/constants";
@@ -13,6 +26,7 @@ import { Avatar } from "@/components/unlumen-ui/avatar";
 import { Input, Select } from "@/components/unlumen-ui/input";
 import { CollegeBrand } from "@/components/common/college-brand";
 import { cn } from "@/lib/utils";
+import { OverallMinistriesView } from "./OverallMinistriesView";
 
 export default function AdminPage() {
   const navigate = useNavigate();
@@ -324,34 +338,35 @@ export default function AdminPage() {
   }
 
   return (
-    <main className="mx-auto flex flex-col min-h-screen w-full max-w-[1536px] px-5 pb-16">
-      <header className="sticky top-0 z-40 -mx-5 mb-6 border-b border-border bg-background/80 px-5 backdrop-blur">
-        <div className="flex h-16 items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
+    <main className="mx-auto flex flex-col min-h-screen w-full max-w-[1536px] px-4 sm:px-5 pb-24 md:pb-16">
+      <header className="sticky top-0 z-40 -mx-4 sm:-mx-5 mb-6 border-b border-border bg-background/80 px-4 sm:px-5 backdrop-blur">
+        <div className="flex h-14 sm:h-16 items-center justify-between gap-2 sm:gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <CollegeBrand />
-            <div className="leading-tight">
+            <div className="leading-tight hidden sm:block">
               <p className="text-sm font-bold tracking-tight">Admin control</p>
               <p className="text-xs text-muted-foreground">SIH 2026 · registrations & teams</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => navigate("/")}>
+            <Button variant="outline" onClick={() => navigate("/")} className="hidden sm:inline-flex text-xs px-3 py-1.5">
               View Site
             </Button>
-            <Button variant="danger" onClick={logout} className="px-3 py-2">
+            <Button variant="danger" onClick={logout} className="px-2.5 py-1.5 text-xs sm:px-3 sm:py-2">
               Log out
             </Button>
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-1 pb-3">
-          {["students", "teams", "problems", "timeline", "announcements", "registration"].map((t) => (
+        {/* Desktop Tab Bar */}
+        <div className="hidden md:flex flex-wrap gap-1 pb-3">
+          {["students", "teams", "problems", "timeline", "announcements", "registration", "ministries"].map((t) => (
             <button
               key={t}
               type="button"
               onClick={() => setTab(t)}
               className={cn(
-                "rounded-lg px-4 py-1.5 text-sm font-semibold transition-all",
+                "rounded-lg px-3 py-1.5 text-xs font-semibold transition-all",
                 tab === t
                   ? "bg-primary/10 text-primary"
                   : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
@@ -364,10 +379,12 @@ export default function AdminPage() {
                 : t === "problems"
                 ? "Problems"
                 : t === "timeline"
-                ? "Timeline Dates"
+                ? "Timeline"
                 : t === "announcements"
                 ? "Announcements"
-                : "Registration Control"}
+                : t === "ministries"
+                ? "Ministries"
+                : "Registration"}
             </button>
           ))}
         </div>
@@ -391,10 +408,21 @@ export default function AdminPage() {
             />
           )}
 
+          {tab === "ministries" && (
+            <OverallMinistriesView teams={teams} />
+          )}
+
           {tab === "students" && (
             <Card className="overflow-hidden p-0">
-              <div className="flex flex-col gap-4 border-b border-border px-5 py-4 xl:flex-row xl:items-center xl:justify-between">
-                <h3 className="text-base font-bold text-nowrap">Student registrations</h3>
+              <div className="flex flex-col gap-3 border-b border-border px-4 sm:px-5 py-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <h3 className="text-base font-bold text-nowrap">Student registrations</h3>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" onClick={exportStudents} className="text-xs px-3 py-1.5">
+                      Export CSV
+                    </Button>
+                  </div>
+                </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <Input
                     value={q}
@@ -402,7 +430,7 @@ export default function AdminPage() {
                     placeholder="Search name, register no, email…"
                     className="w-full sm:w-56"
                   />
-                  <Select value={dept} onChange={(e) => setDept(e.target.value)} className="w-full sm:w-48">
+                  <Select value={dept} onChange={(e) => setDept(e.target.value)} className="w-full sm:w-44">
                     <option value="">All departments</option>
                     {DEPARTMENTS.map((d) => (
                       <option key={d} value={d}>
@@ -410,29 +438,71 @@ export default function AdminPage() {
                       </option>
                     ))}
                   </Select>
-                  <Select value={gender} onChange={(e) => setGender(e.target.value)} className="w-full sm:w-36">
+                  <Select value={gender} onChange={(e) => setGender(e.target.value)} className="w-full sm:w-32">
                     <option value="">All genders</option>
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
                   </Select>
-                  <Select value={verified} onChange={(e) => setVerified(e.target.value)} className="w-full sm:w-40">
+                  <Select value={verified} onChange={(e) => setVerified(e.target.value)} className="w-full sm:w-36">
                     <option value="all">All statuses</option>
                     <option value="verified">Verified</option>
                     <option value="unverified">Unverified</option>
                   </Select>
-                  <Select value={projType} onChange={(e) => setProjType(e.target.value)} className="w-full sm:w-44">
+                  <Select value={projType} onChange={(e) => setProjType(e.target.value)} className="w-full sm:w-40">
                     <option value="">All project types</option>
                     <option value="Hardware">Hardware</option>
                     <option value="Software">Software</option>
                     <option value="Hardware & Software">Hardware &amp; Software</option>
                   </Select>
-                  <Button variant="outline" onClick={exportStudents}>
-                    Export CSV
-                  </Button>
                 </div>
               </div>
 
-              <div className="overflow-x-auto">
+              {/* Mobile card list */}
+              <div className="md:hidden divide-y divide-border/60">
+                {students.length === 0 && (
+                  <p className="px-4 py-10 text-center text-sm text-muted-foreground">No registrations match your filters.</p>
+                )}
+                {students.map((s) => (
+                  <div key={s.id} className="px-4 py-4 flex flex-col gap-3">
+                    <div className="flex items-center gap-3">
+                      <Avatar name={s.name} className="size-10 text-xs shrink-0" />
+                      <div className="min-w-0">
+                        <p className="font-semibold text-sm truncate">{s.name}</p>
+                        <p className="text-xs text-muted-foreground truncate">{s.email ?? "—"}</p>
+                        <p className="text-xs text-muted-foreground">{s.phone ?? "—"}</p>
+                      </div>
+                      <div className="ml-auto shrink-0">
+                        {s.verified ? (
+                          <GlowingBadge variant="success" pulse={false}>Verified</GlowingBadge>
+                        ) : (
+                          <GlowingBadge variant="warning" pulse={false}>Pending</GlowingBadge>
+                        )}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                      <span><span className="font-semibold text-foreground">Reg No: </span>{s.register_no ?? "—"}</span>
+                      <span><span className="font-semibold text-foreground">Dept: </span>{s.department ?? "—"}</span>
+                      <span><span className="font-semibold text-foreground">Year: </span>{s.year ? `Yr ${s.year}` : "—"}</span>
+                      <span><span className="font-semibold text-foreground">Section: </span>{s.section ?? "—"}</span>
+                      <span><span className="font-semibold text-foreground">Gender: </span>{s.gender ?? "—"}</span>
+                      <span><span className="font-semibold text-foreground">Type: </span>{s.project_type ?? "—"}</span>
+                    </div>
+                    {s.project_title && (
+                      <p className="text-xs text-muted-foreground truncate"><span className="font-semibold text-foreground">Project: </span>{s.project_title}</p>
+                    )}
+                    {(s.languages || []).length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {s.languages.map((l) => (
+                          <span key={l} className="rounded border border-border bg-muted/40 px-1.5 py-0.5 text-[10px] text-muted-foreground">{l}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop table */}
+              <div className="hidden md:block overflow-x-auto">
                 <table className="w-full min-w-[1000px] text-left text-sm">
                   <thead>
                     <tr className="border-b border-border text-xs uppercase tracking-wider text-muted-foreground">
@@ -493,7 +563,6 @@ export default function AdminPage() {
                             ))}
                           </div>
                         </td>
-                        {/* Domain Interest column */}
                         <td className="px-5 py-3">
                           <div className="flex max-w-[220px] flex-wrap gap-1">
                             {(!s.domain_interests || s.domain_interests.length === 0) && (
@@ -619,7 +688,58 @@ export default function AdminPage() {
                   Export CSV
                 </Button>
               </div>
-              <div className="overflow-x-auto">
+
+              {/* Mobile card list */}
+              <div className="md:hidden divide-y divide-border/60">
+                {teams.length === 0 && (
+                  <p className="px-4 py-10 text-center text-sm text-muted-foreground">No teams formed yet.</p>
+                )}
+                {teams.map((t) => (
+                  <div key={t.team.id} className="px-4 py-4 flex flex-col gap-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <p className="font-semibold text-sm">{t.team.name}</p>
+                        <p className="text-xs text-muted-foreground">Leader: {t.leader?.name ?? "—"}</p>
+                      </div>
+                      <div>
+                        {t.stats.valid ? (
+                          <GlowingBadge variant="success" pulse={false}>Valid</GlowingBadge>
+                        ) : (
+                          <GlowingBadge variant="warning" pulse={false} title={t.stats.reason}>Invalid</GlowingBadge>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex -space-x-2">
+                        {t.members.slice(0, 4).map((m) => (
+                          <Avatar key={m.id} name={m.name} className="size-7 text-[9px] ring-2 ring-background" />
+                        ))}
+                      </div>
+                      <span className="text-xs text-muted-foreground">{t.members.length}/6 members</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                      <span><span className="font-semibold text-foreground">Depts: </span>{t.stats.deptCount}</span>
+                      <span><span className="font-semibold text-foreground">Female: </span>{t.stats.girlCount}</span>
+                      {problemMap.get(t.team.problem_id ?? "") && (
+                        <span className="col-span-2 truncate"><span className="font-semibold text-foreground">Problem: </span>{problemMap.get(t.team.problem_id ?? "")}</span>
+                      )}
+                    </div>
+                    {t.members.length === 0 && (
+                      <Button
+                        variant="danger"
+                        className="px-2.5 py-1 text-xs self-start"
+                        loading={deleting === t.team.id}
+                        onClick={() => deleteTeam(t)}
+                      >
+                        Delete Empty Team
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop table */}
+              <div className="hidden md:block overflow-x-auto">
                 <table className="w-full min-w-[900px] text-left text-sm">
                   <thead>
                     <tr className="border-b border-border text-xs uppercase tracking-wider text-muted-foreground">
@@ -700,11 +820,7 @@ export default function AdminPage() {
 
           {tablesMissing && (tab === "timeline" || tab === "announcements") && (
             <Card className="p-6 border-warning/30 bg-warning/5 text-center flex flex-col items-center gap-3">
-              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-warning animate-bounce">
-                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                <line x1="12" y1="9" x2="12" y2="13" />
-                <line x1="12" y1="17" x2="12.01" y2="17" />
-              </svg>
+              <AlertTriangle className="size-9 text-warning animate-bounce" />
               <h3 className="text-base font-bold text-warning">Supabase Tables Missing</h3>
               <p className="text-xs text-muted-foreground max-w-sm">
                 The database tables <code className="font-mono">timeline_events</code> and <code className="font-mono">announcements</code> are not created in your Supabase project yet. Click below to copy the SQL setup code to paste it into your Supabase Dashboard SQL Editor:
@@ -760,6 +876,38 @@ export default function AdminPage() {
             <AnnouncementsManager announcements={announcements} onReload={load} />
           )}
         </div>
+
+      {/* Mobile Bottom Tab Navigation */}
+      <div className="fixed bottom-0 inset-x-0 z-40 border-t border-border/60 bg-background/95 backdrop-blur-md py-2 px-1 flex items-center justify-around md:hidden shadow-[0_-8px_24px_rgba(0,0,0,0.4)]">
+        {[
+          { key: "students", icon: "students", label: "Students" },
+          { key: "teams", icon: "teams", label: "Teams" },
+          { key: "problems", icon: "problems", label: "Problems" },
+          { key: "timeline", icon: "timeline", label: "Timeline" },
+          { key: "announcements", icon: "announce", label: "Announce" },
+          { key: "registration", icon: "settings", label: "Settings" },
+          { key: "ministries", icon: "ministries", label: "Ministry" },
+        ].map((item) => (
+          <button
+            key={item.key}
+            type="button"
+            onClick={() => setTab(item.key)}
+            className={cn(
+              "flex flex-col items-center justify-center gap-0.5 px-1 py-1 rounded-lg transition-colors min-w-0 flex-1",
+              tab === item.key ? "text-primary" : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {item.icon === "students" && <svg className="size-4.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" /></svg>}
+            {item.icon === "teams" && <svg className="size-4.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" /></svg>}
+            {item.icon === "problems" && <svg className="size-4.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25ZM6.75 12h.008v.008H6.75V12Zm0 3h.008v.008H6.75V15Zm0 3h.008v.008H6.75V18Z" /></svg>}
+            {item.icon === "timeline" && <svg className="size-4.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" /></svg>}
+            {item.icon === "announce" && <svg className="size-4.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M10.34 15.84c-.688-.06-1.386-.09-2.09-.09H7.5a4.5 4.5 0 1 1 0-9h.75c.704 0 1.402-.03 2.09-.09m0 9.18c.253.962.584 1.892.985 2.783.247.55.06 1.21-.463 1.511l-.657.38c-.551.318-1.26.117-1.527-.461a20.845 20.845 0 0 1-1.44-4.282m3.102.069a18.03 18.03 0 0 1-.59-4.59c0-1.586.205-3.124.59-4.59m0 9.18a23.848 23.848 0 0 1 8.835 2.535M10.34 6.66a23.847 23.847 0 0 1 8.835-2.535m0 0A23.74 23.74 0 0 1 18.795 3m.38 1.125a23.91 23.91 0 0 1 1.014 5.395m-1.014 8.855c-.118.38-.245.754-.38 1.125m.38-1.125a23.91 23.91 0 0 0 1.014-5.395m0-3.46c.495.413.811 1.035.811 1.73 0 .695-.316 1.317-.811 1.73m0-3.46a24.347 24.347 0 0 1 0 3.46" /></svg>}
+            {item.icon === "settings" && <svg className="size-4.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.282c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>}
+            {item.icon === "ministries" && <svg className="size-4.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0 0 12 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75Z" /></svg>}
+            <span className="text-[8px] font-bold">{item.label}</span>
+          </button>
+        ))}
+      </div>
     </main>
   );
 }
@@ -1351,23 +1499,23 @@ function AdminLoginForm({ onLoginSuccess }) {
 
           <div className="relative h-full lg:h-screen w-full max-w-xl mx-auto flex flex-col justify-start px-5 py-6 sm:px-6 lg:justify-center lg:py-20">
             {/* Logo */}
-            <div className="mt-8 flex justify-center lg:mt-0">
+            <div className="mt-4 lg:mt-0 flex justify-center">
               <a href="/" className="inline-flex">
-                <CollegeBrand className="scale-[1.5] sm:scale-[1.75] origin-center" />
+                <CollegeBrand className="scale-[1.3] sm:scale-[1.75] origin-center" />
               </a>
             </div>
 
-            <div className="mt-14 space-y-4 lg:mt-12">
+            <div className="mt-6 lg:mt-12 space-y-3 lg:space-y-4">
               {/* Gold accent label */}
-              <p className="font-caveat text-3xl text-[#e8c058]">Welcome back</p>
-              <h1 className="text-4xl font-bold leading-tight tracking-tight text-white sm:text-5xl">
+              <p className="font-caveat text-2xl lg:text-3xl text-[#e8c058]">Welcome back</p>
+              <h1 className="text-3xl lg:text-4xl font-bold leading-tight tracking-tight text-white sm:text-5xl">
                 Sign In to Admin Control Center.
               </h1>
-              <p className="block font-caveat text-xl text-[#8fa0c0]">— Authorized Personnel Only</p>
+              <p className="hidden sm:block font-caveat text-xl text-[#8fa0c0]">— Authorized Personnel Only</p>
             </div>
 
             {/* Gold divider line */}
-            <div className="mt-10 gold-bar w-24" />
+            <div className="mt-6 lg:mt-10 gold-bar w-24" />
           </div>
         </div>
 
@@ -1381,9 +1529,7 @@ function AdminLoginForm({ onLoginSuccess }) {
                 className="inline-flex items-center gap-2 rounded-xl border border-[rgba(201,162,39,0.20)] bg-[rgba(201,162,39,0.05)] px-3.5 py-2 text-sm font-medium text-[#8fa0c0] transition-colors hover:border-[rgba(201,162,39,0.45)] hover:bg-[rgba(201,162,39,0.10)] hover:text-[#e8c058]"
                 title="Back to home"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="size-4 shrink-0">
-                  <path fillRule="evenodd" d="M9.293 2.293a1 1 0 0 1 1.414 0l7 7A1 1 0 0 1 17 11h-1v6a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-6H3a1 1 0 0 1-.707-1.707l7-7Z" clipRule="evenodd" />
-                </svg>
+                <Home className="size-4 shrink-0" />
                 Home
               </a>
             </div>

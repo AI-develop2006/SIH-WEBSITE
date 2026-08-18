@@ -331,3 +331,20 @@ body {
 .animate-slide-down {
   animation: slide-down 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+/* ── Mobile: safe-area inset for bottom nav bars (iOS notch/home bar) ── */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .mobile-safe-bottom {
+    padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+  }
+}
+
+/* ── Mobile: ensure fixed bottom nav stays above home indicator ── */
+.fixed-bottom-nav {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ── Animate page-enter utility class ── */
+.animate-page-enter {
+  animation: page-enter 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}

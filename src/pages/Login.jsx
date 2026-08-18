@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase/client";
+import { Home } from "lucide-react";
 import { AuthCard } from "@/components/auth/auth-card";
 import { CollegeBrand } from "@/components/common/college-brand";
 
@@ -35,23 +36,23 @@ export default function LoginPage() {
 
           <div className="relative h-full lg:h-screen w-full max-w-xl mx-auto flex flex-col justify-start px-5 py-6 sm:px-6 lg:justify-center lg:py-20">
             {/* Logo */}
-            <div className="mt-8 flex justify-center lg:mt-0">
+            <div className="mt-4 lg:mt-0 flex justify-center">
               <a href="/" className="inline-flex">
-                <CollegeBrand className="scale-[1.5] sm:scale-[1.75] origin-center" />
+                <CollegeBrand className="scale-[1.3] sm:scale-[1.75] origin-center" />
               </a>
             </div>
 
-            <div className="mt-14 space-y-4 lg:mt-12">
+            <div className="mt-6 lg:mt-12 space-y-3 lg:space-y-4">
               {/* Gold accent label */}
-              <p className="font-caveat text-3xl text-[#e8c058]">Welcome back</p>
-              <h1 className="text-4xl font-bold leading-tight tracking-tight text-white sm:text-5xl">
+              <p className="font-caveat text-2xl lg:text-3xl text-[#e8c058]">Welcome back</p>
+              <h1 className="text-3xl lg:text-4xl font-bold leading-tight tracking-tight text-white sm:text-5xl">
                 Log in with your Register Number.
               </h1>
-              <p className="block font-caveat text-xl text-[#8fa0c0]">— Welcome back to SIH 2026</p>
+              <p className="hidden sm:block font-caveat text-xl text-[#8fa0c0]">— Welcome back to SIH 2026</p>
             </div>
 
             {/* Gold divider line */}
-            <div className="mt-10 gold-bar w-24" />
+            <div className="mt-6 lg:mt-10 gold-bar w-24" />
           </div>
         </div>
 
@@ -65,9 +66,7 @@ export default function LoginPage() {
                 className="inline-flex items-center gap-2 rounded-xl border border-[rgba(201,162,39,0.20)] bg-[rgba(201,162,39,0.05)] px-3.5 py-2 text-sm font-medium text-[#8fa0c0] transition-colors hover:border-[rgba(201,162,39,0.45)] hover:bg-[rgba(201,162,39,0.10)] hover:text-[#e8c058]"
                 title="Back to home"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="size-4 shrink-0">
-                  <path fillRule="evenodd" d="M9.293 2.293a1 1 0 0 1 1.414 0l7 7A1 1 0 0 1 17 11h-1v6a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-6H3a1 1 0 0 1-.707-1.707l7-7Z" clipRule="evenodd" />
-                </svg>
+                <Home className="size-4 shrink-0" />
                 Home
               </a>
               <span className="text-xs text-muted-foreground">New here?{" "}

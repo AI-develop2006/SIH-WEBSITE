@@ -236,7 +236,7 @@ export default function LandingPage() {
   }, []);
 
   return (
-    <div className="page-transition min-h-screen bg-transparent relative">
+    <div className="page-transition min-h-screen bg-transparent relative overflow-x-hidden">
       {/* College Banner Background with smooth fade */}
       <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-screen overflow-hidden">
         <div
@@ -250,19 +250,19 @@ export default function LandingPage() {
       <header className="sticky top-0 z-40 border-b border-[rgba(201,162,39,0.18)] bg-[#050b18] backdrop-blur-md">
         {/* SMVEC gold top accent bar */}
         <div className="h-1 w-full bg-gradient-to-r from-transparent via-[#c9a227] to-transparent" />
-        <div className="mx-auto flex h-[4.5rem] w-full max-w-[1536px] items-center px-5">
+        <div className="mx-auto flex h-[4.5rem] w-full max-w-[1536px] items-center justify-between px-4 sm:px-5 gap-3">
+
+          {/* Logo — fixed width, never grows */}
           <a
             href="/"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate("/");
-            }}
-            className="flex flex-1 items-center"
+            onClick={(e) => { e.preventDefault(); navigate("/"); }}
+            className="flex items-center shrink-0"
           >
             <CollegeBrand />
           </a>
 
-          <nav className="hidden items-center gap-1 lg:flex">
+          {/* Desktop nav — centre */}
+          <nav className="hidden items-center gap-1 lg:flex flex-1 justify-center">
             {NAV_LINKS.map((l) => (
               <a
                 key={l.href}
@@ -274,16 +274,24 @@ export default function LandingPage() {
             ))}
           </nav>
 
-          <div className="flex flex-1 items-center justify-end gap-1.5 sm:gap-2">
+          {/* Right actions — shrink-0 so they never collapse */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <span className="hidden sm:inline-flex">
-              <Button variant="ghost" className="text-[#8fa0c0] hover:text-[#e8c058] px-2.5 py-1.5 text-xs sm:px-3 sm:py-2 sm:text-sm" onClick={() => navigate("/login")}>
+              <Button
+                variant="ghost"
+                className="text-[#8fa0c0] hover:text-[#e8c058] px-2.5 py-1.5 text-xs sm:px-3 sm:py-2 sm:text-sm"
+                onClick={() => navigate("/login")}
+              >
                 Log in
               </Button>
             </span>
-            <Button onClick={handleRegisterClick} className="bg-[#c9a227] text-[#06090f] hover:bg-[#e8c058] font-bold border-0 px-2.5 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm">
+            <Button
+              onClick={handleRegisterClick}
+              className="bg-[#c9a227] text-[#06090f] hover:bg-[#e8c058] font-bold border-0 px-3 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm whitespace-nowrap"
+            >
               Register Now
             </Button>
-            {/* Hamburger Menu Button */}
+            {/* Hamburger */}
             <button
               type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -302,7 +310,7 @@ export default function LandingPage() {
 
       {/* Mobile navigation panel */}
       {mobileMenuOpen && (
-        <div className="lg:hidden border-b border-[rgba(201,162,39,0.18)] bg-[#050b18]/95 backdrop-blur-md px-5 py-4 flex flex-col gap-2 transition-all sticky top-[4.5rem] z-30 shadow-lg">
+        <div className="lg:hidden fixed inset-x-0 top-[4.5rem] z-30 border-b border-[rgba(201,162,39,0.18)] bg-[#050b18]/98 px-5 py-4 flex flex-col gap-2 shadow-lg max-h-[calc(100dvh-4.5rem)] overflow-y-auto">
           {NAV_LINKS.map((l) => (
             <a
               key={l.href}
@@ -330,7 +338,7 @@ export default function LandingPage() {
 
       <main>
         {/* ── First Section (Hero + Marquee pinned at bottom of viewport) ── */}
-        <section className="relative flex min-h-[calc(100vh-4.5rem)] flex-col justify-between overflow-hidden">
+        <section className="relative flex min-h-[calc(100dvh-4.5rem)] flex-col justify-between overflow-hidden">
           <div className="mx-auto flex w-full max-w-[1536px] flex-1 flex-col items-center justify-center px-5 py-8 sm:py-12">
             <div ref={heroRef} className="mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
               <h1 className="reveal text-4xl font-bold leading-[1.08] tracking-tight text-white drop-shadow-[0_4px_16px_rgba(0,0,0,0.9)] sm:text-6xl">
@@ -455,7 +463,7 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="mt-12 grid gap-4 sm:grid-cols-3">
+          <div className="mt-12 grid gap-4 sm:grid-cols-2 md:grid-cols-3">
             {RULES.map((r) => (
               <div key={r.title} className="card-hover flex items-start gap-4 rounded-xl border border-[rgba(201,162,39,0.15)] bg-card/50 backdrop-blur-md p-6">
                 <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-[rgba(201,162,39,0.10)] text-lg">

@@ -1211,7 +1211,7 @@ function StudentTeamCard({ myTeam, currentUserId }) {
             </h3>
             {isLeader && (
               <span className="rounded-full border border-[#c9a227]/40 bg-[#c9a227]/15 px-2.5 py-0.5 text-[11px] font-bold text-[#e8c058]">
-                ★ Team Leader
+                ★ Captain
               </span>
             )}
           </div>
@@ -1268,37 +1268,32 @@ function StudentTeamCard({ myTeam, currentUserId }) {
             return (
               <div
                 key={member.id}
-                className={`flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-xl border transition-all ${
+                className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3.5 rounded-xl border transition-all ${
                   isMe
                     ? "border-[#c9a227]/40 bg-[#c9a227]/10"
                     : "border-border/40 bg-card/40 hover:bg-card/70"
                 }`}
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 min-w-0">
                   <Avatar name={member.name} src={member.avatar_url ?? undefined} className="size-10 text-xs ring-1 ring-primary/30 shrink-0" />
-                  <div>
+                  <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-bold text-white">{member.name}</span>
+                      <span className="text-sm font-bold text-white truncate">{member.name}</span>
                       {isMe && (
-                        <span className="rounded bg-primary/20 px-1.5 py-0.5 text-[10px] font-bold text-primary">
+                        <span className="rounded bg-primary/20 px-1.5 py-0.5 text-[10px] font-bold text-primary shrink-0">
                           YOU
                         </span>
                       )}
-                      {isMemberLeader && (
-                        <span className="rounded bg-[#c9a227]/20 px-1.5 py-0.5 text-[10px] font-bold text-[#e8c058]">
-                          LEADER
-                        </span>
-                      )}
                     </div>
-                    <p className="text-xs text-muted-foreground mt-0.5">
+                    <p className="text-xs text-muted-foreground mt-0.5 truncate">
                       {member.register_no} · {member.department} {member.year ? `(${member.year} Yr)` : ""} · {member.gender}
                     </p>
                   </div>
                 </div>
 
-                {/* Contact & Tech Details */}
-                <div className="mt-2 sm:mt-0 text-left sm:text-right text-xs space-y-0.5">
-                  <p className="text-slate-300 font-mono text-[11px]">{member.email}</p>
+                {/* Contact details */}
+                <div className="sm:text-right text-xs space-y-0.5 shrink-0">
+                  <p className="text-slate-300 font-mono text-[11px] truncate max-w-[200px] sm:max-w-none">{member.email}</p>
                   {member.phone && (
                     <p className="text-muted-foreground text-[11px]">📞 {member.phone}</p>
                   )}

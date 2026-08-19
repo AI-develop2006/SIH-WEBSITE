@@ -33,11 +33,11 @@ export function StudentDetailModal({
 
   return (
     <div
-      className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md overflow-y-auto"
+      className="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md overflow-y-auto"
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-3xl max-h-[92vh] overflow-y-auto rounded-3xl border border-border/80 bg-[#0a0f1d] p-6 sm:p-8 shadow-2xl text-left z-[100000] space-y-6 scrollbar-thin"
+        className="relative w-full max-w-3xl max-h-[92dvh] overflow-y-auto rounded-3xl border border-border/80 bg-[#0a0f1d] p-5 sm:p-8 shadow-2xl text-left z-[100000] space-y-6 scrollbar-thin"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Gold Accent Bar */}

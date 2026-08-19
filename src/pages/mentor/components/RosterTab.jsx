@@ -454,7 +454,7 @@ export function RosterTab({
       />
       <div 
         className={cn(
-          "fixed top-0 left-0 z-50 h-full w-[320px] sm:w-[350px] bg-[#070c14] border-r border-border/40 p-6 flex flex-col justify-between shadow-2xl transition-transform duration-300 ease-out transform lg:hidden",
+          "fixed top-0 left-0 z-50 h-full w-[min(320px,85vw)] bg-[#070c14] border-r border-border/40 p-6 flex flex-col justify-between shadow-2xl transition-transform duration-300 ease-out transform lg:hidden",
           showFilterDrawer ? "translate-x-0" : "-translate-x-full"
         )}
       >

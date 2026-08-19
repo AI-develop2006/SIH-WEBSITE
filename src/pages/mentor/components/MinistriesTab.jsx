@@ -289,17 +289,17 @@ export function MinistriesTab({ teams }) {
                                 ) : (
                                   <div className="space-y-1">
                                     {t.members.map((m) => (
-                                      <div key={m.id} className="flex items-center justify-between text-[11px] py-1.5 px-2.5 rounded-lg bg-muted/10">
+                                      <div key={m.id} className="flex flex-col xs:flex-row xs:items-center justify-between gap-1 text-[11px] py-1.5 px-2.5 rounded-lg bg-muted/10">
                                         <div className="flex items-center gap-2 min-w-0">
                                           <span className="font-semibold text-white truncate">{m.name}</span>
                                           <span className="text-muted-foreground font-mono text-[10px] shrink-0">{m.register_no}</span>
                                         </div>
-                                        <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
-                                          <span className="text-[10px] bg-muted/20 border border-border/30 px-1.5 py-0.5 rounded text-muted-foreground">
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                          <span className="text-[10px] bg-muted/20 border border-border/30 px-1.5 py-0.5 rounded text-muted-foreground truncate max-w-[140px]">
                                             {m.department}
                                           </span>
                                           {m.assigned_skill && (
-                                            <span className="text-[10px] bg-[#c9a227]/10 border border-[#c9a227]/30 px-1.5 py-0.5 rounded text-[#e8c058]">
+                                            <span className="text-[10px] bg-[#c9a227]/10 border border-[#c9a227]/30 px-1.5 py-0.5 rounded text-[#e8c058] truncate max-w-[120px]">
                                               {m.assigned_skill}
                                             </span>
                                           )}

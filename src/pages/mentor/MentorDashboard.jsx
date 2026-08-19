@@ -550,13 +550,14 @@ export default function MentorDashboardPage() {
 
       {/* Active Announcement */}
       {announcement && (
-        <div className="mb-6 rounded-2xl border border-[rgba(201,162,39,0.30)] bg-card/60 backdrop-blur-xl p-5 overflow-hidden shadow-[0_0_30px_rgba(201,162,39,0.08)] relative">
-          <div className="absolute -right-10 -top-10 size-40 bg-[#c9a227]/5 rounded-full blur-3xl pointer-events-none" />
+        <div className="mb-6 rounded-2xl border border-[rgba(201,162,39,0.30)] bg-card/60 p-4 overflow-hidden relative">
           <div>
-            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider text-[#e8c058] bg-[#c9a227]/10 px-2 py-0.5 rounded-md border border-[#c9a227]/20 mb-3">
-              Latest Coordinator Announcement
+            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider text-[#e8c058] bg-[#c9a227]/10 px-2 py-0.5 rounded-md border border-[#c9a227]/20 mb-2">
+              Latest Announcement
             </span>
-            <FormattedAnnouncement content={announcement.content} />
+            <div className="max-h-40 overflow-y-auto">
+              <FormattedAnnouncement content={announcement.content} />
+            </div>
           </div>
         </div>
       )}

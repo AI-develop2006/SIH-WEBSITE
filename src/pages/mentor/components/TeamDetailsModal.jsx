@@ -22,9 +22,11 @@ export function TeamDetailsModal({
   problemMap,
   removeMember,
   deleteTeam,
+  renameTeam,
   onViewProfile,
   assignMemberSkill,
   assignTeamMinistry,
+  readOnly = false,
 }) {
   if (!teamData) return null;
 
@@ -48,6 +50,14 @@ export function TeamDetailsModal({
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  // ── Rename state ─────────────────────────────────────────────────────────
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [draftName, setDraftName] = useState(team.name ?? "");
+  const [renameBusy, setRenameBusy] = useState(false);
+
+  // Sync rename draft when team changes (e.g. optimistic update propagates back)
+  useEffect(() => { setDraftName(team.name ?? ""); setIsEditingName(false); }, [team.id, team.name]);
+
   // Sync drafts when parent data refreshes after a removeMember etc.
   useEffect(() => { setDraftMinistry(team.ministry ?? ""); }, [team.ministry, team.id]);
   useEffect(() => {
@@ -60,6 +70,15 @@ export function TeamDetailsModal({
     (m) => (draftSkills[m.id] ?? "") !== (m.assigned_skill ?? "")
   );
   const hasUnsaved = ministryChanged || skillsChanged;
+
+  const handleRename = useCallback(async () => {
+    const trimmed = draftName.trim();
+    if (!trimmed || trimmed === team.name) { setIsEditingName(false); return; }
+    setRenameBusy(true);
+    if (renameTeam) await renameTeam(team.id, trimmed);
+    setRenameBusy(false);
+    setIsEditingName(false);
+  }, [draftName, team.id, team.name, renameTeam]);
 
   const handleSave = useCallback(async () => {
     setSaving(true);
@@ -107,7 +126,54 @@ export function TeamDetailsModal({
                 <GlowingBadge variant="warning" pulse={false}>Pending Review</GlowingBadge>
               )}
             </div>
-            <p className="text-xs text-slate-300 font-semibold mt-1 font-mono">Team Name: {team.name}</p>
+            <p className="text-xs text-slate-300 font-semibold mt-1 font-mono">
+              {readOnly ? (
+                <>Team Name: {team.name}</>
+              ) : isEditingName ? (
+                <span className="flex items-center gap-2 flex-wrap">
+                  <span className="text-muted-foreground">Team Name:</span>
+                  <input
+                    autoFocus
+                    type="text"
+                    value={draftName}
+                    onChange={(e) => setDraftName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleRename();
+                      if (e.key === "Escape") { setDraftName(team.name ?? ""); setIsEditingName(false); }
+                    }}
+                    className="rounded-lg border border-[#c9a227]/50 bg-card/60 text-white text-xs px-2 py-1 focus:outline-none focus:border-[#c9a227] w-48"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleRename}
+                    disabled={renameBusy || !draftName.trim()}
+                    className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-[#c9a227] text-black hover:bg-[#e8c058] disabled:opacity-50 transition"
+                  >
+                    {renameBusy ? "…" : "Save"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setDraftName(team.name ?? ""); setIsEditingName(false); }}
+                    className="text-[10px] font-bold px-2.5 py-1 rounded-lg border border-border/40 text-muted-foreground hover:text-white transition"
+                  >
+                    Cancel
+                  </button>
+                </span>
+              ) : (
+                <span className="flex items-center gap-2">
+                  <span className="text-muted-foreground">Team Name:</span>
+                  <span className="text-white">{team.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => { setDraftName(team.name ?? ""); setIsEditingName(true); }}
+                    className="text-[10px] font-bold text-[#c9a227] hover:text-[#e8c058] transition cursor-pointer"
+                    title="Edit team name"
+                  >
+                    ✏ Edit
+                  </button>
+                </span>
+              )}
+            </p>
             <p className="text-xs text-muted-foreground mt-0.5">
               Problem: <span className="text-[#c9a227] font-semibold">{problemTitle}</span>
             </p>
@@ -121,6 +187,17 @@ export function TeamDetailsModal({
             ✕
           </button>
         </div>
+
+        {/* Read-only notice */}
+        {readOnly && (
+          <div className="rounded-2xl border border-slate-600/40 bg-slate-800/40 p-3 flex items-center gap-2.5 text-xs text-slate-300">
+            <span className="text-lg">👁</span>
+            <div>
+              <span className="font-bold text-white">View Only</span>
+              <span className="text-slate-400"> — This team belongs to the <span className="text-[#c9a227] font-semibold">{team.created_by_dept || "another department"}</span>. You can view but not edit or delete it.</span>
+            </div>
+          </div>
+        )}
 
         {/* Stats Grid */}
         <div className="grid grid-cols-3 gap-3 text-center">
@@ -158,7 +235,7 @@ export function TeamDetailsModal({
             <h4 className="text-xs font-bold uppercase tracking-wider text-[#c9a227]">
               Ministry / Organisation
             </h4>
-            {draftMinistry && draftMinistry !== (team.ministry ?? "") && (
+            {!readOnly && draftMinistry && draftMinistry !== (team.ministry ?? "") && (
               <span className="text-[10px] font-bold text-amber-400 bg-amber-400/10 border border-amber-400/30 rounded px-2 py-0.5">
                 Unsaved
               </span>
@@ -171,35 +248,48 @@ export function TeamDetailsModal({
             <label className="text-[10px] font-bold uppercase tracking-wider text-[#c9a227] shrink-0 w-24">
               Ministry
             </label>
-            <div className="flex-1 flex items-center gap-2 flex-wrap">
-              <select
-                value={draftMinistry}
-                onChange={(e) => setDraftMinistry(e.target.value)}
-                className="flex-1 min-w-0 w-full rounded-xl border border-border/50 bg-card/60 text-xs text-white px-3 py-2 focus:outline-none focus:border-[#c9a227] cursor-pointer"
-              >
-                <option value="">— Select Ministry / Organisation —</option>
-                {MINISTRIES.map((m) => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-              </select>
-              {draftMinistry && (
-                <button
-                  type="button"
-                  onClick={() => setDraftMinistry("")}
-                  className="text-[10px] text-muted-foreground hover:text-red-400 font-bold transition-colors"
-                >
-                  ✕ Clear
-                </button>
-              )}
-            </div>
-            {draftMinistry ? (
-              <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 shrink-0">
-                ✓ Set
-              </span>
+            {readOnly ? (
+              <div className="flex-1 flex items-center gap-2">
+                <span className="text-sm font-semibold text-white">
+                  {team.ministry || <span className="text-muted-foreground italic">Not assigned</span>}
+                </span>
+                {team.ministry && (
+                  <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 shrink-0">
+                    ✓ Set
+                  </span>
+                )}
+              </div>
             ) : (
-              <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 shrink-0">
-                Pending
-              </span>
+              <div className="flex-1 flex items-center gap-2 flex-wrap">
+                <select
+                  value={draftMinistry}
+                  onChange={(e) => setDraftMinistry(e.target.value)}
+                  className="flex-1 min-w-0 w-full rounded-xl border border-border/50 bg-card/60 text-xs text-white px-3 py-2 focus:outline-none focus:border-[#c9a227] cursor-pointer"
+                >
+                  <option value="">— Select Ministry / Organisation —</option>
+                  {MINISTRIES.map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+                {draftMinistry && (
+                  <button
+                    type="button"
+                    onClick={() => setDraftMinistry("")}
+                    className="text-[10px] text-muted-foreground hover:text-red-400 font-bold transition-colors"
+                  >
+                    ✕ Clear
+                  </button>
+                )}
+                {draftMinistry ? (
+                  <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 shrink-0">
+                    ✓ Set
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 shrink-0">
+                    Pending
+                  </span>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -260,66 +350,81 @@ export function TeamDetailsModal({
                         >
                           👤 Profile
                         </Button>
-                        <Button
-                          type="button"
-                          onClick={() => removeMember(team.id, member.id, member.name)}
-                          className="bg-red-500/15 border border-red-500/40 text-red-300 hover:bg-red-500 hover:text-white text-xs font-semibold px-3.5 py-1.5 rounded-xl transition-colors"
-                        >
-                          🗑 Delete
-                        </Button>
+                        {!readOnly && (
+                          <Button
+                            type="button"
+                            onClick={() => removeMember(team.id, member.id, member.name)}
+                            className="bg-red-500/15 border border-red-500/40 text-red-300 hover:bg-red-500 hover:text-white text-xs font-semibold px-3.5 py-1.5 rounded-xl transition-colors"
+                          >
+                            🗑 Delete
+                          </Button>
+                        )}
                       </div>
                     </div>
 
-                    {/* Skill Selector — draft-controlled */}
+                    {/* Skill Selector — draft-controlled or read-only */}
                     <div className="border-t border-border/20 pt-3 flex flex-col sm:flex-row sm:items-center gap-2">
                       <div className="flex items-center gap-2 shrink-0">
                         <label className="text-[10px] font-bold uppercase tracking-wider text-[#c9a227] w-28">
                           Assigned Skill
                         </label>
-                        {isDraftChanged && (
+                        {!readOnly && isDraftChanged && (
                           <span className="text-[9px] font-bold text-amber-400 bg-amber-400/10 border border-amber-400/30 rounded px-1.5 py-0.5">
                             Unsaved
                           </span>
                         )}
                       </div>
-                      <div className="flex-1 flex items-center gap-2 flex-wrap">
-                        <select
-                          value={currentDraft}
-                          onChange={(e) =>
-                            setDraftSkills((prev) => ({ ...prev, [member.id]: e.target.value }))
-                          }
-                          className="flex-1 min-w-0 w-full rounded-xl border border-border/50 bg-card/60 text-xs text-white px-3 py-2 focus:outline-none focus:border-[#c9a227] cursor-pointer"
-                        >
-                          <option value="">— Select a skill —</option>
-                          {skillOptions.map((skill) => {
-                            const isTaken = takenByOthers.has(skill);
-                            return (
-                              <option key={skill} value={skill} disabled={isTaken}>
-                                {skill}{isTaken ? " (taken)" : ""}
-                              </option>
-                            );
-                          })}
-                        </select>
-                        {currentDraft && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setDraftSkills((prev) => ({ ...prev, [member.id]: "" }))
-                            }
-                            className="text-[10px] text-muted-foreground hover:text-red-400 font-bold transition-colors"
-                          >
-                            ✕ Clear
-                          </button>
-                        )}
-                      </div>
-                      {currentDraft ? (
-                        <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 shrink-0">
-                          ✓ Assigned
-                        </span>
+                      {readOnly ? (
+                        <div className="flex-1 flex items-center gap-2">
+                          <span className="text-sm font-semibold text-white">
+                            {member.assigned_skill || <span className="text-muted-foreground italic">Not assigned</span>}
+                          </span>
+                          {member.assigned_skill && (
+                            <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 shrink-0">
+                              ✓ Assigned
+                            </span>
+                          )}
+                        </div>
                       ) : (
-                        <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 shrink-0">
-                          Pending
-                        </span>
+                        <div className="flex-1 flex items-center gap-2 flex-wrap">
+                          <select
+                            value={currentDraft}
+                            onChange={(e) =>
+                              setDraftSkills((prev) => ({ ...prev, [member.id]: e.target.value }))
+                            }
+                            className="flex-1 min-w-0 w-full rounded-xl border border-border/50 bg-card/60 text-xs text-white px-3 py-2 focus:outline-none focus:border-[#c9a227] cursor-pointer"
+                          >
+                            <option value="">— Select a skill —</option>
+                            {skillOptions.map((skill) => {
+                              const isTaken = takenByOthers.has(skill);
+                              return (
+                                <option key={skill} value={skill} disabled={isTaken}>
+                                  {skill}{isTaken ? " (taken)" : ""}
+                                </option>
+                              );
+                            })}
+                          </select>
+                          {currentDraft && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setDraftSkills((prev) => ({ ...prev, [member.id]: "" }))
+                              }
+                              className="text-[10px] text-muted-foreground hover:text-red-400 font-bold transition-colors"
+                            >
+                              ✕ Clear
+                            </button>
+                          )}
+                          {currentDraft ? (
+                            <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 shrink-0">
+                              ✓ Assigned
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 shrink-0">
+                              Pending
+                            </span>
+                          )}
+                        </div>
                       )}
                     </div>
                   </div>
@@ -353,38 +458,40 @@ export function TeamDetailsModal({
             Close
           </Button>
 
-          <div className="flex items-center gap-3 flex-wrap">
-            {/* Delete team */}
-            {members.length === 0 ? (
-              <Button
-                onClick={() => { onClose(); deleteTeam(team.id, team.name, 0); }}
-                className="bg-red-500 text-white font-bold text-xs hover:bg-red-600 px-4 py-2"
-              >
-                Delete Empty Team
-              </Button>
-            ) : (
-              <span className="text-[11px] text-muted-foreground">
-                🔒 Remove all members to delete
-              </span>
-            )}
+          {!readOnly && (
+            <div className="flex items-center gap-3 flex-wrap">
+              {/* Delete team */}
+              {members.length === 0 ? (
+                <Button
+                  onClick={() => { onClose(); deleteTeam(team.id, team.name, 0); }}
+                  className="bg-red-500 text-white font-bold text-xs hover:bg-red-600 px-4 py-2"
+                >
+                  Delete Empty Team
+                </Button>
+              ) : (
+                <span className="text-[11px] text-muted-foreground">
+                  🔒 Remove all members to delete
+                </span>
+              )}
 
-            {/* Save button */}
-            <Button
-              type="button"
-              onClick={handleSave}
-              loading={saving}
-              disabled={!hasUnsaved || saving}
-              className={`text-xs font-bold px-5 py-2 border-0 transition-all ${
-                saved
-                  ? "bg-emerald-500 text-white"
-                  : hasUnsaved
-                  ? "bg-[#c9a227] text-black hover:bg-[#e8c058]"
-                  : "bg-muted/40 text-muted-foreground cursor-not-allowed"
-              }`}
-            >
-              {saved ? "✓ Saved!" : hasUnsaved ? "Save Changes" : "No Changes"}
-            </Button>
-          </div>
+              {/* Save button */}
+              <Button
+                type="button"
+                onClick={handleSave}
+                loading={saving}
+                disabled={!hasUnsaved || saving}
+                className={`text-xs font-bold px-5 py-2 border-0 transition-all ${
+                  saved
+                    ? "bg-emerald-500 text-white"
+                    : hasUnsaved
+                    ? "bg-[#c9a227] text-black hover:bg-[#e8c058]"
+                    : "bg-muted/40 text-muted-foreground cursor-not-allowed"
+                }`}
+              >
+                {saved ? "✓ Saved!" : hasUnsaved ? "Save Changes" : "No Changes"}
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -7,6 +7,7 @@ import { useToast } from "@/components/unlumen-ui/toast";
 import { Button } from "@/components/unlumen-ui/button";
 import { CollegeBrand } from "@/components/common/college-brand";
 import { cn, computeStats, isSameDepartment } from "@/lib/utils";
+import { DEPT_CODE } from "@/lib/constants";
 
 // Sub-components
 import { FormattedAnnouncement } from "@/components/common/FormattedAnnouncement";
@@ -14,7 +15,7 @@ import { OverviewTab } from "./components/OverviewTab";
 import { RosterTab } from "./components/RosterTab";
 import { TeamsTab } from "./components/TeamsTab";
 import { ProblemsTab } from "./components/ProblemsTab";
-import { MinistriesTab } from "./components/MinistriesTab";
+import { PairedTeamsOverallTab } from "./components/PairedTeamsOverallTab";
 import { CreateTeamModal } from "./components/CreateTeamModal";
 import { AssignStudentModal } from "./components/AssignStudentModal";
 import { EditProfileModal } from "./components/EditProfileModal";
@@ -42,6 +43,8 @@ export default function MentorDashboardPage() {
   const [projType, setProjType] = useState("");
   const [availabilityFilter, setAvailabilityFilter] = useState("all");
   const [selectedDomains, setSelectedDomains] = useState([]);
+  const [yearFilter, setYearFilter] = useState("");
+  const [sectionFilter, setSectionFilter] = useState("");
   const [showFilterDrawer, setShowFilterDrawer] = useState(false);
 
   // Focused Team (for card-click scrolling)
@@ -189,6 +192,8 @@ export default function MentorDashboardPage() {
       if (dept && p.department !== dept) return false;
       if (gender && p.gender !== gender) return false;
       if (projType && p.project_type !== projType) return false;
+      if (yearFilter && p.year !== yearFilter) return false;
+      if (sectionFilter && (p.section ?? "").toUpperCase() !== sectionFilter.toUpperCase()) return false;
       if (selectedDomains.length > 0) {
         const interests = p.domain_interests || [];
         if (!selectedDomains.some((d) => interests.includes(d))) return false;
@@ -199,7 +204,7 @@ export default function MentorDashboardPage() {
         .map((s) => s.toLowerCase());
       return hay.some((s) => s.includes(needle));
     });
-  }, [profiles, q, dept, gender, projType, availabilityFilter, selectedDomains, studentsInTeams]);
+  }, [profiles, q, dept, gender, projType, yearFilter, sectionFilter, availabilityFilter, selectedDomains, studentsInTeams]);
 
   const unassignedCount = useMemo(() => {
     const totalStudents = profiles.filter((p) => p.role === "student").length;
@@ -294,13 +299,16 @@ export default function MentorDashboardPage() {
   }
 
   async function handleCreateTeamDirectSubmit(customName, category = "Pairs") {
+    const finalName = customName?.trim();
+    if (!finalName) {
+      toast("error", "Team name is required. Please enter a name for your team.");
+      return;
+    }
+
     setBusyAssign(true);
-    const prefix = category === "Solo" ? "SOLO#" : "SIH2K26#";
-    const defaultCode = `${prefix}${String(teams.length + 1).padStart(3, "0")}`;
-    const finalName = customName?.trim() || defaultCode;
 
     try {
-      const res = await data.api.createEmptyTeamMentor(finalName, category);
+      const res = await data.api.createEmptyTeamMentor(finalName, category, mentorDept || null);
       if (res.error) throw new Error(res.error);
 
       if (res.data) {
@@ -364,6 +372,24 @@ export default function MentorDashboardPage() {
       setTeams((prev) =>
         prev.map((t) =>
           t.team.id !== teamId ? t : { ...t, team: { ...t.team, ministry: prevMinistry } }
+        )
+      );
+      toast("error", res.error);
+    }
+  }
+
+  async function renameTeam(teamId, newName) {
+    const prevName = teams.find((t) => t.team.id === teamId)?.team.name ?? "";
+    setTeams((prev) =>
+      prev.map((t) =>
+        t.team.id !== teamId ? t : { ...t, team: { ...t.team, name: newName } }
+      )
+    );
+    const res = await data.api.renameTeam(teamId, newName);
+    if (res.error) {
+      setTeams((prev) =>
+        prev.map((t) =>
+          t.team.id !== teamId ? t : { ...t, team: { ...t.team, name: prevName } }
         )
       );
       toast("error", res.error);
@@ -482,7 +508,7 @@ export default function MentorDashboardPage() {
     { key: "home", label: "Home Overview", shortLabel: "Home" },
     { key: "students", label: "Student Roster", shortLabel: "Roster" },
     { key: "teams", label: "Teams Builder", shortLabel: "Teams" },
-    { key: "ministries", label: "Ministries", shortLabel: "Ministry" },
+    { key: "paired-overall", label: "Paired Teams Overall", shortLabel: "All Teams" },
     { key: "problems", label: "Problem Statements", shortLabel: "Problems" },
   ];
 
@@ -588,6 +614,10 @@ export default function MentorDashboardPage() {
           setGender={setGender}
           projType={projType}
           setProjType={setProjType}
+          yearFilter={yearFilter}
+          setYearFilter={setYearFilter}
+          sectionFilter={sectionFilter}
+          setSectionFilter={setSectionFilter}
           selectedDomains={selectedDomains}
           setSelectedDomains={setSelectedDomains}
           showFilterDrawer={showFilterDrawer}
@@ -601,10 +631,12 @@ export default function MentorDashboardPage() {
       {tab === "teams" && (
         <TeamsTab
           teams={teams}
+          mentorDept={mentorDept}
           focusedTeamId={focusedTeamId}
           problemMap={problemMap}
           removeMember={removeMember}
           deleteTeam={deleteTeam}
+          renameTeam={renameTeam}
           setShowCreateTeamModal={setShowCreateTeamModal}
           assignMemberSkill={assignMemberSkill}
           assignTeamMinistry={assignTeamMinistry}
@@ -616,8 +648,12 @@ export default function MentorDashboardPage() {
         />
       )}
 
-      {tab === "ministries" && (
-        <MinistriesTab teams={teams} />
+      {tab === "paired-overall" && (
+        <PairedTeamsOverallTab
+          teams={teams}
+          mentorDept={mentorDept}
+          problemMap={problemMap}
+        />
       )}
 
       {tab === "problems" && <ProblemsTab problems={problems} />}
@@ -637,7 +673,7 @@ export default function MentorDashboardPage() {
             {t.key === "home" && <svg className="size-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="m3 12 2-2m0 0 7-7 7 7M5 10v10a1 1 0 0 0 1 1h3m10-11 2 2m-2-2v10a1 1 0 0 1-1 1h-3m-6 0a1 1 0 0 0 1-1v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 0 1 1m-6 0h6" /></svg>}
             {t.key === "students" && <svg className="size-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" /></svg>}
             {t.key === "teams" && <svg className="size-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" /></svg>}
-            {t.key === "ministries" && <svg className="size-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0 0 12 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75Z" /></svg>}
+            {t.key === "paired-overall" && <svg className="size-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 0 1 0 3.75H5.625a1.875 1.875 0 0 1 0-3.75Z" /></svg>}
             {t.key === "problems" && <svg className="size-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25ZM6.75 12h.008v.008H6.75V12Zm0 3h.008v.008H6.75V15Zm0 3h.008v.008H6.75V18Z" /></svg>}
             <span className="text-[9px] font-bold truncate max-w-[52px] text-center">{t.shortLabel}</span>
           </button>
@@ -651,6 +687,15 @@ export default function MentorDashboardPage() {
         teamsCount={teams.length}
         busyAssign={busyAssign}
         availableStudentsCount={availableStudents.length}
+        deptCode={mentorDept
+          ? (Object.entries(DEPT_CODE).find(([full]) => full.toLowerCase() === mentorDept.toLowerCase())?.[1]
+              ?? mentorDept.replace(/\s+/g, "").toUpperCase().slice(0, 8))
+          : "TEAM"}
+        deptTeamCount={teams.filter((t) => {
+          if (!mentorDept) return true;
+          if (t.team.created_by_dept) return isSameDepartment(t.team.created_by_dept, mentorDept);
+          return t.members.every((m) => !m.department || isSameDepartment(m.department, mentorDept));
+        }).length}
         handleCreateTeamDirectSubmit={handleCreateTeamDirectSubmit}
       />
 

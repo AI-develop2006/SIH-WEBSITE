@@ -8,6 +8,8 @@ export function CreateTeamModal({
   setShowCreateTeamModal,
   teamsCount,
   busyAssign,
+  deptCode,
+  deptTeamCount,
   handleCreateTeamDirectSubmit,
 }) {
   const [teamName, setTeamName] = useState("");
@@ -16,13 +18,20 @@ export function CreateTeamModal({
 
   useEffect(() => {
     if (showCreateTeamModal) {
-      const prefix = teamCategory === "Solo" ? "SOLO#" : "SIH2K26#";
-      setTeamName(`${prefix}${String(teamsCount + 1).padStart(3, "0")}`);
+      setTeamName(""); // always clear — mentor must type a name
       setHasReadInstructions(false);
+      setTeamCategory("Pairs");
     }
-  }, [showCreateTeamModal, teamsCount, teamCategory]);
+  }, [showCreateTeamModal]);
 
   if (!showCreateTeamModal) return null;
+
+  // Preview the auto-generated team ID based on dept
+  const prefix = teamCategory === "Solo"
+    ? `${deptCode || "TEAM"}-SOLO#`
+    : `${deptCode || "TEAM"}#`;
+  const nextNum = String((deptTeamCount || 0) + 1).padStart(3, "0");
+  const previewId = `${prefix}${nextNum}`;
 
   const canSubmit = teamName.trim().length > 0 && hasReadInstructions;
 

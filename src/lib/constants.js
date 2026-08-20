@@ -57,6 +57,28 @@ export const MINISTRIES = [
 
 export const MAX_MEMBERS_PER_MINISTRY_PER_DEPT = 6;
 
+/**
+ * Short department codes used as prefixes in team IDs.
+ * e.g. "Artificial Intelligence and Data Science" → "AI&DS"
+ * Maps canonical full name → abbreviation.
+ */
+export const DEPT_CODE = {
+  "Computer Science and Engineering": "CSE",
+  "Information Technology": "IT",
+  "Artificial Intelligence and Data Science": "AI&DS",
+  "Civil Engineering": "CIVIL",
+  "Mechanical Engineering": "MECH",
+  "Instrumentation and Control Engineering": "I&CE",
+  "Computer Science and Engineering and Business Systems": "CSBS",
+  "Computer and Communication Engineering": "CCE",
+  "Mechatronics": "MCT",
+  "Electrical and Electronics Engineering": "EEE",
+  "Electronics and Communication Engineering": "ECE",
+  "BioMedical Engineering": "BME",
+  "Master of Computer Applications": "MCA",
+  "Master of Business Administration": "MBA",
+};
+
 export const YEARS = ["I", "II", "III", "IV"];
 
 export const CATEGORIES = ["Pairs", "Solo"];

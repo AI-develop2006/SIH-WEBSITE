@@ -318,12 +318,26 @@ export const api = {
       return { data: null, error: err.message };
     }
   },
-  createEmptyTeamMentor: async (name, category = "Pairs") => {
+  renameTeam: async (teamId, name) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/teams/${teamId}/name`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", ...getAuthHeader() },
+        body: JSON.stringify({ name }),
+      });
+      const json = await res.json();
+      if (!res.ok) return { data: null, error: json.error };
+      return { data: json, error: null };
+    } catch (err) {
+      return { data: null, error: err.message };
+    }
+  },
+  createEmptyTeamMentor: async (name, category = "Pairs", created_by_dept = null) => {
     try {
       const res = await fetch(`${API_BASE}/api/teams/empty`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeader() },
-        body: JSON.stringify({ name, category }),
+        body: JSON.stringify({ name, category, created_by_dept }),
       });
       const json = await res.json();
       if (!res.ok) return { data: null, error: json.error };

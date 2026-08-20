@@ -39,6 +39,10 @@ export function RosterTab({
   setGender,
   projType,
   setProjType,
+  yearFilter,
+  setYearFilter,
+  sectionFilter,
+  setSectionFilter,
   selectedDomains,
   setSelectedDomains,
   showFilterDrawer,
@@ -71,6 +75,8 @@ export function RosterTab({
     (dept ? 1 : 0) +
     (gender ? 1 : 0) +
     (projType ? 1 : 0) +
+    (yearFilter ? 1 : 0) +
+    (sectionFilter ? 1 : 0) +
     (availabilityFilter !== "all" ? 1 : 0);
 
   return (
@@ -134,6 +140,27 @@ export function RosterTab({
               </Select>
             </div>
 
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Year</label>
+              <Select value={yearFilter} onChange={(e) => setYearFilter(e.target.value)}>
+                <option value="">All Years</option>
+                <option value="I">Year I</option>
+                <option value="II">Year II</option>
+                <option value="III">Year III</option>
+                <option value="IV">Year IV</option>
+              </Select>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Section</label>
+              <Select value={sectionFilter} onChange={(e) => setSectionFilter(e.target.value)}>
+                <option value="">All Sections</option>
+                {["A", "B", "C", "D", "E", "F", "G"].map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </Select>
+            </div>
+
             {/* Domain Interests checklist */}
             <div className="flex flex-col gap-1.5 border-t border-border/10 pt-4 mt-2">
               <label className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider mb-1">Domain Interests</label>
@@ -176,6 +203,8 @@ export function RosterTab({
                 setDept("");
                 setGender("");
                 setProjType("");
+                setYearFilter("");
+                setSectionFilter("");
                 setSelectedDomains([]);
                 toast("success", "Filters cleared!");
               }}
@@ -516,6 +545,27 @@ export function RosterTab({
               </Select>
             </div>
 
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Year</label>
+              <Select value={yearFilter} onChange={(e) => setYearFilter(e.target.value)}>
+                <option value="">All Years</option>
+                <option value="I">Year I</option>
+                <option value="II">Year II</option>
+                <option value="III">Year III</option>
+                <option value="IV">Year IV</option>
+              </Select>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Section</label>
+              <Select value={sectionFilter} onChange={(e) => setSectionFilter(e.target.value)}>
+                <option value="">All Sections</option>
+                {["A", "B", "C", "D", "E", "F", "G"].map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </Select>
+            </div>
+
             {/* Domain Interests checklist */}
             <div className="flex flex-col gap-1.5 border-t border-border/10 pt-4 mt-2">
               <label className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider mb-1">Domain Interests</label>
@@ -559,6 +609,8 @@ export function RosterTab({
               setDept("");
               setGender("");
               setProjType("");
+              setYearFilter("");
+              setSectionFilter("");
               setSelectedDomains([]);
               toast("success", "Filters cleared!");
             }}

@@ -208,9 +208,152 @@ export const api = {
     }
   },
 
-  deleteTeam: async (teamId) => {
+  // Create a new team
+  createTeam: async ({ name, category, ministry, problem_id }) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/teams`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...getAuthHeader() },
+        body: JSON.stringify({ name, category, ministry, problem_id }),
+      });
+      const json = await res.json();
+      if (!res.ok) return { data: null, error: json.error };
+      return { data: json.data, error: null };
+    } catch (err) {
+      return { data: null, error: err.message };
+    }
+  },
+
+  // Update team fields (name, ministry, problem_id, category, approved)
+  updateTeam: async (teamId, patch) => {
     try {
       const res = await fetch(`${API_BASE}/api/teams/${teamId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...getAuthHeader() },
+        body: JSON.stringify(patch),
+      });
+      const json = await res.json();
+      if (!res.ok) return { data: null, error: json.error };
+      return { data: true, error: null };
+    } catch (err) {
+      return { data: null, error: err.message };
+    }
+  },
+
+  // Delete team — force=true removes even with members
+  deleteTeam: async (teamId, force = false) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/teams/${teamId}?force=${force}`, {
+        method: "DELETE",
+        headers: { ...getAuthHeader() },
+      });
+      const json = await res.json();
+      if (!res.ok) return { data: null, error: json.error };
+      return { data: true, error: null };
+    } catch (err) {
+      return { data: null, error: err.message };
+    }
+  },
+
+  // Add member to team
+  addMember: async (teamId, memberId) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/teams/${teamId}/members`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...getAuthHeader() },
+        body: JSON.stringify({ member_id: memberId }),
+      });
+      const json = await res.json();
+      if (!res.ok) return { data: null, error: json.error };
+      return { data: true, error: null };
+    } catch (err) {
+      return { data: null, error: err.message };
+    }
+  },
+
+  // Remove member from team
+  removeMember: async (teamId, memberId) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/teams/${teamId}/members/${memberId}`, {
+        method: "DELETE",
+        headers: { ...getAuthHeader() },
+      });
+      const json = await res.json();
+      if (!res.ok) return { data: null, error: json.error };
+      return { data: true, error: null };
+    } catch (err) {
+      return { data: null, error: err.message };
+    }
+  },
+
+  // Assign ministry to team (admin — bypasses cap)
+  assignMinistry: async (teamId, ministry) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/teams/${teamId}/ministry`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", ...getAuthHeader() },
+        body: JSON.stringify({ ministry }),
+      });
+      const json = await res.json();
+      if (!res.ok) return { data: null, error: json.error };
+      return { data: true, error: null };
+    } catch (err) {
+      return { data: null, error: err.message };
+    }
+  },
+
+  // Assign skill to team member
+  assignSkill: async (teamId, memberId, skill) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/teams/${teamId}/members/${memberId}/skill`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", ...getAuthHeader() },
+        body: JSON.stringify({ skill }),
+      });
+      const json = await res.json();
+      if (!res.ok) return { data: null, error: json.error };
+      return { data: true, error: null };
+    } catch (err) {
+      return { data: null, error: err.message };
+    }
+  },
+
+  // Update profile (admin)
+  updateProfile: async (profileId, patch) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/profiles/${profileId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...getAuthHeader() },
+        body: JSON.stringify(patch),
+      });
+      const json = await res.json();
+      if (!res.ok) return { data: null, error: json.error };
+      return { data: true, error: null };
+    } catch (err) {
+      return { data: null, error: err.message };
+    }
+  },
+
+  // Toggle verified on a profile
+  toggleVerified: async (profileId, verified) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/profiles/${profileId}/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...getAuthHeader() },
+        body: JSON.stringify({ verified }),
+      });
+      const json = await res.json();
+      if (!res.ok) return { data: null, error: json.error };
+      return { data: true, error: null };
+    } catch (err) {
+      return { data: null, error: err.message };
+    }
+  },
+
+  // Delete profile (also removes from all teams)
+  deleteProfile: async (profileId) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/profiles/${profileId}`, {
         method: "DELETE",
         headers: { ...getAuthHeader() },
       });
@@ -246,6 +389,20 @@ export const api = {
       const json = await res.json();
       if (!res.ok) return { data: null, error: json.error };
       return { data: true, error: null };
+    } catch (err) {
+      return { data: null, error: err.message };
+    }
+  },
+
+  backfillTeamCodes: async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/backfill-team-codes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...getAuthHeader() },
+      });
+      const json = await res.json();
+      if (!res.ok) return { data: null, error: json.error };
+      return { data: json, error: null };
     } catch (err) {
       return { data: null, error: err.message };
     }

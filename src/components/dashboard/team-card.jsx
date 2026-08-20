@@ -44,7 +44,6 @@ export function TeamCard({
           >
             <Avatar name={m.name} src={m.avatar_url} className="size-6 text-[9px]" />
             {m.name}
-            {m.id === team.team.leader_id && <span className="text-ring">· L</span>}
           </span>
         ))}
       </div>

@@ -4,16 +4,26 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
-  Home,
   Users,
   UsersRound,
   FileText,
   CalendarDays,
   Megaphone,
   Settings,
-  LayoutGrid,
-  Menu,
-  X,
+  Building2,
+  CheckCircle2,
+  Clock,
+  ShieldCheck,
+  LogOut,
+  ExternalLink,
+  Download,
+  Trash2,
+  PencilLine,
+  Plus,
+  UserPlus,
+  UserMinus,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import * as data from "@/lib/data";
 import { downloadCsv } from "@/lib/utils";
@@ -183,22 +193,44 @@ export default function AdminPage() {
     const name = typeof teamObj === "object" ? teamObj?.team?.name : "this team";
     const memberCount = typeof teamObj === "object" ? (teamObj?.members?.length || 0) : 0;
 
-    if (memberCount > 0) {
-      toast("error", "You cannot delete a team with active members. Remove all members first before deleting.");
-      return;
-    }
+    const msg = memberCount > 0
+      ? `Delete "${name}" and force-remove its ${memberCount} member${memberCount > 1 ? "s" : ""}? This cannot be undone.`
+      : `Delete empty team "${name}"?`;
 
-    if (!window.confirm(`Are you sure you want to delete empty team ${name}?`)) return;
+    if (!window.confirm(msg)) return;
     try {
       setDeleting(teamId);
-      const res = await data.api.deleteTeam(teamId);
+      const res = await data.api.deleteTeam(teamId, memberCount > 0);
       if (res.error) throw new Error(res.error);
-      toast("success", `Empty team ${name} deleted successfully.`);
+      toast("success", `Team "${name}" deleted.`);
       await load();
     } catch (err) {
       toast("error", err instanceof Error ? err.message : "Failed to delete team");
     } finally {
       setDeleting(null);
+    }
+  }
+
+  async function toggleVerified(studentId, currentVerified, name) {
+    try {
+      const res = await data.api.toggleVerified(studentId, !currentVerified);
+      if (res.error) throw new Error(res.error);
+      toast("success", `${name} marked as ${!currentVerified ? "verified" : "unverified"}`);
+      await load();
+    } catch (err) {
+      toast("error", err instanceof Error ? err.message : "Failed to update verification");
+    }
+  }
+
+  async function deleteStudent(studentId, name) {
+    if (!window.confirm(`Permanently delete profile for "${name}"? This also removes them from all teams and cannot be undone.`)) return;
+    try {
+      const res = await data.api.deleteProfile(studentId);
+      if (res.error) throw new Error(res.error);
+      toast("success", `Profile for "${name}" deleted.`);
+      await load();
+    } catch (err) {
+      toast("error", err instanceof Error ? err.message : "Failed to delete profile");
     }
   }
 
@@ -318,10 +350,24 @@ export default function AdminPage() {
     );
   }
 
+  // Tab definitions with Lucide icons
+  const TABS = [
+    { key: "students", label: "Students", shortLabel: "Students", icon: Users, count: students.length },
+    { key: "teams",    label: "Teams",    shortLabel: "Teams",    icon: UsersRound, count: teams.length },
+    { key: "problems", label: "Problems", shortLabel: "Problems", icon: FileText },
+    { key: "timeline", label: "Timeline", shortLabel: "Timeline", icon: CalendarDays },
+    { key: "announcements", label: "Announcements", shortLabel: "Announce", icon: Megaphone },
+    { key: "registration",  label: "Registration",  shortLabel: "Reg",     icon: Settings },
+    { key: "ministries",    label: "Ministries",    shortLabel: "Ministry", icon: Building2 },
+  ];
+
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground bg-transparent">
-        Loading…
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3">
+          <div className="size-7 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <p className="text-sm text-muted-foreground">Loading admin panel…</p>
+        </div>
       </div>
     );
   }
@@ -338,67 +384,100 @@ export default function AdminPage() {
   }
 
   return (
-    <main className="mx-auto flex flex-col min-h-screen w-full max-w-[1536px] px-4 sm:px-5 pb-24 md:pb-16">
-      <header className="sticky top-0 z-40 -mx-4 sm:-mx-5 mb-6 border-b border-border bg-background/80 px-4 sm:px-5 backdrop-blur">
-        <div className="flex h-14 sm:h-16 items-center justify-between gap-2 sm:gap-3">
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+    <main className="mx-auto flex flex-col min-h-screen w-full max-w-[1536px] px-4 sm:px-5 pb-24 md:pb-4">
+
+      {/* ── Header ───────────────────────────────────────────────────────── */}
+      <header className="sticky top-0 z-40 -mx-4 sm:-mx-5 border-b border-border bg-background px-4 sm:px-5">
+        <div className="flex h-14 items-center justify-between gap-3">
+          {/* Brand */}
+          <div className="flex items-center gap-3 min-w-0">
             <CollegeBrand />
-            <div className="leading-tight hidden sm:block">
-              <p className="text-sm font-bold tracking-tight">Admin control</p>
-              <p className="text-xs text-muted-foreground">SIH 2026 · registrations & teams</p>
+            <div className="hidden sm:block leading-tight">
+              <p className="text-sm font-semibold text-foreground">Admin Panel</p>
+              <p className="text-[11px] text-muted-foreground">SIH 2026 · SMVEC</p>
             </div>
           </div>
+
+          {/* Header actions */}
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => navigate("/")} className="hidden sm:inline-flex text-xs px-3 py-1.5">
-              View Site
-            </Button>
-            <Button variant="danger" onClick={logout} className="px-2.5 py-1.5 text-xs sm:px-3 sm:py-2">
-              Log out
-            </Button>
+            <a
+              href="/"
+              target="_blank"
+              rel="noreferrer"
+              className="hidden sm:inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
+            >
+              <ExternalLink className="size-3.5" />
+              View site
+            </a>
+            <button
+              type="button"
+              onClick={logout}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-danger hover:border-danger/50 transition-colors"
+            >
+              <LogOut className="size-3.5" />
+              <span className="hidden sm:inline">Log out</span>
+            </button>
           </div>
         </div>
 
-        {/* Desktop Tab Bar */}
-        <div className="hidden md:flex flex-wrap gap-1 pb-3">
-          {["students", "teams", "problems", "timeline", "announcements", "registration", "ministries"].map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setTab(t)}
-              className={cn(
-                "rounded-lg px-3 py-1.5 text-xs font-semibold transition-all",
-                tab === t
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-              )}
-            >
-              {t === "students"
-                ? `Students (${students.length})`
-                : t === "teams"
-                ? `Teams (${teams.length})`
-                : t === "problems"
-                ? "Problems"
-                : t === "timeline"
-                ? "Timeline"
-                : t === "announcements"
-                ? "Announcements"
-                : t === "ministries"
-                ? "Ministries"
-                : "Registration"}
-            </button>
-          ))}
+        {/* ── Desktop tab bar ── */}
+        <div className="hidden md:flex items-end gap-0 -mb-px overflow-x-auto">
+          {TABS.map((t) => {
+            const Icon = t.icon;
+            const isActive = tab === t.key;
+            return (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => setTab(t.key)}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-2.5 text-xs font-medium border-b-2 whitespace-nowrap transition-colors",
+                  isActive
+                    ? "border-primary text-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+                )}
+              >
+                <Icon className="size-3.5 shrink-0" />
+                {t.label}
+                {t.count !== undefined && (
+                  <span className={cn(
+                    "rounded px-1.5 py-0.5 text-[10px] font-bold",
+                    isActive ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
+                  )}>
+                    {t.count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </header>
 
-      <div className="flex flex-col gap-6">
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-            <StatCard label="Students" value={students.length} accent="ring" />
-            <StatCard label="Verified" value={verifiedCount} accent="success" />
-            <StatCard label="Pending" value={students.length - verifiedCount} accent="warning" />
-            <StatCard label="Teams" value={teams.length} accent="accent" />
-            <StatCard label="Valid teams" value={validTeams} accent="success" />
-            <StatCard label="Unassigned" value={unassigned} accent="warning" />
-          </div>
+      {/* ── Stat bar ─────────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 py-4 border-b border-border">
+        {[
+          { label: "Students",   value: students.length,                    icon: Users,         color: "text-foreground" },
+          { label: "Verified",   value: verifiedCount,                      icon: CheckCircle2,  color: "text-success" },
+          { label: "Pending",    value: students.length - verifiedCount,    icon: Clock,         color: "text-warning" },
+          { label: "Teams",      value: teams.length,                       icon: UsersRound,    color: "text-primary" },
+          { label: "Valid",      value: validTeams,                         icon: ShieldCheck,   color: "text-success" },
+          { label: "Unassigned", value: unassigned,                         icon: AlertTriangle, color: "text-muted-foreground" },
+        ].map((s) => {
+          const Icon = s.icon;
+          return (
+            <div key={s.label} className="flex flex-col gap-0.5 px-2 sm:px-3 py-2 rounded-lg bg-card border border-border">
+              <div className="flex items-center gap-1 sm:gap-1.5 text-muted-foreground">
+                <Icon className={cn("size-3 sm:size-3.5 shrink-0", s.color)} />
+                <span className="text-[9px] sm:text-[10px] font-medium uppercase tracking-wide truncate">{s.label}</span>
+              </div>
+              <span className={cn("text-lg sm:text-xl font-bold tabular-nums", s.color)}>{s.value}</span>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* ── Content ──────────────────────────────────────────────────────── */}
+      <div className="flex flex-col gap-4 py-4">
 
           {tab === "registration" && (
             <RegistrationControlSection
@@ -409,7 +488,7 @@ export default function AdminPage() {
           )}
 
           {tab === "ministries" && (
-            <OverallMinistriesView teams={teams} />
+            <OverallMinistriesView teams={teams} onReload={load} />
           )}
 
           {tab === "students" && (
@@ -471,6 +550,7 @@ export default function AdminPage() {
                         <p className="text-xs text-muted-foreground truncate">{s.email ?? "—"}</p>
                         <p className="text-xs text-muted-foreground">{s.phone ?? "—"}</p>
                       </div>
+                      <div className="flex items-center gap-2 flex-wrap">
                       <div className="ml-auto shrink-0">
                         {s.verified ? (
                           <GlowingBadge variant="success" pulse={false}>Verified</GlowingBadge>
@@ -478,6 +558,28 @@ export default function AdminPage() {
                           <GlowingBadge variant="warning" pulse={false}>Pending</GlowingBadge>
                         )}
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => toggleVerified(s.id, s.verified, s.name)}
+                        className={cn(
+                          "text-[10px] font-bold px-2.5 py-1 rounded-lg border transition-colors",
+                          s.verified
+                            ? "border-warning/40 bg-warning/10 text-warning hover:bg-warning/20"
+                            : "border-success/40 bg-success/10 text-success hover:bg-success/20"
+                        )}
+                      >
+                        {s.verified ? "Unverify" : "Verify"}
+                      </button>
+                      {s.role !== "admin" && (
+                        <button
+                          type="button"
+                          onClick={() => deleteStudent(s.id, s.name)}
+                          className="text-[10px] font-bold px-2.5 py-1 rounded-lg border border-danger/30 bg-danger/10 text-danger hover:bg-danger hover:text-white transition-colors"
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </div>
                     </div>
                     <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
                       <span><span className="font-semibold text-foreground">Reg No: </span>{s.register_no ?? "—"}</span>
@@ -516,6 +618,7 @@ export default function AdminPage() {
                       <th className="px-5 py-3 font-semibold">Registered At</th>
                       <th className="px-5 py-3 font-semibold">Status</th>
                       <th className="px-5 py-3 font-semibold">Role</th>
+                      <th className="px-5 py-3 font-semibold">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -672,6 +775,31 @@ export default function AdminPage() {
                             </span>
                           )}
                         </td>
+                        <td className="px-5 py-3">
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => toggleVerified(s.id, s.verified, s.name)}
+                              className={cn(
+                                "text-[10px] font-bold px-2 py-1 rounded-lg border transition-colors",
+                                s.verified
+                                  ? "border-warning/40 bg-warning/10 text-warning hover:bg-warning/20"
+                                  : "border-success/40 bg-success/10 text-success hover:bg-success/20"
+                              )}
+                            >
+                              {s.verified ? "Unverify" : "Verify"}
+                            </button>
+                            {s.role !== "admin" && (
+                              <button
+                                type="button"
+                                onClick={() => deleteStudent(s.id, s.name)}
+                                className="text-[10px] font-bold px-2 py-1 rounded-lg border border-danger/30 bg-danger/10 text-danger hover:bg-danger hover:text-white transition-colors"
+                              >
+                                Delete
+                              </button>
+                            )}
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -681,139 +809,17 @@ export default function AdminPage() {
           )}
 
           {tab === "teams" && (
-            <Card className="overflow-hidden p-0">
-              <div className="flex items-center justify-between border-b border-border px-5 py-4">
-                <h3 className="text-base font-bold">Teams</h3>
-                <Button variant="outline" onClick={exportTeams}>
-                  Export CSV
-                </Button>
-              </div>
-
-              {/* Mobile card list */}
-              <div className="md:hidden divide-y divide-border/60">
-                {teams.length === 0 && (
-                  <p className="px-4 py-10 text-center text-sm text-muted-foreground">No teams formed yet.</p>
-                )}
-                {teams.map((t) => (
-                  <div key={t.team.id} className="px-4 py-4 flex flex-col gap-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <div>
-                        <p className="font-semibold text-sm">{t.team.name}</p>
-                        <p className="text-xs text-muted-foreground">Leader: {t.leader?.name ?? "—"}</p>
-                      </div>
-                      <div>
-                        {t.stats.valid ? (
-                          <GlowingBadge variant="success" pulse={false}>Valid</GlowingBadge>
-                        ) : (
-                          <GlowingBadge variant="warning" pulse={false} title={t.stats.reason}>Invalid</GlowingBadge>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="flex -space-x-2">
-                        {t.members.slice(0, 4).map((m) => (
-                          <Avatar key={m.id} name={m.name} className="size-7 text-[9px] ring-2 ring-background" />
-                        ))}
-                      </div>
-                      <span className="text-xs text-muted-foreground">{t.members.length}/6 members</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                      <span><span className="font-semibold text-foreground">Depts: </span>{t.stats.deptCount}</span>
-                      <span><span className="font-semibold text-foreground">Female: </span>{t.stats.girlCount}</span>
-                      {problemMap.get(t.team.problem_id ?? "") && (
-                        <span className="col-span-2 truncate"><span className="font-semibold text-foreground">Problem: </span>{problemMap.get(t.team.problem_id ?? "")}</span>
-                      )}
-                    </div>
-                    {t.members.length === 0 && (
-                      <Button
-                        variant="danger"
-                        className="px-2.5 py-1 text-xs self-start"
-                        loading={deleting === t.team.id}
-                        onClick={() => deleteTeam(t)}
-                      >
-                        Delete Empty Team
-                      </Button>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              {/* Desktop table */}
-              <div className="hidden md:block overflow-x-auto">
-                <table className="w-full min-w-[900px] text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-border text-xs uppercase tracking-wider text-muted-foreground">
-                      <th className="px-5 py-3 font-semibold">Team</th>
-                      <th className="px-5 py-3 font-semibold">Members</th>
-                      <th className="px-5 py-3 font-semibold">Depts</th>
-                      <th className="px-5 py-3 font-semibold">Female</th>
-                      <th className="px-5 py-3 font-semibold">Problem</th>
-                      <th className="px-5 py-3 font-semibold">Status</th>
-                      <th className="px-5 py-3 font-semibold">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {teams.length === 0 && (
-                      <tr>
-                        <td colSpan={7} className="px-5 py-10 text-center text-sm text-muted-foreground">
-                          No teams formed yet.
-                        </td>
-                      </tr>
-                    )}
-                    {teams.map((t) => (
-                      <tr key={t.team.id} className="border-b border-border/60 last:border-0 hover:bg-muted/20">
-                        <td className="px-5 py-3">
-                          <p className="font-semibold">{t.team.name}</p>
-                          <p className="text-xs text-muted-foreground">Leader · {t.leader?.name ?? "—"}</p>
-                        </td>
-                        <td className="px-5 py-3">
-                          <div className="flex items-center gap-2">
-                            <div className="flex -space-x-2">
-                              {t.members.slice(0, 4).map((m) => (
-                                <Avatar key={m.id} name={m.name} className="size-7 text-[9px] ring-2 ring-background" />
-                              ))}
-                            </div>
-                            <span className="text-xs text-muted-foreground">{t.members.length}/6</span>
-                          </div>
-                        </td>
-                        <td className="px-5 py-3 tabular-nums text-muted-foreground">{t.stats.deptCount}</td>
-                        <td className="px-5 py-3 tabular-nums text-muted-foreground">{t.stats.girlCount}</td>
-                        <td className="max-w-[220px] px-5 py-3 text-xs text-muted-foreground">
-                          {problemMap.get(t.team.problem_id ?? "") ?? "—"}
-                        </td>
-                        <td className="px-5 py-3">
-                          {t.stats.valid ? (
-                            <GlowingBadge variant="success" pulse={false}>
-                              Valid
-                            </GlowingBadge>
-                          ) : (
-                            <GlowingBadge variant="warning" pulse={false} title={t.stats.reason}>
-                              Invalid
-                            </GlowingBadge>
-                          )}
-                        </td>
-                        <td className="px-5 py-3">
-                          {t.members.length === 0 ? (
-                            <Button
-                              variant="danger"
-                              className="px-2.5 py-1 text-xs"
-                              loading={deleting === t.team.id}
-                              onClick={() => deleteTeam(t)}
-                            >
-                              Delete Empty Team
-                            </Button>
-                          ) : (
-                            <span className="text-[11px] text-muted-foreground font-semibold" title="Remove members first to enable team deletion">
-                              🔒 Has {t.members.length} Member{t.members.length > 1 ? "s" : ""}
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
+            <TeamsManager
+              teams={teams}
+              profiles={profiles}
+              problems={problems}
+              problemMap={problemMap}
+              deleting={deleting}
+              onDelete={deleteTeam}
+              onReload={load}
+              onExport={exportTeams}
+              toast={toast}
+            />
           )}
 
           {tab === "problems" && <ProblemsManager problems={problems} themes={themes} onReload={load} />}
@@ -877,38 +883,405 @@ export default function AdminPage() {
           )}
         </div>
 
-      {/* Mobile Bottom Tab Navigation */}
-      <div className="fixed bottom-0 inset-x-0 z-40 border-t border-border/60 bg-background/95 backdrop-blur-md py-2 px-1 flex items-center justify-around md:hidden shadow-[0_-8px_24px_rgba(0,0,0,0.4)]">
-        {[
-          { key: "students", icon: "students", label: "Students" },
-          { key: "teams", icon: "teams", label: "Teams" },
-          { key: "problems", icon: "problems", label: "Problems" },
-          { key: "timeline", icon: "timeline", label: "Timeline" },
-          { key: "announcements", icon: "announce", label: "Announce" },
-          { key: "registration", icon: "settings", label: "Settings" },
-          { key: "ministries", icon: "ministries", label: "Ministry" },
-        ].map((item) => (
-          <button
-            key={item.key}
-            type="button"
-            onClick={() => setTab(item.key)}
-            className={cn(
-              "flex flex-col items-center justify-center gap-0.5 px-1 py-1 rounded-lg transition-colors min-w-0 flex-1",
-              tab === item.key ? "text-primary" : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            {item.icon === "students" && <svg className="size-4.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" /></svg>}
-            {item.icon === "teams" && <svg className="size-4.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" /></svg>}
-            {item.icon === "problems" && <svg className="size-4.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25ZM6.75 12h.008v.008H6.75V12Zm0 3h.008v.008H6.75V15Zm0 3h.008v.008H6.75V18Z" /></svg>}
-            {item.icon === "timeline" && <svg className="size-4.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" /></svg>}
-            {item.icon === "announce" && <svg className="size-4.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M10.34 15.84c-.688-.06-1.386-.09-2.09-.09H7.5a4.5 4.5 0 1 1 0-9h.75c.704 0 1.402-.03 2.09-.09m0 9.18c.253.962.584 1.892.985 2.783.247.55.06 1.21-.463 1.511l-.657.38c-.551.318-1.26.117-1.527-.461a20.845 20.845 0 0 1-1.44-4.282m3.102.069a18.03 18.03 0 0 1-.59-4.59c0-1.586.205-3.124.59-4.59m0 9.18a23.848 23.848 0 0 1 8.835 2.535M10.34 6.66a23.847 23.847 0 0 1 8.835-2.535m0 0A23.74 23.74 0 0 1 18.795 3m.38 1.125a23.91 23.91 0 0 1 1.014 5.395m-1.014 8.855c-.118.38-.245.754-.38 1.125m.38-1.125a23.91 23.91 0 0 0 1.014-5.395m0-3.46c.495.413.811 1.035.811 1.73 0 .695-.316 1.317-.811 1.73m0-3.46a24.347 24.347 0 0 1 0 3.46" /></svg>}
-            {item.icon === "settings" && <svg className="size-4.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.282c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>}
-            {item.icon === "ministries" && <svg className="size-4.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0 0 12 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75Z" /></svg>}
-            <span className="text-[8px] font-bold">{item.label}</span>
-          </button>
-        ))}
+      {/* Mobile Bottom Tab Navigation — uses same TABS array with Lucide icons */}
+      <div className="fixed bottom-0 inset-x-0 z-40 border-t border-border bg-background md:hidden safe-bottom">
+        {/* Scrollable tab bar — 7 tabs fit without compression on small screens */}
+        <div className="flex items-stretch overflow-x-auto scrollbar-none">
+          {TABS.map((t) => {
+            const Icon = t.icon;
+            const isActive = tab === t.key;
+            return (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => setTab(t.key)}
+                className={cn(
+                  "flex flex-none flex-col items-center justify-center gap-1 min-w-[60px] px-2 py-3 text-center transition-colors border-t-2 -mt-px",
+                  isActive
+                    ? "border-primary text-foreground bg-muted/40"
+                    : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/20"
+                )}
+              >
+                <Icon className="size-4 shrink-0" />
+                <span className="text-[9px] font-medium leading-none whitespace-nowrap">{t.shortLabel}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
     </main>
+  );
+}
+
+function TeamsManager({ teams, profiles, problems, problemMap, deleting, onDelete, onReload, onExport, toast }) {
+  const [expandedId, setExpandedId] = useState(null);
+  const [busy, setBusy] = useState(null);
+  const [backfilling, setBackfilling] = useState(false);
+
+  // Create team form
+  const [showCreate, setShowCreate] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newCategory, setNewCategory] = useState("Pairs");
+  const [creating, setCreating] = useState(false);
+
+  const students = profiles.filter((p) => p.role === "student");
+
+  async function handleCreate(e) {
+    e.preventDefault();
+    if (!newName.trim()) return;
+    setCreating(true);
+    const res = await data.api.createTeam({ name: newName.trim(), category: newCategory });
+    setCreating(false);
+    if (res.error) { toast("error", res.error); return; }
+    toast("success", `Team "${newName.trim()}" created`);
+    setNewName(""); setShowCreate(false);
+    await onReload();
+  }
+
+  async function handleAddMember(teamId, memberId) {
+    setBusy(`add-${teamId}-${memberId}`);
+    const res = await data.api.addMember(teamId, memberId);
+    setBusy(null);
+    if (res.error) { toast("error", res.error); return; }
+    toast("success", "Member added");
+    await onReload();
+  }
+
+  async function handleRemoveMember(teamId, memberId, name) {
+    if (!window.confirm(`Remove ${name} from this team?`)) return;
+    setBusy(`rm-${teamId}-${memberId}`);
+    const res = await data.api.removeMember(teamId, memberId);
+    setBusy(null);
+    if (res.error) { toast("error", res.error); return; }
+    toast("success", `${name} removed`);
+    await onReload();
+  }
+
+  async function handleToggleApproval(teamId, current, name) {
+    setBusy(`approve-${teamId}`);
+    const res = await data.api.toggleTeamApproval(teamId, !current);
+    setBusy(null);
+    if (res.error) { toast("error", res.error); return; }
+    toast("success", !current ? `"${name}" published` : `"${name}" unpublished`);
+    await onReload();
+  }
+
+  async function handleMinistryChange(teamId, ministry) {
+    setBusy(`min-${teamId}`);
+    const res = await data.api.assignMinistry(teamId, ministry || null);
+    setBusy(null);
+    if (res.error) { toast("error", res.error); return; }
+    toast("success", "Ministry updated");
+    await onReload();
+  }
+
+  async function handleSkillChange(teamId, memberId, skill) {
+    const res = await data.api.assignSkill(teamId, memberId, skill || null);
+    if (res.error) { toast("error", res.error); return; }
+    toast("success", "Skill assigned");
+    await onReload();
+  }
+
+  async function handleBackfillTeamCodes() {
+    if (!window.confirm("This will assign department-based team IDs (e.g. AI&DS#001) to all teams that are missing one or have an old SIH… code. Continue?")) return;
+    setBackfilling(true);
+    try {
+      const res = await data.backfillTeamCodes();
+      if (res.error) throw new Error(res.error);
+      const { updated, skipped, unresolvable } = res.data;
+      toast("success", `Backfill complete: ${updated} teams updated, ${skipped} skipped (no dept).`);
+      if (unresolvable?.length > 0) {
+        console.warn("Teams with no resolvable dept:", unresolvable);
+      }
+      await onReload();
+    } catch (err) {
+      toast("error", err instanceof Error ? err.message : "Backfill failed");
+    } finally {
+      setBackfilling(false);
+    }
+  }
+
+  // Members already in any team
+  const assignedIds = new Set(teams.flatMap((t) => t.members.map((m) => m.id)));
+
+  const MINISTRIES_LIST = [
+    "Ministry of Agriculture & Farmers Welfare (MoAFW)","Ministry of Civil Aviation","Ministry of Coal (MoC)",
+    "Ministry of Commerce & Industry","Ministry of Communications","Ministry of Consumer Affairs, Food & Public Distribution",
+    "Ministry of Culture","Ministry of Defence (MoD)","Ministry of Earth Sciences",
+    "Ministry of Education","Ministry of Electronics & Information Technology (MeitY)",
+    "Ministry of Environment, Forest and Climate Change","Ministry of Finance","Ministry of Fisheries, Animal Husbandry and Dairying",
+    "Ministry of Food Processing Industries","Ministry of Health & Family Welfare","Ministry of Heavy Industries",
+    "Ministry of Home Affairs (MHA)","Ministry of Housing and Urban Affairs","Ministry of Jal Shakti",
+    "Ministry of Labour & Employment","Ministry of Law & Justice","Ministry of Micro, Small and Medium Enterprises (MSME)",
+    "Ministry of Mines","Ministry of New and Renewable Energy","Ministry of Panchayati Raj",
+    "Ministry of Petroleum & Natural Gas","Ministry of Ports, Shipping & Waterways","Ministry of Power (MoP)",
+    "Ministry of Railways","Ministry of Road Transport & Highways","Ministry of Rural Development",
+    "Ministry of Science & Technology","Ministry of Skill Development and Entrepreneurship",
+    "Ministry of Social Justice & Empowerment","Ministry of Steel (MoS)","Ministry of Textiles",
+    "Ministry of Tribal Affairs","Ministry of Women and Child Development","Ministry of Youth Affairs and Sports",
+  ];
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Header */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <h3 className="text-sm font-semibold text-foreground">Teams</h3>
+          <span className="rounded border border-border px-2 py-0.5 text-[11px] font-medium text-muted-foreground">{teams.length} total</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleBackfillTeamCodes}
+            disabled={backfilling}
+            className="inline-flex items-center gap-1.5 rounded border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-400 hover:bg-amber-500/20 transition-colors disabled:opacity-50"
+            title="Assign dept-based IDs to teams missing them"
+          >
+            {backfilling ? "Backfilling…" : "🔧 Fix Team IDs"}
+          </button>
+          <button
+            type="button"
+            onClick={onExport}
+            className="inline-flex items-center gap-1.5 rounded border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
+          >
+            <Download className="size-3.5" />
+            Export CSV
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowCreate((v) => !v)}
+            className="inline-flex items-center gap-1.5 rounded border border-primary/50 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
+          >
+            <Plus className="size-3.5" />
+            New Team
+          </button>
+        </div>
+      </div>
+
+      {/* Create team inline form */}
+      {showCreate && (
+        <Card className="p-4 border border-border">
+          <form onSubmit={handleCreate} className="flex flex-wrap items-end gap-3">
+            <div className="flex flex-col gap-1 flex-1 min-w-[180px]">
+              <label className="text-[11px] font-medium text-muted-foreground uppercase">Team Name</label>
+              <input
+                type="text"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="e.g. SIH2K26#001"
+                required
+                className="rounded border border-border bg-background px-3 py-1.5 text-sm text-foreground focus:border-primary focus:outline-none"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[11px] font-medium text-muted-foreground uppercase">Category</label>
+              <select
+                value={newCategory}
+                onChange={(e) => setNewCategory(e.target.value)}
+                className="rounded border border-border bg-background px-3 py-1.5 text-sm text-foreground focus:border-primary focus:outline-none"
+              >
+                <option value="Pairs">Pairs (2 members)</option>
+                <option value="Solo">Solo (1 member)</option>
+              </select>
+            </div>
+            <button
+              type="submit"
+              disabled={creating}
+              className="rounded border border-primary bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-opacity"
+            >
+              {creating ? "Creating…" : "Create"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowCreate(false)}
+              className="rounded border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Cancel
+            </button>
+          </form>
+        </Card>
+      )}
+
+      {/* Teams list */}
+      {teams.length === 0 && (
+        <div className="rounded border border-border bg-card px-5 py-12 text-center text-sm text-muted-foreground">
+          No teams yet. Create one above.
+        </div>
+      )}
+
+      <div className="flex flex-col gap-2">
+        {teams.map((t) => {
+          const isExpanded = expandedId === t.team.id;
+          const isSolo = (t.team.category || "Pairs") === "Solo";
+          const maxMembers = isSolo ? 1 : 2;
+          const available = students.filter((s) => !assignedIds.has(s.id));
+
+          return (
+            <Card key={t.team.id} className="overflow-hidden border border-border">
+              {/* Row header — always visible */}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 px-4 py-3">
+                {/* Expand toggle — takes most space */}
+                <button
+                  type="button"
+                  onClick={() => setExpandedId(isExpanded ? null : t.team.id)}
+                  className="flex items-center gap-2 flex-1 min-w-0 text-left hover:text-foreground transition-colors"
+                >
+                  {isExpanded ? <ChevronUp className="size-4 shrink-0 text-muted-foreground" /> : <ChevronDown className="size-4 shrink-0 text-muted-foreground" />}
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <span className="font-semibold text-sm text-foreground truncate">{t.team.name}</span>
+                    <span className={cn("shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded border",
+                      isSolo ? "border-blue-500/40 bg-blue-500/10 text-blue-400" : "border-primary/40 bg-primary/10 text-primary")}>
+                      {isSolo ? "Solo" : "Pairs"}
+                    </span>
+                  </div>
+                  <span className="text-xs text-muted-foreground shrink-0">{t.members.length}/{maxMembers}</span>
+                </button>
+
+                {/* Action buttons row */}
+                <div className="flex items-center gap-1.5 flex-wrap shrink-0">
+                  {t.stats.valid ? (
+                    <span className="text-[10px] font-semibold rounded border border-success/40 bg-success/10 px-2 py-0.5 text-success">Valid</span>
+                  ) : (
+                    <span className="text-[10px] font-semibold rounded border border-warning/40 bg-warning/10 px-2 py-0.5 text-warning" title={t.stats.reason}>Invalid</span>
+                  )}
+                  {t.team.approved ? (
+                    <span className="text-[10px] font-semibold rounded border border-success/40 bg-success/10 px-2 py-0.5 text-success">Published</span>
+                  ) : (
+                    <span className="text-[10px] font-semibold rounded border border-border px-2 py-0.5 text-muted-foreground">Draft</span>
+                  )}
+                  <button
+                    type="button"
+                    disabled={busy === `approve-${t.team.id}`}
+                    onClick={() => handleToggleApproval(t.team.id, t.team.approved, t.team.name)}
+                    className={cn(
+                      "text-[10px] font-medium px-2.5 py-1 rounded border transition-colors disabled:opacity-50",
+                      t.team.approved
+                        ? "border-warning/40 bg-warning/10 text-warning hover:bg-warning/20"
+                        : "border-success/40 bg-success/10 text-success hover:bg-success/20"
+                    )}
+                  >
+                    {t.team.approved ? "Unpublish" : "Publish"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={deleting === t.team.id}
+                    onClick={() => onDelete(t)}
+                    className={cn(
+                      "inline-flex items-center gap-1 text-[10px] font-medium px-2.5 py-1 rounded border transition-colors disabled:opacity-50",
+                      t.members.length > 0
+                        ? "border-danger/50 bg-danger/10 text-danger hover:bg-danger hover:text-white"
+                        : "border-border text-muted-foreground hover:border-danger/50 hover:text-danger"
+                    )}
+                  >
+                    <Trash2 className="size-3" />
+                    {deleting === t.team.id ? "…" : t.members.length > 0 ? `Del (${t.members.length})` : "Delete"}
+                  </button>
+                </div>
+              </div>
+
+              {/* Expanded panel */}
+              {isExpanded && (
+                <div className="border-t border-border px-4 py-4 flex flex-col gap-4 bg-card/60">
+
+                  {/* Ministry */}
+                  <div className="flex flex-wrap items-center gap-3">
+                    <label className="text-[11px] font-semibold text-muted-foreground uppercase w-20 shrink-0">Ministry</label>
+                    <select
+                      value={t.team.ministry || ""}
+                      disabled={busy === `min-${t.team.id}`}
+                      onChange={(e) => handleMinistryChange(t.team.id, e.target.value)}
+                      className="flex-1 min-w-[200px] rounded border border-border bg-background px-3 py-1.5 text-xs text-foreground focus:border-primary focus:outline-none disabled:opacity-50"
+                    >
+                      <option value="">— No Ministry —</option>
+                      {MINISTRIES_LIST.map((m) => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                  </div>
+
+                  {/* Current members */}
+                  <div>
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase mb-2">
+                      Members ({t.members.length}/{maxMembers})
+                    </p>
+                    {t.members.length === 0 ? (
+                      <p className="text-xs text-muted-foreground italic">No members yet</p>
+                    ) : (
+                      <div className="flex flex-col gap-2">
+                        {t.members.map((m) => (
+                          <div key={m.id} className="flex flex-col sm:flex-row sm:items-center gap-2 rounded border border-border bg-background px-3 py-2">
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                              <Avatar name={m.name} className="size-6 text-[8px] shrink-0" />
+                              <div className="min-w-0">
+                                <p className="text-xs font-semibold text-foreground truncate">{m.name}</p>
+                                <p className="text-[10px] text-muted-foreground truncate">{m.register_no} · {m.department}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {/* Skill selector */}
+                              <select
+                                defaultValue={m.assigned_skill || ""}
+                                onChange={(e) => handleSkillChange(t.team.id, m.id, e.target.value)}
+                                className="flex-1 min-w-[120px] text-[10px] rounded border border-border bg-card px-2 py-1 text-foreground focus:border-primary focus:outline-none"
+                              >
+                                <option value="">— Skill —</option>
+                                {["Frontend Developer","Backend Developer","Full Stack Developer","AI/ML Engineer",
+                                  "IoT & Hardware Engineer","Cloud/DevOps Engineer","UI/UX Designer","Cybersecurity",
+                                  "Embedded Systems","Mobile App Developer","Data Analyst","Others"].map((s) => (
+                                  <option key={s} value={s}>{s}</option>
+                                ))}
+                              </select>
+                              {m.assigned_skill && (
+                                <span className="text-[10px] font-semibold text-primary border border-primary/30 bg-primary/10 rounded px-2 py-0.5 shrink-0 truncate max-w-[120px]">
+                                  {m.assigned_skill}
+                                </span>
+                              )}
+                              <button
+                                type="button"
+                                disabled={busy === `rm-${t.team.id}-${m.id}`}
+                                onClick={() => handleRemoveMember(t.team.id, m.id, m.name)}
+                                className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded border border-danger/40 bg-danger/10 text-danger hover:bg-danger hover:text-white transition-colors disabled:opacity-50 shrink-0"
+                              >
+                                <UserMinus className="size-3" />
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Add member */}
+                  {t.members.length < maxMembers && (
+                    <div>
+                      <p className="text-[11px] font-semibold text-muted-foreground uppercase mb-2">Add Member</p>
+                      {available.length === 0 ? (
+                        <p className="text-xs text-muted-foreground italic">No unassigned students available</p>
+                      ) : (
+                        <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto">
+                          {available.map((s) => (
+                            <button
+                              key={s.id}
+                              type="button"
+                              disabled={busy === `add-${t.team.id}-${s.id}`}
+                              onClick={() => handleAddMember(t.team.id, s.id)}
+                              className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1.5 rounded border border-border bg-card text-foreground hover:border-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
+                            >
+                              <UserPlus className="size-3 shrink-0" />
+                              {s.name}
+                              <span className="text-muted-foreground text-[9px]">{s.register_no}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </Card>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -1458,18 +1831,15 @@ function AdminLoginForm({ onLoginSuccess }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [showPw, setShowPw] = useState(false);
 
   async function handleLogin(e) {
     e.preventDefault();
     if (!email.trim() || !password.trim()) return;
-
     setBusy(true);
     try {
       const res = await data.loginAdmin(email.trim(), password.trim());
-      if (res.error) {
-        throw new Error(res.error);
-      }
-
+      if (res.error) throw new Error(res.error);
       toast("success", `Welcome back, ${res.data.profile.name}!`);
       onLoginSuccess();
     } catch (err) {
@@ -1480,115 +1850,88 @@ function AdminLoginForm({ onLoginSuccess }) {
   }
 
   return (
-    <div className="page-transition flex min-h-screen flex-col overflow-hidden">
-      {/* SMVEC gold top accent bar */}
-      <div className="h-1 w-full bg-gradient-to-r from-transparent via-[#c9a227] to-transparent" />
+    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
+      <div className="w-full max-w-sm">
 
-      <div className="grow flex flex-col lg:flex-row">
-        {/* Left panel — Glass styled midnight panel */}
-        <div className="relative w-full overflow-hidden lg:fixed lg:inset-y-0 lg:w-1/2 lg:rounded-r-[3rem] border-r border-[rgba(147,197,253,0.08)] bg-card/60 backdrop-blur-xl">
-
-          {/* Gold top border on rounded right edge */}
-          <div className="absolute inset-y-0 right-0 hidden w-[2px] lg:block"
-            style={{ background: "linear-gradient(to bottom, transparent, #c9a227 30%, #c9a227 70%, transparent)" }} />
-
-          {/* Subtle grid decoration inside left panel */}
-          <div aria-hidden="true" className="pointer-events-none absolute inset-0">
-            <div className="bg-grid absolute inset-0 opacity-40" />
-          </div>
-
-          <div className="relative h-full lg:h-screen w-full max-w-xl mx-auto flex flex-col justify-start px-5 py-6 sm:px-6 lg:justify-center lg:py-20">
-            {/* Logo */}
-            <div className="mt-4 lg:mt-0 flex justify-center">
-              <a href="/" className="inline-flex">
-                <CollegeBrand className="scale-[1.3] sm:scale-[1.75] origin-center" />
-              </a>
-            </div>
-
-            <div className="mt-6 lg:mt-12 space-y-3 lg:space-y-4">
-              {/* Gold accent label */}
-              <p className="font-caveat text-2xl lg:text-3xl text-[#e8c058]">Welcome back</p>
-              <h1 className="text-3xl lg:text-4xl font-bold leading-tight tracking-tight text-white sm:text-5xl">
-                Sign In to Admin Control Center.
-              </h1>
-              <p className="hidden sm:block font-caveat text-xl text-[#8fa0c0]">— Authorized Personnel Only</p>
-            </div>
-
-            {/* Gold divider line */}
-            <div className="mt-6 lg:mt-10 gold-bar w-24" />
+        {/* Logo + title */}
+        <div className="mb-8 flex flex-col items-center gap-3 text-center">
+          <CollegeBrand />
+          <div>
+            <h1 className="mt-2 text-xl font-semibold text-foreground">Admin Panel</h1>
+            <p className="text-sm text-muted-foreground mt-1">SIH 2026 · SMVEC Internal Portal</p>
           </div>
         </div>
 
-        {/* Right panel */}
-        <main className="flex w-full flex-col bg-transparent lg:ml-auto lg:w-1/2">
-          <div className="grow w-full max-w-xl mx-auto px-5 py-12 sm:px-6 lg:pt-20 lg:pb-24">
-            {/* Home nav */}
-            <div className="mb-8 flex items-center gap-3">
-              <a
-                href="/"
-                className="inline-flex items-center gap-2 rounded-xl border border-[rgba(201,162,39,0.20)] bg-[rgba(201,162,39,0.05)] px-3.5 py-2 text-sm font-medium text-[#8fa0c0] transition-colors hover:border-[rgba(201,162,39,0.45)] hover:bg-[rgba(201,162,39,0.10)] hover:text-[#e8c058]"
-                title="Back to home"
-              >
-                <Home className="size-4 shrink-0" />
-                Home
-              </a>
+        {/* Login card */}
+        <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+          <h2 className="text-sm font-semibold text-foreground mb-4">Sign in to your account</h2>
+
+          <form onSubmit={handleLogin} className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-medium text-muted-foreground" htmlFor="admin-email">
+                Email address
+              </label>
+              <input
+                id="admin-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="admin@smvec.ac.in"
+                required
+                autoComplete="username"
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-colors"
+              />
             </div>
 
-            {/* Auth content block mimicking AuthCard structure */}
-            <div className="flex min-h-[50vh] flex-col">
-              <div className="mb-8">
-                <p className="font-caveat text-2xl text-[#dba328]">Smart India Hackathon 2026</p>
-                <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">Admin Portal Access</h1>
-                <p className="mt-1 text-sm text-muted-foreground font-semibold">
-                  Verify your admin credentials to access the coordinator panel.
-                </p>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-medium text-muted-foreground" htmlFor="admin-password">
+                Password
+              </label>
+              <div className="relative">
+                <input
+                  id="admin-password"
+                  type={showPw ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  autoComplete="current-password"
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 pr-10 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-colors"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPw((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  tabIndex={-1}
+                  aria-label={showPw ? "Hide password" : "Show password"}
+                >
+                  {showPw ? (
+                    <svg className="size-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88" />
+                    </svg>
+                  ) : (
+                    <svg className="size-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                    </svg>
+                  )}
+                </button>
               </div>
-
-              <form onSubmit={handleLogin} className="flex grow flex-col justify-between">
-                <article className="divide-y divide-border grow flex flex-col">
-                  <section className="py-8 grow flex flex-col justify-start">
-                    <div className="mb-5 flex items-baseline justify-between gap-3">
-                      <h2 className="text-lg font-semibold tracking-tight">Credentials</h2>
-                      <span className="text-[11px] font-semibold uppercase tracking-widest text-[#dba328]">
-                        Required <span className="text-danger">*</span>
-                      </span>
-                    </div>
-
-                    <div className="flex flex-col gap-4">
-                      <Input
-                        label="Email Address"
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="admin@smvec.ac.in"
-                        required
-                        autoComplete="username"
-                      />
-                      <Input
-                        label="Password"
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="••••••••"
-                        required
-                        autoComplete="current-password"
-                      />
-                    </div>
-                  </section>
-                </article>
-
-                <div className="mt-8 flex items-center justify-between border-t border-border pt-6">
-                  <Button type="button" variant="ghost" onClick={() => navigate("/")} className="text-slate-400 hover:text-white">
-                    ← Back
-                  </Button>
-                  <Button type="submit" loading={busy} className="bg-[#c9a227] text-[#06090f] hover:bg-[#e8c058] font-bold border-0">
-                    Sign In
-                  </Button>
-                </div>
-              </form>
             </div>
-          </div>
-        </main>
+
+            <button
+              type="submit"
+              disabled={busy}
+              className="mt-1 w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-card disabled:opacity-50 disabled:cursor-not-allowed transition-opacity flex items-center justify-center gap-2"
+            >
+              {busy && <span className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />}
+              {busy ? "Signing in…" : "Sign in"}
+            </button>
+          </form>
+        </div>
+
+        <p className="mt-6 text-center text-xs text-muted-foreground">
+          <a href="/" className="hover:text-foreground transition-colors">← Back to main site</a>
+        </p>
       </div>
     </div>
   );

@@ -370,24 +370,77 @@ app.get("/api/teams", async (_req, res) => {
   }
 });
 
+// Dept code map — mirrors DEPT_CODE on the frontend
+const DEPT_CODE_MAP = {
+  "computer science and engineering": "CSE",
+  "information technology": "IT",
+  "artificial intelligence and data science": "AI&DS",
+  "civil engineering": "CIVIL",
+  "mechanical engineering": "MECH",
+  "instrumentation and control engineering": "I&CE",
+  "computer science and engineering and business systems": "CSBS",
+  "computer and communication engineering": "CCE",
+  "mechatronics": "MCT",
+  "electrical and electronics engineering": "EEE",
+  "electronics and communication engineering": "ECE",
+  "biomedical engineering": "BME",
+  "master of computer applications": "MCA",
+  "master of business administration": "MBA",
+};
+
+function getDeptCode(deptName) {
+  if (!deptName) return "TEAM";
+  return DEPT_CODE_MAP[deptName.toLowerCase().trim()]
+    ?? deptName.replace(/\s+/g, "").toUpperCase().slice(0, 8);
+}
+
+// Build a sequential team_code like "AI&DS#003" or "AI&DS-SOLO#001"
+async function generateTeamCode(category, created_by_dept) {
+  const deptCode = getDeptCode(created_by_dept);
+  const prefix = category === "Solo" ? `${deptCode}-SOLO#` : `${deptCode}#`;
+
+  let count = 0;
+  if (process.env.DATABASE_URL) {
+    try {
+      const { rows } = await dbQuery(
+        `SELECT COUNT(*) AS cnt FROM public.teams WHERE created_by_dept ILIKE $1;`,
+        [created_by_dept || ""]
+      );
+      count = parseInt(rows[0]?.cnt ?? "0", 10);
+    } catch (_) { /* ignore — fall back to 0 */ }
+  } else if (supabase) {
+    try {
+      const { count: cnt } = await supabase
+        .from("teams")
+        .select("*", { count: "exact", head: true })
+        .ilike("created_by_dept", created_by_dept || "");
+      count = cnt ?? 0;
+    } catch (_) { /* ignore */ }
+  }
+
+  return `${prefix}${String(count + 1).padStart(3, "0")}`;
+}
+
 // Create Empty Team by Mentor
 app.post("/api/teams/empty", async (req, res) => {
-  const { name, category } = req.body;
+  const { name, category, created_by_dept } = req.body;
   try {
     if (!name || !name.trim()) {
       return res.status(400).json({ error: "Team name is required." });
     }
 
+    const teamCode = await generateTeamCode(category || "Pairs", created_by_dept || null);
     let createdRecord = null;
 
     if (process.env.DATABASE_URL) {
       try {
         const { rows } = await dbQuery(
-          `INSERT INTO public.teams (name, approved, category) VALUES ($1, false, $2) RETURNING *;`,
-          [name.trim(), category || "Pairs"]
+          `INSERT INTO public.teams (name, team_code, approved, category, created_by_dept) VALUES ($1, $2, false, $3, $4) RETURNING *;`,
+          [name.trim(), teamCode, category || "Pairs", created_by_dept || null]
         );
         createdRecord = rows[0];
       } catch (_err) {
+        // Fallback: columns may not all exist yet
         const { rows } = await dbQuery(
           `INSERT INTO public.teams (name, approved) VALUES ($1, false) RETURNING *;`,
           [name.trim()]
@@ -400,7 +453,7 @@ app.post("/api/teams/empty", async (req, res) => {
       try {
         const { data } = await supabase
           .from("teams")
-          .insert([{ name: name.trim(), approved: false, category: category || "Pairs" }])
+          .insert([{ name: name.trim(), team_code: teamCode, approved: false, category: category || "Pairs", created_by_dept: created_by_dept || null }])
           .select("*")
           .single();
         if (data) createdRecord = data;
@@ -415,6 +468,135 @@ app.post("/api/teams/empty", async (req, res) => {
     }
 
     return res.json({ data: createdRecord, error: null });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Backfill team_codes for existing teams ────────────────────────────────
+// POST /api/admin/backfill-team-codes
+// Assigns a proper dept-based team_code to every team that either:
+//   - has no team_code at all, or
+//   - has an old generic SIH… code (pre-migration)
+// Department is resolved from created_by_dept first, then inferred from members.
+// Sequential numbering is per-department ordered by team id (creation order).
+app.post("/api/admin/backfill-team-codes", async (req, res) => {
+  try {
+    let teams = [];
+
+    // Fetch all teams together with their member departments
+    if (process.env.DATABASE_URL) {
+      const { rows } = await dbQuery(`
+        SELECT
+          t.id,
+          t.name,
+          t.category,
+          t.created_by_dept,
+          t.team_code,
+          ARRAY_AGG(p.department) FILTER (WHERE p.department IS NOT NULL) AS member_depts
+        FROM public.teams t
+        LEFT JOIN public.team_members tm ON tm.team_id = t.id
+        LEFT JOIN public.profiles p ON p.id = tm.member_id
+        GROUP BY t.id
+        ORDER BY t.id;
+      `);
+      teams = rows;
+    } else if (supabase) {
+      // Supabase: fetch teams + members in two queries
+      const { data: teamRows } = await supabase
+        .from("teams")
+        .select("id, name, category, created_by_dept, team_code")
+        .order("id");
+      const { data: memberRows } = await supabase
+        .from("team_members")
+        .select("team_id, profiles(department)");
+      const memberDeptMap = {};
+      for (const mr of memberRows || []) {
+        if (!memberDeptMap[mr.team_id]) memberDeptMap[mr.team_id] = [];
+        if (mr.profiles?.department) memberDeptMap[mr.team_id].push(mr.profiles.department);
+      }
+      teams = (teamRows || []).map((t) => ({
+        ...t,
+        member_depts: memberDeptMap[t.id] || [],
+      }));
+    }
+
+    if (!teams.length) {
+      return res.json({ updated: 0, skipped: 0, message: "No teams found." });
+    }
+
+    // Resolve department for each team
+    const resolved = teams.map((t) => {
+      let dept = t.created_by_dept?.trim() || null;
+      if (!dept && t.member_depts?.length > 0) {
+        // Pick the most common member dept
+        const freq = {};
+        for (const d of t.member_depts) freq[d] = (freq[d] || 0) + 1;
+        dept = Object.entries(freq).sort((a, b) => b[1] - a[1])[0][0];
+      }
+      return { ...t, resolved_dept: dept };
+    });
+
+    // Group by resolved dept and sort each group by id (creation order)
+    const byDept = {};
+    const unresolvable = [];
+    for (const t of resolved) {
+      if (!t.resolved_dept) { unresolvable.push(t); continue; }
+      const key = t.resolved_dept.toLowerCase().trim();
+      if (!byDept[key]) byDept[key] = { dept: t.resolved_dept, teams: [] };
+      byDept[key].teams.push(t);
+    }
+    for (const g of Object.values(byDept)) {
+      g.teams.sort((a, b) => (a.id > b.id ? 1 : -1));
+    }
+
+    // Build update list — only for teams missing/stale team_code
+    const updates = [];
+    for (const { dept, teams: deptTeams } of Object.values(byDept)) {
+      const deptCode = getDeptCode(dept);
+      let seq = 1;
+      for (const t of deptTeams) {
+        const category = t.category || "Pairs";
+        const prefix = category.toLowerCase() === "solo"
+          ? `${deptCode}-SOLO#`
+          : `${deptCode}#`;
+        const newCode = `${prefix}${String(seq).padStart(3, "0")}`;
+        seq++;
+
+        const needsUpdate =
+          !t.team_code ||
+          t.team_code.trim() === "" ||
+          /^SIH/i.test(t.team_code);  // old trigger-generated codes
+
+        if (needsUpdate) {
+          updates.push({ id: t.id, team_code: newCode, created_by_dept: dept });
+        }
+      }
+    }
+
+    // Apply updates
+    let updatedCount = 0;
+    for (const upd of updates) {
+      if (process.env.DATABASE_URL) {
+        await dbQuery(
+          `UPDATE public.teams SET team_code = $1, created_by_dept = COALESCE(created_by_dept, $2) WHERE id = $3;`,
+          [upd.team_code, upd.created_by_dept, upd.id]
+        );
+      } else if (supabase) {
+        await supabase
+          .from("teams")
+          .update({ team_code: upd.team_code, created_by_dept: upd.created_by_dept })
+          .eq("id", upd.id);
+      }
+      updatedCount++;
+    }
+
+    return res.json({
+      updated: updatedCount,
+      skipped: unresolvable.length,
+      unresolvable: unresolvable.map((t) => ({ id: t.id, name: t.name })),
+      message: `Backfilled ${updatedCount} team codes. ${unresolvable.length} teams could not be resolved (no dept, no members).`,
+    });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
@@ -654,6 +836,29 @@ app.put("/api/teams/:teamId/ministry", async (req, res) => {
     }
 
     return res.json({ success: true, ministry: ministry || null });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// Rename Team (Mentor — own department only, enforced client-side)
+app.put("/api/teams/:teamId/name", async (req, res) => {
+  const { teamId } = req.params;
+  const { name } = req.body;
+  if (!name || !name.trim()) {
+    return res.status(400).json({ error: "Team name cannot be empty." });
+  }
+  try {
+    if (process.env.DATABASE_URL) {
+      await dbQuery(
+        `UPDATE public.teams SET name = $1 WHERE id = $2;`,
+        [name.trim(), teamId]
+      );
+    }
+    if (supabase) {
+      await supabase.from("teams").update({ name: name.trim() }).eq("id", teamId);
+    }
+    return res.json({ success: true, name: name.trim() });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }

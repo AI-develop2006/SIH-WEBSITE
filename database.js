@@ -55,6 +55,7 @@ export async function runMigrations() {
       ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS category text DEFAULT 'Pairs';
       ALTER TABLE public.team_members ADD COLUMN IF NOT EXISTS assigned_skill text DEFAULT NULL;
       ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS ministry text DEFAULT NULL;
+      ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS created_by_dept text DEFAULT NULL;
     `);
 
     const { rows } = await client.query(`SELECT version FROM public._schema_migrations;`);

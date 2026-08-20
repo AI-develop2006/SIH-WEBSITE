@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ChevronUp, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function TeamFormationRules({ className, compact = false }) {
@@ -15,7 +16,7 @@ export function TeamFormationRules({ className, compact = false }) {
       num: "02",
       title: "Full Ministry Coverage",
       highlight: "Cover all 37 Ministries",
-      desc: "Every department should choose the problem statements from the given ministries.",
+      desc: "Every department should choose problem statements across all given ministries. These 2-member pairs collectively form the final 6-member team submitted to SIH.",
     },
     {
       num: "03",
@@ -33,7 +34,7 @@ export function TeamFormationRules({ className, compact = false }) {
       num: "05",
       title: "Final Decision Authority",
       highlight: "SPOC & Mentors Only",
-      desc: "The final 2-member team structure is decided exclusively by the SPOC and assigned mentors.",
+      desc: "The final 6-member team structure submitted to SIH is decided exclusively by the SPOC and assigned mentors.",
       featured: true,
     },
   ];
@@ -41,21 +42,21 @@ export function TeamFormationRules({ className, compact = false }) {
   return (
     <div
       className={cn(
-        "rounded-3xl border border-[#c9a227]/30 bg-gradient-to-b from-[#121929] to-[#0a0f18] p-5 sm:p-6 shadow-2xl transition-all duration-300",
+        "rounded-2xl border border-border/50 bg-card/40 p-5 sm:p-6 transition-all duration-300",
         className
       )}
     >
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#c9a227]/20 pb-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/20 pb-4">
         <div>
           <div className="flex items-center gap-2.5">
-            <h3 className="text-base sm:text-lg font-extrabold tracking-tight text-white">
+            <h3 className="text-base font-bold text-white">
               Team Formation & Ministry Guidelines
             </h3>
-            <span className="rounded-full bg-[#c9a227]/20 border border-[#c9a227]/40 px-3 py-0.5 text-[11px] font-extrabold uppercase text-[#e8c058]">
+            <span className="rounded border border-border/50 px-2.5 py-0.5 text-[11px] font-semibold text-muted-foreground">
               37 Ministries
             </span>
           </div>
-          <p className="text-xs text-muted-foreground font-medium mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             Official rules for mentors and SPOCs when organizing participant pairs and teams
           </p>
         </div>
@@ -64,45 +65,45 @@ export function TeamFormationRules({ className, compact = false }) {
           <button
             type="button"
             onClick={() => setIsExpanded(!isExpanded)}
-            className="flex items-center gap-1.5 text-xs font-extrabold text-[#c9a227] hover:text-[#e8c058] transition-colors bg-[#c9a227]/10 hover:bg-[#c9a227]/20 px-3.5 py-1.5 rounded-xl border border-[#c9a227]/30"
+            className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-white transition-colors border border-border/40 px-3 py-1.5 rounded-lg"
           >
-            <span>{isExpanded ? "Collapse Rules" : "View All Rules (5)"}</span>
-            <span className="text-xs">{isExpanded ? "▲" : "▼"}</span>
+            <span>{isExpanded ? "Collapse" : "View Rules"}</span>
+            {isExpanded
+              ? <ChevronUp className="size-3.5" />
+              : <ChevronDown className="size-3.5" />
+            }
           </button>
         )}
       </div>
 
-      {/* Structured Rules Cards Grid */}
       {isExpanded && (
-        <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-2">
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
           {rules.map((rule) => (
             <div
               key={rule.num}
               className={cn(
-                "group relative flex flex-col justify-between rounded-2xl border p-4.5 transition-all duration-200",
+                "flex flex-col rounded-xl border p-4 transition-colors",
                 rule.featured
-                  ? "sm:col-span-2 border-[#c9a227]/50 bg-gradient-to-r from-[#172136] to-[#0e1626] shadow-lg"
-                  : "border-border/40 bg-[#0c121e]/90 hover:border-[#c9a227]/40 hover:bg-[#11192a]"
+                  ? "sm:col-span-2 border-[#c9a227]/40 bg-[#c9a227]/5"
+                  : "border-border/30 bg-card/30 hover:border-border/60"
               )}
             >
-              <div>
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs font-black text-[#c9a227] bg-[#c9a227]/15 px-2 py-0.5 rounded-md border border-[#c9a227]/30">
-                      {rule.num}
-                    </span>
-                    <h4 className="text-xs sm:text-sm font-extrabold text-white">
-                      {rule.title}
-                    </h4>
-                  </div>
-                  <span className="text-[10px] font-bold text-[#e8c058] bg-[#c9a227]/10 border border-[#c9a227]/25 px-2 py-0.5 rounded-full self-start sm:self-auto shrink-0">
-                    {rule.highlight}
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs font-bold text-muted-foreground bg-muted/20 px-1.5 py-0.5 rounded border border-border/30">
+                    {rule.num}
                   </span>
+                  <h4 className="text-xs font-bold text-white">
+                    {rule.title}
+                  </h4>
                 </div>
-                <p className="text-xs text-slate-300/90 leading-relaxed font-medium mt-2">
-                  {rule.desc}
-                </p>
+                <span className="text-[10px] font-semibold text-[#c9a227] border border-[#c9a227]/30 px-2 py-0.5 rounded shrink-0">
+                  {rule.highlight}
+                </span>
               </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                {rule.desc}
+              </p>
             </div>
           ))}
         </div>

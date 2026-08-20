@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { SlidersHorizontal } from "lucide-react";
+import { SlidersHorizontal, Users, User } from "lucide-react";
 import { Button } from "@/components/unlumen-ui/button";
 import { Card } from "@/components/unlumen-ui/card";
 import { Input, Select } from "@/components/unlumen-ui/input";
@@ -286,12 +286,12 @@ export function RosterTab({
                   {assignedTeam && (
                     <div>
                       {(assignedTeam.team.category || (assignedTeam.members.length === 1 ? "Solo" : "Pairs")) === "Solo" ? (
-                        <span className="rounded-lg bg-indigo-500/15 border border-indigo-500/40 text-indigo-300 px-2 py-0.5 text-[10px] font-bold">
-                          👤 Solo: {assignedTeam.team.name}
+                        <span className="inline-flex items-center gap-1 rounded-lg bg-indigo-500/15 border border-indigo-500/40 text-indigo-300 px-2 py-0.5 text-[10px] font-bold">
+                          <User className="size-3 shrink-0" /> Solo: {assignedTeam.team.name}
                         </span>
                       ) : (
-                        <span className="rounded-lg bg-[#c9a227]/15 border border-[#c9a227]/40 text-[#e8c058] px-2 py-0.5 text-[10px] font-bold">
-                          👥 {assignedTeam.team.name}
+                        <span className="inline-flex items-center gap-1 rounded-lg bg-[#c9a227]/15 border border-[#c9a227]/40 text-[#e8c058] px-2 py-0.5 text-[10px] font-bold">
+                          <Users className="size-3 shrink-0" /> {assignedTeam.team.name}
                         </span>
                       )}
                     </div>

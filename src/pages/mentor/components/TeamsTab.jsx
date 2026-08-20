@@ -1,6 +1,8 @@
 import { useState, useMemo } from "react";
 import { Button } from "@/components/unlumen-ui/button";
-import { GlowingBadge } from "@/components/unlumen-ui/glowing-badge";
+import {
+  Users, User, LayoutGrid, Building2, Download, AlertTriangle, Lock, Plus, ChevronUp, ChevronDown,
+} from "lucide-react";
 import { cn, computeStats, isSameDepartment, normalizeDepartment } from "@/lib/utils";
 import { MINISTRIES, MAX_MEMBERS_PER_MINISTRY_PER_DEPT } from "@/lib/constants";
 import { StudentDetailModal } from "./StudentDetailModal";
@@ -128,7 +130,7 @@ function MinistriesPanel({ teams, mentorDept }) {
             <span className="ml-auto text-[10px] text-muted-foreground">
               Showing <span className="text-white font-bold">{filtered.length}</span> of {MINISTRIES.length}
               {search.trim() && (
-                <button type="button" onClick={() => setSearch("")} className="ml-2 text-danger hover:underline font-bold">✕ clear</button>
+                <button type="button" onClick={() => setSearch("")} className="ml-2 text-danger hover:underline font-bold flex items-center gap-1 inline-flex"><X className="size-3" /> clear</button>
               )}
             </span>
           )}
@@ -186,7 +188,7 @@ function MinistriesPanel({ teams, mentorDept }) {
                   ) : (
                     <span className="text-[10px] text-muted-foreground/40 font-medium">Unassigned</span>
                   )}
-                  <span className="text-muted-foreground/50 text-xs ml-1">{isOpen ? "▲" : "▼"}</span>
+                  <span className="text-muted-foreground/50 text-xs ml-1">{isOpen ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}</span>
                 </div>
               </button>
 
@@ -237,10 +239,10 @@ function MinistriesPanel({ teams, mentorDept }) {
                                     <span className="text-[10px] text-muted-foreground font-mono">{t.team.name}</span>
                                   )}
                                   <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full border", isSolo ? "bg-indigo-500/15 border-indigo-500/30 text-indigo-300" : "bg-[#c9a227]/15 border-[#c9a227]/30 text-[#e8c058]")}>
-                                    {isSolo ? "👤 Solo" : "👥 Pairs"}
+                                    {isSolo ? <><User className="size-3 shrink-0 inline-block mr-0.5" />Solo</> : <><Users className="size-3 shrink-0 inline-block mr-0.5" />Pairs</>}
                                   </span>
                                   {t.team.approved && (
-                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300">✓ Approved</span>
+                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300">Approved</span>
                                   )}
                                 </div>
                                 {t.members.length === 0 ? (
@@ -400,8 +402,8 @@ export function TeamsTab({
       {/* Sub-tab switcher */}
       <div className="flex items-center gap-2 bg-card/30 border border-border/40 rounded-2xl p-1.5">
         {[
-          { id: "teams", label: "🏗 Teams", desc: "Build & manage" },
-          { id: "ministries", label: "🏛 Ministries", desc: "View by ministry" },
+          { id: "teams", label: "Teams", icon: <LayoutGrid className="size-3.5 shrink-0" />, desc: "Build & manage" },
+          { id: "ministries", label: "Ministries", icon: <Building2 className="size-3.5 shrink-0" />, desc: "View by ministry" },
         ].map((s) => (
           <button
             key={s.id}
@@ -414,7 +416,7 @@ export function TeamsTab({
                 : "text-muted-foreground hover:text-white hover:bg-muted/20"
             )}
           >
-            <span>{s.label}</span>
+            <span className="flex items-center gap-1.5">{s.icon}{s.label}</span>
             <span className={cn("text-[9px] font-normal mt-0.5", subTab === s.id ? "text-black/70" : "text-muted-foreground/60")}>{s.desc}</span>
           </button>
         ))}
@@ -429,8 +431,8 @@ export function TeamsTab({
               <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Category:</span>
               {[
                 { id: "All", label: "All Teams" },
-                { id: "Pairs", label: "👥 Pairs" },
-                { id: "Solo", label: "👤 Solo" },
+                { id: "Pairs", label: <><Users className="size-3 shrink-0 inline-block mr-1" />Pairs</> },
+                { id: "Solo", label: <><User className="size-3 shrink-0 inline-block mr-1" />Solo</> },
               ].map((cat) => (
                 <button
                   key={cat.id}
@@ -459,16 +461,16 @@ export function TeamsTab({
                   className="flex items-center gap-1.5 border border-border/50 text-muted-foreground font-bold text-xs px-3 py-1.5 rounded-xl hover:border-[#c9a227]/50 hover:text-[#c9a227] transition cursor-pointer"
                   title="Export your department's teams as CSV"
                 >
-                  ⬇ Export CSV
+                  <Download className="size-3.5 shrink-0" /> Export CSV
                 </button>
               )}
               {setShowCreateTeamModal && (
                 <button
                   type="button"
                   onClick={() => setShowCreateTeamModal(true)}
-                  className="bg-[#c9a227] text-black font-bold text-xs px-3.5 py-1.5 rounded-xl hover:bg-[#e8c058] transition shadow cursor-pointer"
+                  className="bg-[#c9a227] text-black font-bold text-xs px-3.5 py-1.5 rounded-xl hover:bg-[#e8c058] transition shadow cursor-pointer flex items-center gap-1.5"
                 >
-                  + Create Team
+                  <Plus className="size-3.5 shrink-0" /> Create Team
                 </button>
               )}
             </div>
@@ -518,14 +520,14 @@ export function TeamsTab({
                               ? "bg-indigo-500/15 border-indigo-500/40 text-indigo-300"
                               : "bg-[#c9a227]/15 border-[#c9a227]/40 text-[#e8c058]"
                           )}>
-                            {category === "Solo" ? "👤 Solo" : "👥 Pairs"}
+                          {category === "Solo" ? <><User className="size-3 shrink-0 inline-block mr-0.5" />Solo</> : <><Users className="size-3 shrink-0 inline-block mr-0.5" />Pairs</>}
                           </span>
                         </div>
                       </div>
                       {t.team.approved ? (
-                        <GlowingBadge variant="success" pulse={false}>Approved</GlowingBadge>
+                        <span className="inline-flex items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-medium text-emerald-300">Approved</span>
                       ) : (
-                        <GlowingBadge variant="warning" pulse={false}>Pending Review</GlowingBadge>
+                        <span className="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 text-[11px] font-medium text-amber-300">Pending Review</span>
                       )}
                     </div>
 
@@ -544,9 +546,9 @@ export function TeamsTab({
                           <button
                             type="button"
                             onClick={(e) => { e.stopPropagation(); if (onAddMemberClick) onAddMemberClick(t.team.id); }}
-                            className="bg-[#c9a227] text-black text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-[#e8c058] transition shadow cursor-pointer"
+                            className="bg-[#c9a227] text-black text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-[#e8c058] transition shadow cursor-pointer flex items-center gap-1"
                           >
-                            + Add Member from Roster
+                            <Plus className="size-3.5 shrink-0" /> Add Member from Roster
                           </button>
                         </div>
                       ) : (
@@ -578,9 +580,9 @@ export function TeamsTab({
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); if (onAddMemberClick) onAddMemberClick(t.team.id); }}
-                          className="w-full text-center mt-2.5 py-1.5 bg-[#c9a227]/10 hover:bg-[#c9a227]/20 border border-[#c9a227]/30 text-[#e8c058] text-[11px] font-bold rounded-lg transition cursor-pointer"
+                          className="w-full text-center mt-2.5 py-1.5 bg-[#c9a227]/10 hover:bg-[#c9a227]/20 border border-[#c9a227]/30 text-[#e8c058] text-[11px] font-bold rounded-lg transition cursor-pointer flex items-center justify-center gap-1"
                         >
-                          + Add 2nd Member from Roster
+                          <Plus className="size-3.5 shrink-0" /> Add 2nd Member from Roster
                         </button>
                       )}
                     </div>
@@ -588,8 +590,8 @@ export function TeamsTab({
 
                   <div className="mt-5 border-t border-border/10 pt-4 flex flex-col gap-2">
                     {!stats.valid && stats.reason && (
-                      <div className="text-[10px] text-danger bg-danger/5 border border-danger/20 px-2.5 py-1.5 rounded-lg font-medium leading-normal">
-                        ⚠️ {stats.reason}
+                      <div className="text-[10px] text-danger bg-danger/5 border border-danger/20 px-2.5 py-1.5 rounded-lg font-medium leading-normal flex items-center gap-1">
+                        <AlertTriangle className="size-3.5 shrink-0" /> {stats.reason}
                       </div>
                     )}
                     {t.members.length === 0 ? (
@@ -603,7 +605,7 @@ export function TeamsTab({
                       </Button>
                     ) : (
                       <div className="flex items-center justify-center gap-1.5 py-1.5 text-[11px] text-muted-foreground bg-muted/10 rounded-xl border border-border/20">
-                        <span>🔒</span>
+                        <Lock className="size-3 shrink-0" />
                         <span>Remove all members to enable team deletion</span>
                       </div>
                     )}

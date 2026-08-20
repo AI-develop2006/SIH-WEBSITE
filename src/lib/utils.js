@@ -48,6 +48,7 @@ const DEPT_ALIASES = {
 
   // Computer Science and Engineering and Business Systems
   "csbs": "Computer Science and Engineering and Business Systems",
+  "csebs": "Computer Science and Engineering and Business Systems",
   "cse & bs": "Computer Science and Engineering and Business Systems",
   "cse&bs": "Computer Science and Engineering and Business Systems",
   "cse and bs": "Computer Science and Engineering and Business Systems",
@@ -62,6 +63,7 @@ const DEPT_ALIASES = {
 
   // Mechatronics
   "mct": "Mechatronics",
+  "mctr": "Mechatronics",
   "mechatronics": "Mechatronics",
 
   // Electrical and Electronics Engineering

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Users, User } from "lucide-react";
 import { Button } from "@/components/unlumen-ui/button";
 import { Input } from "@/components/unlumen-ui/input";
 import { cn } from "@/lib/utils";
@@ -77,7 +78,7 @@ export function CreateTeamModal({
                     : "bg-card/40 border-border/40 text-muted-foreground hover:text-white"
                 )}
               >
-                👥 Pairs Team (2 Members)
+                <Users className="size-3.5 shrink-0" /> Pairs Team (2 Members)
               </button>
               <button
                 type="button"
@@ -89,7 +90,7 @@ export function CreateTeamModal({
                     : "bg-card/40 border-border/40 text-muted-foreground hover:text-white"
                 )}
               >
-                👤 Solo Entry
+                <User className="size-3.5 shrink-0" /> Solo Entry
               </button>
             </div>
           </div>

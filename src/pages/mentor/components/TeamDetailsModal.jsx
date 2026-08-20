@@ -1,7 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/unlumen-ui/button";
 import { Avatar } from "@/components/unlumen-ui/avatar";
-import { GlowingBadge } from "@/components/unlumen-ui/glowing-badge";
+import {
+  Users, User, Eye, Trash2, Pencil, Lock,
+  AlertTriangle, CheckCircle2, X,
+} from "lucide-react";
 import { SOFTWARE_ROLES, HARDWARE_ROLES, OTHER_ROLES, MINISTRIES } from "@/lib/constants";
 
 const ALL_SKILLS = [...SOFTWARE_ROLES, ...HARDWARE_ROLES, ...OTHER_ROLES];
@@ -105,9 +108,6 @@ export function TeamDetailsModal({
         className="relative w-full max-w-3xl max-h-[92dvh] overflow-y-auto rounded-3xl border border-border/80 bg-[#0a0f1d] p-5 sm:p-8 shadow-2xl text-left z-[99995] space-y-6 scrollbar-thin"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Top Gold Accent Bar */}
-        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-[#c9a227] to-transparent" />
-
         {/* Header */}
         <div className="flex items-start justify-between border-b border-border/20 pb-4 gap-3">
           <div className="min-w-0">
@@ -118,12 +118,12 @@ export function TeamDetailsModal({
                   ? "bg-indigo-500/15 border-indigo-500/40 text-indigo-300"
                   : "bg-[#c9a227]/15 border-[#c9a227]/40 text-[#e8c058]"
               }`}>
-                {isSolo ? "👤 Solo Entry" : "👥 Pairs Team"}
+                {isSolo ? <><User className="size-3 shrink-0 inline-block mr-1" />Solo Entry</> : <><Users className="size-3 shrink-0 inline-block mr-1" />Pairs Team</>}
               </span>
               {team.approved ? (
-                <GlowingBadge variant="success" pulse={false}>Approved</GlowingBadge>
+                <span className="inline-flex items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-medium text-emerald-300">Approved</span>
               ) : (
-                <GlowingBadge variant="warning" pulse={false}>Pending Review</GlowingBadge>
+                <span className="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 text-[11px] font-medium text-amber-300">Pending Review</span>
               )}
             </div>
             <p className="text-xs text-slate-300 font-semibold mt-1 font-mono">
@@ -169,7 +169,7 @@ export function TeamDetailsModal({
                     className="text-[10px] font-bold text-[#c9a227] hover:text-[#e8c058] transition cursor-pointer"
                     title="Edit team name"
                   >
-                    ✏ Edit
+                    <Pencil className="size-3 shrink-0 inline-block" /> Edit
                   </button>
                 </span>
               )}
@@ -184,14 +184,14 @@ export function TeamDetailsModal({
             className="flex size-8 items-center justify-center rounded-full bg-slate-800/80 text-slate-400 hover:bg-slate-700 hover:text-white transition-colors cursor-pointer shrink-0"
             aria-label="Close"
           >
-            ✕
+            <X className="size-3.5" />
           </button>
         </div>
 
         {/* Read-only notice */}
         {readOnly && (
           <div className="rounded-2xl border border-slate-600/40 bg-slate-800/40 p-3 flex items-center gap-2.5 text-xs text-slate-300">
-            <span className="text-lg">👁</span>
+            <Eye className="size-3 shrink-0" />
             <div>
               <span className="font-bold text-white">View Only</span>
               <span className="text-slate-400"> — This team belongs to the <span className="text-[#c9a227] font-semibold">{team.created_by_dept || "another department"}</span>. You can view but not edit or delete it.</span>
@@ -224,7 +224,7 @@ export function TeamDetailsModal({
         {/* Constraint Alert */}
         {!stats.valid && stats.reason && (
           <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-3.5 text-xs text-red-300 flex items-center gap-2">
-            <span>⚠️</span>
+            <AlertTriangle className="size-3.5 shrink-0" />
             <span>SIH Diversity Compliance: {stats.reason}</span>
           </div>
         )}
@@ -277,7 +277,7 @@ export function TeamDetailsModal({
                     onClick={() => setDraftMinistry("")}
                     className="text-[10px] text-muted-foreground hover:text-red-400 font-bold transition-colors"
                   >
-                    ✕ Clear
+                    <X className="size-3.5 inline-block" /> Clear
                   </button>
                 )}
                 {draftMinistry ? (
@@ -348,7 +348,7 @@ export function TeamDetailsModal({
                           onClick={() => onViewProfile(member)}
                           className="border-slate-700 text-slate-200 hover:bg-slate-800 hover:text-white text-xs font-semibold px-3.5 py-1.5 rounded-xl"
                         >
-                          👤 Profile
+                          <User className="size-3 shrink-0 mr-1.5" />Profile
                         </Button>
                         {!readOnly && (
                           <Button
@@ -356,7 +356,7 @@ export function TeamDetailsModal({
                             onClick={() => removeMember(team.id, member.id, member.name)}
                             className="bg-red-500/15 border border-red-500/40 text-red-300 hover:bg-red-500 hover:text-white text-xs font-semibold px-3.5 py-1.5 rounded-xl transition-colors"
                           >
-                            🗑 Delete
+                            <Trash2 className="size-3 shrink-0 mr-1.5" />Delete
                           </Button>
                         )}
                       </div>
@@ -412,7 +412,7 @@ export function TeamDetailsModal({
                               }
                               className="text-[10px] text-muted-foreground hover:text-red-400 font-bold transition-colors"
                             >
-                              ✕ Clear
+                              <X className="size-3.5 inline-block" /> Clear
                             </button>
                           )}
                           {currentDraft ? (
@@ -441,7 +441,9 @@ export function TeamDetailsModal({
               ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
               : "border-amber-500/30 bg-amber-500/10 text-amber-300"
           }`}>
-            <span>{members.every((m) => (draftSkills[m.id] ?? "")) ? "✅" : "⚠️"}</span>
+            {members.every((m) => (draftSkills[m.id] ?? ""))
+              ? <CheckCircle2 className="size-3.5 shrink-0" />
+              : <AlertTriangle className="size-3.5 shrink-0" />}
             <span>
               {members.every((m) => (draftSkills[m.id] ?? ""))
                 ? isSolo
@@ -469,8 +471,8 @@ export function TeamDetailsModal({
                   Delete Empty Team
                 </Button>
               ) : (
-                <span className="text-[11px] text-muted-foreground">
-                  🔒 Remove all members to delete
+                <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                  <Lock className="size-3 shrink-0" /> Remove all members to delete
                 </span>
               )}
 

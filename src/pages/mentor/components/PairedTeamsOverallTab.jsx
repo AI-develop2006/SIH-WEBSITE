@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
-import { GlowingBadge } from "@/components/unlumen-ui/glowing-badge";
+import {
+  Users, User, Building, Building2, Eye, AlertTriangle, ChevronUp, ChevronDown,
+} from "lucide-react";
 import { cn, computeStats, isSameDepartment, normalizeDepartment } from "@/lib/utils";
 import { MINISTRIES, MAX_MEMBERS_PER_MINISTRY_PER_DEPT } from "@/lib/constants";
 import { StudentDetailModal } from "./StudentDetailModal";
@@ -166,7 +168,7 @@ export function PairedTeamsOverallTab({ teams, mentorDept, problemMap }) {
       {/* Header */}
       <div className="rounded-2xl border border-[rgba(201,162,39,0.25)] bg-card/30 p-4 space-y-1">
         <h2 className="text-base font-extrabold text-white flex items-center gap-2">
-          <span>📋</span> Paired Teams Overall — All Departments
+          Paired Teams Overall — All Departments
         </h2>
         <p className="text-xs text-muted-foreground">
           View all teams across every department. Other departments' teams are{" "}
@@ -177,8 +179,8 @@ export function PairedTeamsOverallTab({ teams, mentorDept, problemMap }) {
       {/* Sub-view switcher */}
       <div className="flex items-center gap-2 bg-card/30 border border-border/40 rounded-2xl p-1.5">
         {[
-          { id: "dept", label: "🏢 By Department", desc: "Sidebar dept nav" },
-          { id: "ministry", label: "🏛 By Ministry", desc: "Cross-dept view" },
+          { id: "dept", label: "By Department", icon: <Building className="size-3.5 shrink-0" />, desc: "Sidebar dept nav" },
+          { id: "ministry", label: "By Ministry", icon: <Building2 className="size-3.5 shrink-0" />, desc: "Cross-dept view" },
         ].map((s) => (
           <button
             key={s.id}
@@ -191,7 +193,7 @@ export function PairedTeamsOverallTab({ teams, mentorDept, problemMap }) {
                 : "text-muted-foreground hover:text-white hover:bg-muted/20"
             )}
           >
-            <span>{s.label}</span>
+            <span className="flex items-center gap-1.5">{s.icon}{s.label}</span>
             <span className={cn("text-[9px] font-normal mt-0.5", subView === s.id ? "text-black/70" : "text-muted-foreground/60")}>{s.desc}</span>
           </button>
         ))}
@@ -203,8 +205,8 @@ export function PairedTeamsOverallTab({ teams, mentorDept, problemMap }) {
           <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Category:</span>
           {[
             { id: "All", label: "All Teams" },
-            { id: "Pairs", label: "👥 Pairs" },
-            { id: "Solo", label: "👤 Solo" },
+            { id: "Pairs", label: <><Users className="size-3 shrink-0 inline-block mr-1" />Pairs</> },
+            { id: "Solo", label: <><User className="size-3 shrink-0 inline-block mr-1" />Solo</> },
           ].map((cat) => (
             <button
               key={cat.id}
@@ -259,7 +261,7 @@ export function PairedTeamsOverallTab({ teams, mentorDept, problemMap }) {
                   )}
                 >
                   <span className="leading-snug">
-                    {isOwn && <span className="mr-1">⭐</span>}
+                    {isOwn && <span className="size-1.5 rounded-full bg-[#c9a227] inline-block mr-1.5 align-middle" />}
                     {dept}
                   </span>
                   <span className={cn(
@@ -282,7 +284,7 @@ export function PairedTeamsOverallTab({ teams, mentorDept, problemMap }) {
             >
               {deptGrouped.map(([dept, deptTeams]) => (
                 <option key={dept} value={dept}>
-                  {isSameDepartment(dept, mentorDept || "") ? `⭐ ${dept}` : dept} ({deptTeams.length})
+                  {isSameDepartment(dept, mentorDept || "") ? `${dept} (You)` : dept} ({deptTeams.length})
                 </option>
               ))}
             </select>
@@ -303,7 +305,7 @@ export function PairedTeamsOverallTab({ teams, mentorDept, problemMap }) {
                     "flex flex-wrap items-center gap-3 px-4 py-2.5 rounded-2xl border",
                     isOwnDept ? "border-[#c9a227]/30 bg-[#c9a227]/5" : "border-slate-700/40 bg-slate-900/20"
                   )}>
-                    {isOwnDept && <span>⭐</span>}
+                    {isOwnDept && <span className="size-1.5 rounded-full bg-[#c9a227] inline-block" />}
                     <span className={cn("text-sm font-extrabold uppercase tracking-wide", isOwnDept ? "text-[#e8c058]" : "text-slate-200")}>
                       {activeDept}
                     </span>
@@ -316,7 +318,9 @@ export function PairedTeamsOverallTab({ teams, mentorDept, problemMap }) {
                       · {activeDeptTeams.length} team{activeDeptTeams.length !== 1 ? "s" : ""}
                     </span>
                     {!isOwnDept && (
-                      <span className="text-[10px] text-slate-400 font-medium">👁 view only</span>
+                      <span className="flex items-center gap-1 text-[10px] text-slate-400 font-medium">
+                        <Eye className="size-3 shrink-0" /> view only
+                      </span>
                     )}
                   </div>
 
@@ -344,13 +348,13 @@ export function PairedTeamsOverallTab({ teams, mentorDept, problemMap }) {
                               <p className="text-[11px] text-muted-foreground font-medium truncate mt-0.5">{t.team.name}</p>
                             </div>
                             <div className="flex flex-col items-end gap-1 shrink-0">
-                              <span className={cn("text-[10px] font-extrabold px-2 py-0.5 rounded-full border", category === "Solo" ? "bg-indigo-500/15 border-indigo-500/40 text-indigo-300" : "bg-[#c9a227]/15 border-[#c9a227]/40 text-[#e8c058]")}>
-                                {category === "Solo" ? "👤 Solo" : "👥 Pairs"}
+                              <span className={cn("text-[10px] font-extrabold px-2 py-0.5 rounded-full border flex items-center gap-1", category === "Solo" ? "bg-indigo-500/15 border-indigo-500/40 text-indigo-300" : "bg-[#c9a227]/15 border-[#c9a227]/40 text-[#e8c058]")}>
+                                {category === "Solo" ? <><User className="size-3 shrink-0" /> Solo</> : <><Users className="size-3 shrink-0" /> Pairs</>}
                               </span>
                               {t.team.approved ? (
-                                <GlowingBadge variant="success" pulse={false}>Approved</GlowingBadge>
+                                <span className="inline-flex items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-medium text-emerald-300">Approved</span>
                               ) : (
-                                <GlowingBadge variant="warning" pulse={false}>Pending</GlowingBadge>
+                                <span className="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 text-[11px] font-medium text-amber-300">Pending</span>
                               )}
                             </div>
                           </div>
@@ -358,7 +362,7 @@ export function PairedTeamsOverallTab({ teams, mentorDept, problemMap }) {
                           <div className="space-y-1">
                             <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                               <span>Members ({t.members.length}/{stats.targetCount})</span>
-                              {!isOwnDept && <span className="text-slate-500 font-normal">👁 view only</span>}
+                              {!isOwnDept && <span className="flex items-center gap-1 text-slate-500 font-normal"><Eye className="size-3 shrink-0" /> view only</span>}
                             </div>
                             {t.members.length === 0 ? (
                               <p className="text-[11px] text-muted-foreground italic py-1">No members yet</p>
@@ -384,8 +388,9 @@ export function PairedTeamsOverallTab({ teams, mentorDept, problemMap }) {
                             </div>
                           )}
                           {!stats.valid && stats.reason && (
-                            <div className="text-[10px] text-amber-400 bg-amber-500/5 border border-amber-500/20 px-2 py-1 rounded-lg">
-                              ⚠️ {stats.reason}
+                            <div className="flex items-center gap-1.5 text-[10px] text-amber-400 bg-amber-500/5 border border-amber-500/20 px-2 py-1 rounded-lg">
+                              <AlertTriangle className="size-3 shrink-0" />
+                              {stats.reason}
                             </div>
                           )}
                         </div>
@@ -455,7 +460,7 @@ export function PairedTeamsOverallTab({ teams, mentorDept, problemMap }) {
                       : "bg-card/20 border-border/30 text-muted-foreground hover:text-white"
                   )}
                 >
-                  {d !== "All" && isSameDepartment(d, mentorDept || "") ? `⭐ ${d}` : d}
+                  {d !== "All" && isSameDepartment(d, mentorDept || "") ? `${d} (You)` : d}
                 </button>
               ))}
             </div>
@@ -540,7 +545,7 @@ export function PairedTeamsOverallTab({ teams, mentorDept, problemMap }) {
                                   <div key={dept} className={cn("rounded-xl border bg-muted/10 p-2.5 space-y-1.5", isOwn ? "border-[#c9a227]/30" : "border-border/30")}>
                                     <div className="flex justify-between items-center gap-1">
                                       <span className={cn("text-[10px] font-bold truncate", isOwn ? "text-[#e8c058]" : "text-white")}>
-                                        {isOwn ? `⭐ ${dept}` : dept}
+                                        {isOwn ? `${dept} (You)` : dept}
                                       </span>
                                       <span className={cn("text-[10px] font-extrabold shrink-0", isFull ? "text-red-400" : isNear ? "text-amber-400" : "text-emerald-400")}>{count}/{CAP}</span>
                                     </div>
@@ -585,16 +590,16 @@ export function PairedTeamsOverallTab({ teams, mentorDept, problemMap }) {
                                         {t.team.team_code && t.team.name !== t.team.team_code && (
                                           <span className="text-[10px] text-muted-foreground font-mono">{t.team.name}</span>
                                         )}
-                                        <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full border", isSolo ? "bg-indigo-500/15 border-indigo-500/30 text-indigo-300" : "bg-[#c9a227]/15 border-[#c9a227]/30 text-[#e8c058]")}>
-                                          {isSolo ? "👤 Solo" : "👥 Pairs"}
+                                        <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full border flex items-center gap-1", isSolo ? "bg-indigo-500/15 border-indigo-500/30 text-indigo-300" : "bg-[#c9a227]/15 border-[#c9a227]/30 text-[#e8c058]")}>
+                                          {isSolo ? <><User className="size-3 shrink-0" /> Solo</> : <><Users className="size-3 shrink-0" /> Pairs</>}
                                         </span>
                                         {t.team.created_by_dept && (
                                           <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full border", isOwnDeptTeam ? "bg-[#c9a227]/10 border-[#c9a227]/20 text-[#e8c058]" : "bg-slate-700/40 border-slate-600/40 text-slate-300")}>
-                                            {isOwnDeptTeam ? `⭐ ${t.team.created_by_dept}` : t.team.created_by_dept}
+                                            {isOwnDeptTeam ? `${t.team.created_by_dept} (You)` : t.team.created_by_dept}
                                           </span>
                                         )}
                                         {!isOwnDeptTeam && (
-                                          <span className="text-[9px] text-slate-500 font-medium">👁 view only</span>
+                                          <span className="flex items-center gap-1 text-[9px] text-slate-500 font-medium"><Eye className="size-3 shrink-0" /> view only</span>
                                         )}
                                       </div>
                                       {t.members.length === 0 ? (

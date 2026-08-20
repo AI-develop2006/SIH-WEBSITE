@@ -194,6 +194,56 @@ app.get("/api/profiles", async (_req, res) => {
   return res.json({ data: data ?? [] });
 });
 
+// 3b. Update Profile (Admin)
+app.patch("/api/profiles/:id", async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: "Supabase client not configured" });
+  const { id } = req.params;
+  const patch = req.body;
+
+  if (!patch || Object.keys(patch).length === 0) {
+    return res.status(400).json({ error: "No fields provided" });
+  }
+
+  const { error } = await supabase.from("profiles").update(patch).eq("id", id);
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json({ success: true });
+});
+
+// 3c. Toggle Verified on Profile (Admin)
+app.post("/api/profiles/:id/verify", async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: "Supabase client not configured" });
+  const { id } = req.params;
+  const { verified } = req.body;
+
+  const { error } = await supabase.from("profiles").update({ verified: !!verified }).eq("id", id);
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json({ success: true });
+});
+
+// 3d. Delete Profile (Admin)
+app.delete("/api/profiles/:id", async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: "Supabase client not configured" });
+  const { id } = req.params;
+
+  // Remove from any teams first
+  const { data: memberships } = await supabase.from("team_members").select("team_id").eq("member_id", id);
+  if (memberships?.length) {
+    await supabase.from("team_members").delete().eq("member_id", id);
+    // Re-assign leaders where needed
+    for (const { team_id } of memberships) {
+      const { data: team } = await supabase.from("teams").select("leader_id").eq("id", team_id).single();
+      if (team?.leader_id === id) {
+        const { data: rem } = await supabase.from("team_members").select("member_id").eq("team_id", team_id).limit(1);
+        await supabase.from("teams").update({ leader_id: rem?.[0]?.member_id ?? null }).eq("id", team_id);
+      }
+    }
+  }
+
+  const { error } = await supabase.from("profiles").delete().eq("id", id);
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json({ success: true });
+});
+
 // 4. Fetch Enriched Teams List
 app.get("/api/teams", async (_req, res) => {
   if (!supabase) return res.status(500).json({ error: "Supabase client not configured" });
@@ -238,14 +288,140 @@ app.post("/api/teams/:id/toggle-approval", async (req, res) => {
   return res.json({ success: true });
 });
 
-// 6. Delete Team
+// 6. Create Team (Admin)
+app.post("/api/teams", async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: "Supabase client not configured" });
+  const { name, category, ministry, problem_id } = req.body;
+  if (!name?.trim()) return res.status(400).json({ error: "Team name is required" });
+
+  const { data, error } = await supabase
+    .from("teams")
+    .insert([{
+      name: name.trim(),
+      category: category || "Pairs",
+      ministry: ministry || null,
+      problem_id: problem_id || null,
+      approved: false,
+    }])
+    .select("*")
+    .single();
+
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json({ data });
+});
+
+// 6b. Update Team (Admin) — name, ministry, problem_id, category, approved
+app.patch("/api/teams/:id", async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: "Supabase client not configured" });
+  const { id } = req.params;
+  const { name, ministry, problem_id, category, approved } = req.body;
+
+  const patch = {};
+  if (name !== undefined) patch.name = name?.trim() || null;
+  if (ministry !== undefined) patch.ministry = ministry || null;
+  if (problem_id !== undefined) patch.problem_id = problem_id || null;
+  if (category !== undefined) patch.category = category;
+  if (approved !== undefined) patch.approved = approved;
+
+  if (Object.keys(patch).length === 0) {
+    return res.status(400).json({ error: "No fields to update" });
+  }
+
+  const { error } = await supabase.from("teams").update(patch).eq("id", id);
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json({ success: true });
+});
+
+// 6c. Add Member to Team (Admin — force, bypasses capacity checks)
+app.post("/api/teams/:id/members", async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: "Supabase client not configured" });
+  const { id } = req.params;
+  const { member_id } = req.body;
+  if (!member_id) return res.status(400).json({ error: "member_id is required" });
+
+  const { error } = await supabase
+    .from("team_members")
+    .upsert([{ team_id: id, member_id }], { onConflict: "team_id,member_id" });
+  if (error) return res.status(500).json({ error: error.message });
+
+  // Set as leader if no leader yet
+  const { data: team } = await supabase.from("teams").select("leader_id").eq("id", id).single();
+  if (team && !team.leader_id) {
+    await supabase.from("teams").update({ leader_id: member_id }).eq("id", id);
+  }
+  return res.json({ success: true });
+});
+
+// 6d. Remove Member from Team (Admin)
+app.delete("/api/teams/:id/members/:memberId", async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: "Supabase client not configured" });
+  const { id, memberId } = req.params;
+
+  const { error } = await supabase
+    .from("team_members")
+    .delete()
+    .eq("team_id", id)
+    .eq("member_id", memberId);
+  if (error) return res.status(500).json({ error: error.message });
+
+  // Re-assign leader if removed member was leader
+  const { data: team } = await supabase.from("teams").select("leader_id").eq("id", id).single();
+  if (team && team.leader_id === memberId) {
+    const { data: remaining } = await supabase.from("team_members").select("member_id").eq("team_id", id).limit(1);
+    const nextLeader = remaining?.[0]?.member_id ?? null;
+    await supabase.from("teams").update({ leader_id: nextLeader }).eq("id", id);
+  }
+  return res.json({ success: true });
+});
+
+// 6e. Assign Ministry to Team (Admin — bypasses cap)
+app.put("/api/teams/:id/ministry", async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: "Supabase client not configured" });
+  const { id } = req.params;
+  const { ministry } = req.body;
+
+  const { error } = await supabase.from("teams").update({ ministry: ministry || null }).eq("id", id);
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json({ success: true });
+});
+
+// 6f. Assign Skill to Team Member (Admin)
+app.put("/api/teams/:id/members/:memberId/skill", async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: "Supabase client not configured" });
+  const { id, memberId } = req.params;
+  const { skill } = req.body;
+
+  const { error } = await supabase
+    .from("team_members")
+    .update({ assigned_skill: skill || null })
+    .eq("team_id", id)
+    .eq("member_id", memberId);
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json({ success: true });
+});
+
+// 7. Delete Team (Admin — force-deletes even with members)
 app.delete("/api/teams/:id", async (req, res) => {
   if (!supabase) return res.status(500).json({ error: "Supabase client not configured" });
   const { id } = req.params;
+  const force = req.query.force === "true";
 
-  const { error } = await supabase.rpc("delete_team_admin", { p_team_id: id });
-  if (error) return res.status(500).json({ error: error.message });
-  return res.json({ success: true });
+  try {
+    // Count members
+    const { data: members } = await supabase.from("team_members").select("id").eq("team_id", id);
+    if ((members?.length ?? 0) > 0 && !force) {
+      return res.status(400).json({ error: "Team has active members. Use force=true to delete anyway, or remove members first." });
+    }
+
+    // Force-delete: clear members, then team
+    await supabase.from("teams").update({ leader_id: null }).eq("id", id);
+    await supabase.from("team_members").delete().eq("team_id", id);
+    const { error } = await supabase.from("teams").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+    return res.json({ success: true });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
 });
 
 // 7. Fetch Problems
@@ -411,6 +587,125 @@ app.post("/api/settings/registration", async (req, res) => {
 
     if (error) return res.status(500).json({ error: error.message });
     return res.json({ data: computeRegistrationStatus(data.value) });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// Dept code map for backfill
+const DEPT_CODE_MAP_ADMIN = {
+  "computer science and engineering": "CSE",
+  "information technology": "IT",
+  "artificial intelligence and data science": "AI&DS",
+  "civil engineering": "CIVIL",
+  "mechanical engineering": "MECH",
+  "instrumentation and control engineering": "I&CE",
+  "computer science and engineering and business systems": "CSBS",
+  "computer and communication engineering": "CCE",
+  "mechatronics": "MCT",
+  "electrical and electronics engineering": "EEE",
+  "electronics and communication engineering": "ECE",
+  "biomedical engineering": "BME",
+  "master of computer applications": "MCA",
+  "master of business administration": "MBA",
+};
+
+function getAdminDeptCode(deptName) {
+  if (!deptName) return "TEAM";
+  return DEPT_CODE_MAP_ADMIN[deptName.toLowerCase().trim()]
+    ?? deptName.replace(/\s+/g, "").toUpperCase().slice(0, 8);
+}
+
+// 19. Backfill team_codes — assigns dept-based codes to teams missing them or with old SIH… codes
+app.post("/api/admin/backfill-team-codes", async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: "Supabase client not configured" });
+  try {
+    // Fetch all teams
+    const { data: teamRows, error: teamsErr } = await supabase
+      .from("teams")
+      .select("id, name, category, created_by_dept, team_code")
+      .order("id");
+    if (teamsErr) throw new Error(teamsErr.message);
+
+    // Fetch member→dept mapping
+    const { data: memberRows, error: membersErr } = await supabase
+      .from("team_members")
+      .select("team_id, profiles(department)");
+    if (membersErr) throw new Error(membersErr.message);
+
+    const memberDeptMap = {};
+    for (const mr of memberRows || []) {
+      if (!memberDeptMap[mr.team_id]) memberDeptMap[mr.team_id] = [];
+      if (mr.profiles?.department) memberDeptMap[mr.team_id].push(mr.profiles.department);
+    }
+
+    // Resolve a department for every team
+    const resolved = (teamRows || []).map((t) => {
+      let dept = t.created_by_dept?.trim() || null;
+      if (!dept) {
+        const depts = memberDeptMap[t.id] || [];
+        if (depts.length > 0) {
+          const freq = {};
+          for (const d of depts) freq[d] = (freq[d] || 0) + 1;
+          dept = Object.entries(freq).sort((a, b) => b[1] - a[1])[0][0];
+        }
+      }
+      return { ...t, resolved_dept: dept };
+    });
+
+    // Group by dept, sorted by id within each group
+    const byDept = {};
+    const unresolvable = [];
+    for (const t of resolved) {
+      if (!t.resolved_dept) { unresolvable.push(t); continue; }
+      const key = t.resolved_dept.toLowerCase().trim();
+      if (!byDept[key]) byDept[key] = { dept: t.resolved_dept, teams: [] };
+      byDept[key].teams.push(t);
+    }
+    for (const g of Object.values(byDept)) {
+      g.teams.sort((a, b) => (a.id > b.id ? 1 : -1));
+    }
+
+    // Build updates — only for teams with missing or old-style codes
+    const updates = [];
+    for (const { dept, teams: deptTeams } of Object.values(byDept)) {
+      const deptCode = getAdminDeptCode(dept);
+      let seq = 1;
+      for (const t of deptTeams) {
+        const category = t.category || "Pairs";
+        const prefix = category.toLowerCase() === "solo"
+          ? `${deptCode}-SOLO#`
+          : `${deptCode}#`;
+        const newCode = `${prefix}${String(seq).padStart(3, "0")}`;
+        seq++;
+
+        const needsUpdate =
+          !t.team_code ||
+          t.team_code.trim() === "" ||
+          /^SIH/i.test(t.team_code);
+
+        if (needsUpdate) {
+          updates.push({ id: t.id, team_code: newCode, created_by_dept: dept });
+        }
+      }
+    }
+
+    // Apply updates
+    let updatedCount = 0;
+    for (const upd of updates) {
+      await supabase
+        .from("teams")
+        .update({ team_code: upd.team_code, created_by_dept: upd.created_by_dept })
+        .eq("id", upd.id);
+      updatedCount++;
+    }
+
+    return res.json({
+      updated: updatedCount,
+      skipped: unresolvable.length,
+      unresolvable: unresolvable.map((t) => ({ id: t.id, name: t.name })),
+      message: `Backfilled ${updatedCount} team codes. ${unresolvable.length} teams could not be resolved (no dept, no members).`,
+    });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }

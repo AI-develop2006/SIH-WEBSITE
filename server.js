@@ -23,7 +23,8 @@ import { runMigrations, dbQuery } from "./database.js";
 const app = express();
 const PORT = process.env.PORT || 3003;
 
-app.use(express.json());
+app.use(express.json({ limit: "2mb" }));
+app.use(express.urlencoded({ extended: true, limit: "2mb" }));
 
 // Initialize Supabase backend client
 const supabaseUrl = process.env.VITE_SUPABASE_URL;

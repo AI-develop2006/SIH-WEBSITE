@@ -60,6 +60,8 @@ export default function AdminPage() {
   const [gender, setGender] = useState("");
   const [verified, setVerified] = useState("all");
   const [projType, setProjType] = useState("");
+  const [yearFilter, setYearFilter] = useState("");
+  const [sectionFilter, setSectionFilter] = useState("");
 
   const [deleting, setDeleting] = useState(null);
 
@@ -147,6 +149,8 @@ export default function AdminPage() {
       if (verified === "verified" && !p.verified) return false;
       if (verified === "unverified" && p.verified) return false;
       if (projType && p.project_type !== projType) return false;
+      if (yearFilter && p.year !== yearFilter) return false;
+      if (sectionFilter && (p.section ?? "").toUpperCase() !== sectionFilter.toUpperCase()) return false;
       if (!needle) return true;
       const hay = [
         p.name,
@@ -162,12 +166,43 @@ export default function AdminPage() {
         .toLowerCase();
       return hay.includes(needle);
     });
-  }, [profiles, q, dept, gender, verified, projType]);
+  }, [profiles, q, dept, gender, verified, projType, yearFilter, sectionFilter]);
 
   const problemMap = useMemo(() => new Map(problems.map((p) => [p.id, p.title])), [problems]);
 
-  const validTeams = teams.filter((t) => t.stats.valid).length;
-  const unassigned = students.length - teams.reduce((n, t) => n + t.members.length, 0);
+  const totalStudents = useMemo(
+    () => profiles.filter((p) => p.role === "student").length,
+    [profiles]
+  );
+
+  // Check if any filter is active
+  const isFiltered = !!(q.trim() || dept || gender || (verified !== "all") || projType || yearFilter || sectionFilter);
+
+  // Filtered student ID set for fast lookup
+  const filteredStudentIds = useMemo(
+    () => new Set(students.map((s) => s.id)),
+    [students]
+  );
+
+  // When filtered: only count teams that have at least one member in the filtered set
+  const filteredTeams = useMemo(() => {
+    if (!isFiltered) return teams;
+    return teams.filter((t) => t.members.some((m) => filteredStudentIds.has(m.id)));
+  }, [teams, isFiltered, filteredStudentIds]);
+
+  const validTeams = filteredTeams.filter((t) => t.stats.valid).length;
+
+  // Unassigned: filtered students who are not in any team
+  const assignedInFilteredTeams = useMemo(() => {
+    const ids = new Set();
+    filteredTeams.forEach((t) => t.members.forEach((m) => ids.add(m.id)));
+    return ids;
+  }, [filteredTeams]);
+
+  const unassigned = isFiltered
+    ? students.filter((s) => !assignedInFilteredTeams.has(s.id)).length
+    : Math.max(0, totalStudents - teams.reduce((n, t) => n + t.members.length, 0));
+
   const verifiedCount = students.filter((s) => s.verified).length;
 
   async function toggleTeamApproval(teamId, currentApproved) {
@@ -352,7 +387,7 @@ export default function AdminPage() {
 
   // Tab definitions with Lucide icons
   const TABS = [
-    { key: "students", label: "Students", shortLabel: "Students", icon: Users, count: students.length },
+    { key: "students", label: "Students", shortLabel: "Students", icon: Users, count: isFiltered ? students.length : totalStudents },
     { key: "teams",    label: "Teams",    shortLabel: "Teams",    icon: UsersRound, count: teams.length },
     { key: "problems", label: "Problems", shortLabel: "Problems", icon: FileText },
     { key: "timeline", label: "Timeline", shortLabel: "Timeline", icon: CalendarDays },
@@ -459,7 +494,7 @@ export default function AdminPage() {
           { label: "Students",   value: students.length,                    icon: Users,         color: "text-foreground" },
           { label: "Verified",   value: verifiedCount,                      icon: CheckCircle2,  color: "text-success" },
           { label: "Pending",    value: students.length - verifiedCount,    icon: Clock,         color: "text-warning" },
-          { label: "Teams",      value: teams.length,                       icon: UsersRound,    color: "text-primary" },
+          { label: "Teams",      value: filteredTeams.length,               icon: UsersRound,    color: "text-primary" },
           { label: "Valid",      value: validTeams,                         icon: ShieldCheck,   color: "text-success" },
           { label: "Unassigned", value: unassigned,                         icon: AlertTriangle, color: "text-muted-foreground" },
         ].map((s) => {
@@ -495,7 +530,19 @@ export default function AdminPage() {
             <Card className="overflow-hidden p-0">
               <div className="flex flex-col gap-3 border-b border-border px-4 sm:px-5 py-4">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                  <h3 className="text-base font-bold text-nowrap">Student registrations</h3>
+                  <div className="flex items-center gap-3">
+                    <h3 className="text-base font-bold text-nowrap">Student registrations</h3>
+                    {(q.trim() || dept || gender || verified !== "all" || projType || yearFilter || sectionFilter) ? (
+                      <span className="text-xs text-muted-foreground">
+                        Showing <span className="font-bold text-foreground">{students.length}</span> of{" "}
+                        <span className="font-bold text-foreground">{totalStudents}</span>
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">
+                        <span className="font-bold text-foreground">{totalStudents}</span> total
+                      </span>
+                    )}
+                  </div>
                   <div className="flex items-center gap-2">
                     <Button variant="outline" onClick={exportStudents} className="text-xs px-3 py-1.5">
                       Export CSV
@@ -503,36 +550,47 @@ export default function AdminPage() {
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <Input
+                  <input
                     value={q}
                     onChange={(e) => setQ(e.target.value)}
                     placeholder="Search name, register no, email…"
-                    className="w-full sm:w-56"
+                    className="rounded-xl border border-border bg-background/60 px-3.5 py-2.5 text-sm text-foreground outline-none placeholder:text-muted-foreground/70 focus:border-ring/70 w-48 grow"
                   />
-                  <Select value={dept} onChange={(e) => setDept(e.target.value)} className="w-full sm:w-44">
+                  <select value={dept} onChange={(e) => setDept(e.target.value)} className="rounded-xl border border-border bg-background/60 px-3.5 py-2.5 text-sm text-foreground outline-none focus:border-ring/70 w-40">
                     <option value="">All departments</option>
                     {DEPARTMENTS.map((d) => (
-                      <option key={d} value={d}>
-                        {d}
-                      </option>
+                      <option key={d} value={d}>{d}</option>
                     ))}
-                  </Select>
-                  <Select value={gender} onChange={(e) => setGender(e.target.value)} className="w-full sm:w-32">
+                  </select>
+                  <select value={gender} onChange={(e) => setGender(e.target.value)} className="rounded-xl border border-border bg-background/60 px-3.5 py-2.5 text-sm text-foreground outline-none focus:border-ring/70 w-28">
                     <option value="">All genders</option>
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
-                  </Select>
-                  <Select value={verified} onChange={(e) => setVerified(e.target.value)} className="w-full sm:w-36">
+                  </select>
+                  <select value={verified} onChange={(e) => setVerified(e.target.value)} className="rounded-xl border border-border bg-background/60 px-3.5 py-2.5 text-sm text-foreground outline-none focus:border-ring/70 w-32">
                     <option value="all">All statuses</option>
                     <option value="verified">Verified</option>
                     <option value="unverified">Unverified</option>
-                  </Select>
-                  <Select value={projType} onChange={(e) => setProjType(e.target.value)} className="w-full sm:w-40">
+                  </select>
+                  <select value={projType} onChange={(e) => setProjType(e.target.value)} className="rounded-xl border border-border bg-background/60 px-3.5 py-2.5 text-sm text-foreground outline-none focus:border-ring/70 w-36">
                     <option value="">All project types</option>
                     <option value="Hardware">Hardware</option>
                     <option value="Software">Software</option>
-                    <option value="Hardware & Software">Hardware &amp; Software</option>
-                  </Select>
+                    <option value="Hardware & Software">Both</option>
+                  </select>
+                  <select value={yearFilter} onChange={(e) => setYearFilter(e.target.value)} className="rounded-xl border border-border bg-background/60 px-3.5 py-2.5 text-sm text-foreground outline-none focus:border-ring/70 w-24">
+                    <option value="">All years</option>
+                    <option value="I">Year I</option>
+                    <option value="II">Year II</option>
+                    <option value="III">Year III</option>
+                    <option value="IV">Year IV</option>
+                  </select>
+                  <select value={sectionFilter} onChange={(e) => setSectionFilter(e.target.value)} className="rounded-xl border border-border bg-background/60 px-3.5 py-2.5 text-sm text-foreground outline-none focus:border-ring/70 w-28">
+                    <option value="">All sections</option>
+                    {["A","B","C","D","E","F","G"].map((s) => (
+                      <option key={s} value={s}>Section {s}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -917,6 +975,9 @@ function TeamsManager({ teams, profiles, problems, problemMap, deleting, onDelet
   const [expandedId, setExpandedId] = useState(null);
   const [busy, setBusy] = useState(null);
   const [backfilling, setBackfilling] = useState(false);
+  const [teamDeptFilter, setTeamDeptFilter] = useState("");
+  const [teamMinistryFilter, setTeamMinistryFilter] = useState("");
+  const [teamSearch, setTeamSearch] = useState("");
 
   // Create team form
   const [showCreate, setShowCreate] = useState(false);
@@ -986,7 +1047,7 @@ function TeamsManager({ teams, profiles, problems, problemMap, deleting, onDelet
     if (!window.confirm("This will assign department-based team IDs (e.g. AI&DS#001) to all teams that are missing one or have an old SIH… code. Continue?")) return;
     setBackfilling(true);
     try {
-      const res = await data.backfillTeamCodes();
+      const res = await data.api.backfillTeamCodes();
       if (res.error) throw new Error(res.error);
       const { updated, skipped, unresolvable } = res.data;
       toast("success", `Backfill complete: ${updated} teams updated, ${skipped} skipped (no dept).`);
@@ -1004,21 +1065,63 @@ function TeamsManager({ teams, profiles, problems, problemMap, deleting, onDelet
   // Members already in any team
   const assignedIds = new Set(teams.flatMap((t) => t.members.map((m) => m.id)));
 
+  // Filtered teams — case-insensitive dept match handles abbreviations like 'AI & DS'
+  const allTeamDepts = [...new Set(teams.map((t) => t.team.created_by_dept).filter(Boolean))].sort();
+  const allTeamMinistries = [...new Set(teams.map((t) => t.team.ministry).filter(Boolean))].sort();
+
+  const displayTeams = teams.filter((t) => {
+    if (teamDeptFilter) {
+      const raw = (t.team.created_by_dept ?? "").toLowerCase().trim();
+      if (raw !== teamDeptFilter.toLowerCase().trim()) return false;
+    }
+    if (teamMinistryFilter && t.team.ministry !== teamMinistryFilter) return false;
+    if (teamSearch.trim()) {
+      const needle = teamSearch.trim().toLowerCase();
+      const haystack = [t.team.name, t.team.team_code, t.team.created_by_dept, t.team.ministry]
+        .filter(Boolean).join(" ").toLowerCase();
+      if (!haystack.includes(needle)) return false;
+    }
+    return true;
+  });
+
   const MINISTRIES_LIST = [
-    "Ministry of Agriculture & Farmers Welfare (MoAFW)","Ministry of Civil Aviation","Ministry of Coal (MoC)",
-    "Ministry of Commerce & Industry","Ministry of Communications","Ministry of Consumer Affairs, Food & Public Distribution",
-    "Ministry of Culture","Ministry of Defence (MoD)","Ministry of Earth Sciences",
-    "Ministry of Education","Ministry of Electronics & Information Technology (MeitY)",
-    "Ministry of Environment, Forest and Climate Change","Ministry of Finance","Ministry of Fisheries, Animal Husbandry and Dairying",
-    "Ministry of Food Processing Industries","Ministry of Health & Family Welfare","Ministry of Heavy Industries",
-    "Ministry of Home Affairs (MHA)","Ministry of Housing and Urban Affairs","Ministry of Jal Shakti",
-    "Ministry of Labour & Employment","Ministry of Law & Justice","Ministry of Micro, Small and Medium Enterprises (MSME)",
-    "Ministry of Mines","Ministry of New and Renewable Energy","Ministry of Panchayati Raj",
-    "Ministry of Petroleum & Natural Gas","Ministry of Ports, Shipping & Waterways","Ministry of Power (MoP)",
-    "Ministry of Railways","Ministry of Road Transport & Highways","Ministry of Rural Development",
-    "Ministry of Science & Technology","Ministry of Skill Development and Entrepreneurship",
-    "Ministry of Social Justice & Empowerment","Ministry of Steel (MoS)","Ministry of Textiles",
-    "Ministry of Tribal Affairs","Ministry of Women and Child Development","Ministry of Youth Affairs and Sports",
+    "Ministry of Development of North Eastern Region (MoDoNER)",
+    "Ministry of Fisheries, Animal Husbandry & Dairying",
+    "Ministry of Railways",
+    "Ministry of Ayush",
+    "Ministry of Corporate Affairs (MoCA)",
+    "Ministry of Earth Sciences (MoES)",
+    "Ministry of Consumer Affairs, Food & Public Distribution",
+    "Ministry of Social Justice & Empowerment (MoSJE)",
+    "Ministry of Jal Shakti (MoJS)",
+    "Ministry of Mines",
+    "Ministry of Youth Affairs and Sports",
+    "Ministry of Tribal Affairs (MoTA)",
+    "Ministry of Agriculture & Farmers Welfare (MoA&FW)",
+    "Ministry of Coal (MoC)",
+    "Ministry of Defence (MoD)",
+    "Ministry of Steel (MoS)",
+    "Ministry of Power (MoP)",
+    "Ministry of Home Affairs (MHA)",
+    "Ministry of Skill Development & Entrepreneurship (MSDE)",
+    "Ministry of Science and Technology",
+    "Ministry of Education (MoE)",
+    "Government of Punjab",
+    "Government of Jharkhand",
+    "Government of Odisha",
+    "Government of Sikkim",
+    "Government of Kerala",
+    "Government of Jammu and Kashmir",
+    "Government of Rajasthan",
+    "Government of Gujarat",
+    "Government of Chhattisgarh",
+    "AICTE",
+    "National Technical Research Organisation (NTRO)",
+    "Indian Space Research Organisation (ISRO)",
+    "Bharat Electronics Limited (BEL)",
+    "Autodesk",
+    "MathWorks India Pvt. Ltd.",
+    "Neilsoft Ltd.",
   ];
 
   return (
@@ -1027,7 +1130,11 @@ function TeamsManager({ teams, profiles, problems, problemMap, deleting, onDelet
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <h3 className="text-sm font-semibold text-foreground">Teams</h3>
-          <span className="rounded border border-border px-2 py-0.5 text-[11px] font-medium text-muted-foreground">{teams.length} total</span>
+          <span className="rounded border border-border px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+            {displayTeams.length === teams.length
+              ? `${teams.length} total`
+              : `${displayTeams.length} of ${teams.length}`}
+          </span>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -1037,7 +1144,7 @@ function TeamsManager({ teams, profiles, problems, problemMap, deleting, onDelet
             className="inline-flex items-center gap-1.5 rounded border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-400 hover:bg-amber-500/20 transition-colors disabled:opacity-50"
             title="Assign dept-based IDs to teams missing them"
           >
-            {backfilling ? "Backfilling…" : "🔧 Fix Team IDs"}
+            {backfilling ? "Backfilling…" : "Fix Team IDs"}
           </button>
           <button
             type="button"
@@ -1056,6 +1163,45 @@ function TeamsManager({ teams, profiles, problems, problemMap, deleting, onDelet
             New Team
           </button>
         </div>
+      </div>
+
+      {/* Filter row */}
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          value={teamSearch}
+          onChange={(e) => setTeamSearch(e.target.value)}
+          placeholder="Search team name, ID…"
+          className="rounded-xl border border-border bg-background/60 px-3.5 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground/70 focus:border-ring/70 w-44 grow"
+        />
+        <select
+          value={teamDeptFilter}
+          onChange={(e) => setTeamDeptFilter(e.target.value)}
+          className="rounded-xl border border-border bg-background/60 px-3.5 py-2 text-sm text-foreground outline-none focus:border-ring/70 w-52"
+        >
+          <option value="">All departments</option>
+          {allTeamDepts.map((d) => (
+            <option key={d} value={d}>{d}</option>
+          ))}
+        </select>
+        <select
+          value={teamMinistryFilter}
+          onChange={(e) => setTeamMinistryFilter(e.target.value)}
+          className="rounded-xl border border-border bg-background/60 px-3.5 py-2 text-sm text-foreground outline-none focus:border-ring/70 w-56"
+        >
+          <option value="">All ministries</option>
+          {allTeamMinistries.map((m) => (
+            <option key={m} value={m}>{m}</option>
+          ))}
+        </select>
+        {(teamSearch || teamDeptFilter || teamMinistryFilter) && (
+          <button
+            type="button"
+            onClick={() => { setTeamSearch(""); setTeamDeptFilter(""); setTeamMinistryFilter(""); }}
+            className="text-xs text-muted-foreground hover:text-foreground border border-border rounded-xl px-3 py-2 transition-colors"
+          >
+            Clear
+          </button>
+        )}
       </div>
 
       {/* Create team inline form */}
@@ -1110,7 +1256,10 @@ function TeamsManager({ teams, profiles, problems, problemMap, deleting, onDelet
       )}
 
       <div className="flex flex-col gap-2">
-        {teams.map((t) => {
+        {displayTeams.length === 0 && (
+          <p className="py-10 text-center text-sm text-muted-foreground">No teams match your filters.</p>
+        )}
+        {displayTeams.map((t) => {
           const isExpanded = expandedId === t.team.id;
           const isSolo = (t.team.category || "Pairs") === "Solo";
           const maxMembers = isSolo ? 1 : 2;
@@ -1128,7 +1277,12 @@ function TeamsManager({ teams, profiles, problems, problemMap, deleting, onDelet
                 >
                   {isExpanded ? <ChevronUp className="size-4 shrink-0 text-muted-foreground" /> : <ChevronDown className="size-4 shrink-0 text-muted-foreground" />}
                   <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <span className="font-semibold text-sm text-foreground truncate">{t.team.name}</span>
+                    <span className="font-semibold text-sm text-foreground truncate">
+                      {t.team.team_code ?? t.team.name}
+                    </span>
+                    {t.team.team_code && t.team.name !== t.team.team_code && (
+                      <span className="text-[11px] text-muted-foreground truncate hidden sm:block">{t.team.name}</span>
+                    )}
                     <span className={cn("shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded border",
                       isSolo ? "border-blue-500/40 bg-blue-500/10 text-blue-400" : "border-primary/40 bg-primary/10 text-primary")}>
                       {isSolo ? "Solo" : "Pairs"}
@@ -1193,6 +1347,10 @@ function TeamsManager({ teams, profiles, problems, problemMap, deleting, onDelet
                       className="flex-1 min-w-[200px] rounded border border-border bg-background px-3 py-1.5 text-xs text-foreground focus:border-primary focus:outline-none disabled:opacity-50"
                     >
                       <option value="">— No Ministry —</option>
+                      {/* Current value first if not in standard list */}
+                      {t.team.ministry && !MINISTRIES_LIST.includes(t.team.ministry) && (
+                        <option key={t.team.ministry} value={t.team.ministry}>{t.team.ministry}</option>
+                      )}
                       {MINISTRIES_LIST.map((m) => <option key={m} value={m}>{m}</option>)}
                     </select>
                   </div>

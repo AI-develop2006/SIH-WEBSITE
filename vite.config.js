@@ -24,12 +24,15 @@ export default defineConfig({
     },
   },
   build: {
+    target: "es2020",
+    sourcemap: false,
+    chunkSizeWarningLimit: 600,
     rollupOptions: {
       output: {
         manualChunks: {
-          vendor: ["react", "react-dom", "react-router-dom"],
+          vendor:  ["react", "react-dom", "react-router-dom"],
           supabase: ["@supabase/supabase-js"],
-          anime: ["animejs"],
+          anime:   ["animejs"],
         },
       },
     },

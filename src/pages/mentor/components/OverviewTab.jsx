@@ -1,8 +1,9 @@
+import { memo } from "react";
 import { Card } from "@/components/unlumen-ui/card";
 import { cn } from "@/lib/utils";
 import { TeamFormationRules } from "./TeamFormationRules";
 
-export function OverviewTab({
+export const OverviewTab = memo(function OverviewTab({
   profiles,
   teams,
   unassignedCount,

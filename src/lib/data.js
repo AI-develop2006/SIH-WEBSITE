@@ -85,6 +85,13 @@ export async function signupUser(email, password, meta = {}) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password, meta }),
     });
+
+    // Handle non-JSON responses (e.g. 413 Payload Too Large from Express)
+    const contentType = res.headers.get("content-type") || "";
+    if (!contentType.includes("application/json")) {
+      return { data: null, error: `Server error (${res.status}): Request too large or server misconfiguration.` };
+    }
+
     const json = await res.json();
     if (!res.ok) return { data: null, error: json.error || "Sign up failed" };
 

@@ -542,8 +542,11 @@ function ensureHttp(url) {
         return;
       }
       const isNetwork = msg.includes("fetch") || msg.includes("network") || msg.includes("Failed to fetch") || msg.includes("ERR_NAME");
-      toast("error", isNetwork
-        ? "Could not reach the server. The backend may be starting up — please wait 30 seconds and try again."
+      const isPayloadTooLarge = msg.includes("413") || msg.includes("too large") || msg.includes("Request too large");
+      toast("error", isPayloadTooLarge
+        ? "Your submission data is too large. Try shortening the project description or SIH history and submit again."
+        : isNetwork
+        ? "Could not reach the server. Please check your connection and try again."
         : msg
       );
     } finally {

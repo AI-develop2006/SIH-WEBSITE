@@ -1,6 +1,7 @@
+import { memo } from "react";
 import { Card } from "@/components/unlumen-ui/card";
 
-export function ProblemsTab({ problems }) {
+export const ProblemsTab = memo(function ProblemsTab({ problems }) {
   return (
     <Card className="p-0 overflow-hidden border border-border/40 bg-card/45">
       {/* Mobile card list */}
@@ -46,4 +47,4 @@ export function ProblemsTab({ problems }) {
       </div>
     </Card>
   );
-}
+});

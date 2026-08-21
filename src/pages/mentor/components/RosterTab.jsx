@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, memo } from "react";
 import { SlidersHorizontal, Users, User } from "lucide-react";
 import { Button } from "@/components/unlumen-ui/button";
 import { Card } from "@/components/unlumen-ui/card";
@@ -25,7 +25,7 @@ const POPULAR_DOMAINS = [
   "Embedded Systems",
 ];
 
-export function RosterTab({
+export const RosterTab = memo(function RosterTab({
   students,
   totalStudents,
   studentsInTeams,
@@ -647,4 +647,4 @@ export function RosterTab({
       </div>
     </div>
   );
-}
+});

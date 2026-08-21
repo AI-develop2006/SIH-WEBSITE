@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, memo } from "react";
 import {
   Users, User, Building, Building2, Eye, AlertTriangle, ChevronUp, ChevronDown,
 } from "lucide-react";
@@ -17,7 +17,7 @@ const CAP = MAX_MEMBERS_PER_MINISTRY_PER_DEPT;
  *   • "By Department" — left-sidebar dept list + right team grid
  *   • "By Ministry"  — cross-dept ministry accordion
  */
-export function PairedTeamsOverallTab({ teams, mentorDept, problemMap }) {
+export const PairedTeamsOverallTab = memo(function PairedTeamsOverallTab({ teams, mentorDept, problemMap }) {
   const [detailStudent, setDetailStudent] = useState(null);
   const [selectedTeamOverlay, setSelectedTeamOverlay] = useState(null);
   const [categoryFilter, setCategoryFilter] = useState("All");
@@ -664,4 +664,4 @@ export function PairedTeamsOverallTab({ teams, mentorDept, problemMap }) {
       />
     </div>
   );
-}
+});

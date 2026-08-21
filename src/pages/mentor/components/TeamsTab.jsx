@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, memo } from "react";
 import { Button } from "@/components/unlumen-ui/button";
 import {
   Users, User, LayoutGrid, Building2, Download, AlertTriangle, Lock, Plus, ChevronUp, ChevronDown,
@@ -283,7 +283,7 @@ function MinistriesPanel({ teams, mentorDept }) {
 }
 
 // ─── Main TeamsTab ────────────────────────────────────────────────────────────
-export function TeamsTab({
+export const TeamsTab = memo(function TeamsTab({
   teams,
   mentorDept,
   focusedTeamId,
@@ -644,4 +644,4 @@ export function TeamsTab({
       />
     </div>
   );
-}
+});

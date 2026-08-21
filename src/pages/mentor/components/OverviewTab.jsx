@@ -51,4 +51,4 @@ export const OverviewTab = memo(function OverviewTab({
       </Card>
     </div>
   );
-}
+})

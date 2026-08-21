@@ -1,11 +1,11 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, memo } from "react";
 import { Users, User } from "lucide-react";
 import { MINISTRIES, MAX_MEMBERS_PER_MINISTRY_PER_DEPT } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 const CAP = MAX_MEMBERS_PER_MINISTRY_PER_DEPT; // 6
 
-export function MinistriesTab({ teams }) {
+export const MinistriesTab = memo(function MinistriesTab({ teams }) {
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState(null);
   const [statusFilter, setStatusFilter] = useState("all"); // "all" | "active" | "inactive"
@@ -324,4 +324,4 @@ export function MinistriesTab({ teams }) {
       </div>
     </div>
   );
-}
+});

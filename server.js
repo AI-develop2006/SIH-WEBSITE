@@ -388,23 +388,57 @@ const DEPT_CODE_MAP = {
   "master of business administration": "MBA",
 };
 
+// Normalize abbreviations/aliases to canonical full dept name
+const DEPT_ABBREV_TO_CANONICAL = {
+  "ai & ds":   "Artificial Intelligence and Data Science",
+  "ai&ds":     "Artificial Intelligence and Data Science",
+  "civil":     "Civil Engineering",
+  "cse":       "Computer Science and Engineering",
+  "csbs":      "Computer Science and Engineering and Business Systems",
+  "csebs":     "Computer Science and Engineering and Business Systems",
+  "it":        "Information Technology",
+  "ece":       "Electronics and Communication Engineering",
+  "eee":       "Electrical and Electronics Engineering",
+  "mech":      "Mechanical Engineering",
+  "ice":       "Instrumentation and Control Engineering",
+  "i&ce":      "Instrumentation and Control Engineering",
+  "cce":       "Computer and Communication Engineering",
+  "mctr":      "Mechatronics",
+  "mct":       "Mechatronics",
+  "bme":       "BioMedical Engineering",
+  "mca":       "Master of Computer Applications",
+  "mba":       "Master of Business Administration",
+};
+
+function canonicalizeDept(raw) {
+  if (!raw) return null;
+  const lower = raw.toLowerCase().trim();
+  // Already a canonical full name?
+  if (DEPT_CODE_MAP[lower]) return raw.trim();
+  // Abbreviation?
+  return DEPT_ABBREV_TO_CANONICAL[lower] ?? raw.trim();
+}
+
 function getDeptCode(deptName) {
   if (!deptName) return "TEAM";
-  return DEPT_CODE_MAP[deptName.toLowerCase().trim()]
-    ?? deptName.replace(/\s+/g, "").toUpperCase().slice(0, 8);
+  const canonical = canonicalizeDept(deptName);
+  return DEPT_CODE_MAP[canonical?.toLowerCase().trim() ?? ""]
+    ?? (canonical ?? deptName).replace(/\s+/g, "").toUpperCase().slice(0, 8);
 }
 
 // Build a sequential team_code like "AI&DS#003" or "AI&DS-SOLO#001"
 async function generateTeamCode(category, created_by_dept) {
-  const deptCode = getDeptCode(created_by_dept);
+  const canonical = canonicalizeDept(created_by_dept) || created_by_dept;
+  const deptCode = getDeptCode(canonical);
   const prefix = category === "Solo" ? `${deptCode}-SOLO#` : `${deptCode}#`;
 
   let count = 0;
   if (process.env.DATABASE_URL) {
     try {
+      // Count all teams for this canonical dept (handles both full name and abbreviation variants)
       const { rows } = await dbQuery(
         `SELECT COUNT(*) AS cnt FROM public.teams WHERE created_by_dept ILIKE $1;`,
-        [created_by_dept || ""]
+        [canonical || ""]
       );
       count = parseInt(rows[0]?.cnt ?? "0", 10);
     } catch (_) { /* ignore — fall back to 0 */ }
@@ -413,7 +447,7 @@ async function generateTeamCode(category, created_by_dept) {
       const { count: cnt } = await supabase
         .from("teams")
         .select("*", { count: "exact", head: true })
-        .ilike("created_by_dept", created_by_dept || "");
+        .ilike("created_by_dept", canonical || "");
       count = cnt ?? 0;
     } catch (_) { /* ignore */ }
   }
@@ -429,14 +463,16 @@ app.post("/api/teams/empty", async (req, res) => {
       return res.status(400).json({ error: "Team name is required." });
     }
 
-    const teamCode = await generateTeamCode(category || "Pairs", created_by_dept || null);
+    // Always store the canonical full dept name
+    const canonicalDept = canonicalizeDept(created_by_dept) || created_by_dept || null;
+    const teamCode = await generateTeamCode(category || "Pairs", canonicalDept);
     let createdRecord = null;
 
     if (process.env.DATABASE_URL) {
       try {
         const { rows } = await dbQuery(
           `INSERT INTO public.teams (name, team_code, approved, category, created_by_dept) VALUES ($1, $2, false, $3, $4) RETURNING *;`,
-          [name.trim(), teamCode, category || "Pairs", created_by_dept || null]
+          [name.trim(), teamCode, category || "Pairs", canonicalDept]
         );
         createdRecord = rows[0];
       } catch (_err) {
@@ -453,7 +489,7 @@ app.post("/api/teams/empty", async (req, res) => {
       try {
         const { data } = await supabase
           .from("teams")
-          .insert([{ name: name.trim(), team_code: teamCode, approved: false, category: category || "Pairs", created_by_dept: created_by_dept || null }])
+          .insert([{ name: name.trim(), team_code: teamCode, approved: false, category: category || "Pairs", created_by_dept: canonicalDept }])
           .select("*")
           .single();
         if (data) createdRecord = data;

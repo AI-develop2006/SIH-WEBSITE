@@ -9,6 +9,7 @@ import { Button } from "@/components/unlumen-ui/button";
 import { Input, Select } from "@/components/unlumen-ui/input";
 import { cn } from "@/lib/utils";
 import { DEPARTMENTS, YEARS, LANGUAGE_OPTIONS, PROJECT_TYPES, HARDWARE_ROLES, SOFTWARE_ROLES } from "@/lib/constants";
+import { AlreadyRegisteredModal } from "@/components/common/already-registered-modal";
 
 const STEPS = [
   { n: 1, title: "Personal details", subtitle: "Your name and contact information" },
@@ -119,6 +120,10 @@ export function RegisterForm() {
   const [showSync, setShowSync] = useState(false);
   const [form, setForm] = useState(draftState.form);
   const scrollRef = useRef(null);
+
+  // Already-registered modal
+  const [alreadyRegistered, setAlreadyRegistered] = useState(false);
+  const [alreadyRegisteredEmail, setAlreadyRegisteredEmail] = useState("");
 
   useEffect(() => {
     try {
@@ -328,21 +333,31 @@ function ensureHttp(url) {
       try {
         const regCheck = await checkRegisterNoExists(form.registerNo.trim());
         if (regCheck.exists) {
-          throw new Error(`Register number "${form.registerNo}" is already registered. If this is you, please log in.`);
+          setAlreadyRegisteredEmail(form.email.trim());
+          setAlreadyRegistered(true);
+          setBusy(false);
+          return;
         }
 
         const emailCheck = await checkEmailExists(form.email.trim());
         if (emailCheck.exists) {
-          throw new Error(`Email address "${form.email}" is already registered. Please use a different email or log in.`);
+          setAlreadyRegisteredEmail(form.email.trim());
+          setAlreadyRegistered(true);
+          setBusy(false);
+          return;
         }
 
         const phoneCheck = await checkPhoneExists(form.phone.trim());
         if (phoneCheck.exists) {
-          throw new Error(`Phone number "${form.phone}" is already registered. Please use a different phone number.`);
+          setAlreadyRegisteredEmail(form.email.trim());
+          setAlreadyRegistered(true);
+          setBusy(false);
+          return;
         }
       } catch (err) {
         if (err instanceof Error && (err.message.includes("already registered") || err.message.includes("log in"))) {
-          toast("error", err.message);
+          setAlreadyRegisteredEmail(form.email.trim());
+          setAlreadyRegistered(true);
           setBusy(false);
           return;
         }
@@ -352,7 +367,15 @@ function ensureHttp(url) {
       setBusy(false);
     }
 
-    setStep((s) => Math.min(s + 1, STEPS.length - 1));
+    setStep((s) => {
+      const next = Math.min(s + 1, STEPS.length - 1);
+      // When user reaches the final review step, ping the backend now so it's
+      // warm by the time they hit Submit (Render free tier cold starts take ~30s)
+      if (next === STEPS.length - 1) {
+        fetch(`${import.meta.env.VITE_BACKEND_URL || ""}/api/health`).catch(() => {});
+      }
+      return next;
+    });
   }
 
   function back() {
@@ -367,6 +390,16 @@ function ensureHttp(url) {
     setBusy(true);
     setShowSync(true);
     try {
+      // Wake up the backend before submitting — users spend 5-10 min filling the form
+      // and Render free tier goes cold after ~15 min of inactivity.
+      try {
+        await Promise.race([
+          fetch(`${import.meta.env.VITE_BACKEND_URL || ""}/api/health`),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 8000)),
+        ]);
+      } catch (_) {
+        // Non-fatal — proceed anyway
+      }
       // Check registration status — allow submission even if the check times out (backend cold start)
       try {
         const statusRes = await Promise.race([
@@ -462,9 +495,20 @@ function ensureHttp(url) {
       const signUpRes = await signupUser(form.email.trim(), form.password || registerNoUpper, meta);
       if (signUpRes.error) throw new Error(signUpRes.error);
 
-      if (signUpRes.data?.user) {
+      // Supabase silently returns a ghost user (identities: []) when the email is
+      // already registered, instead of surfacing an error. Detect and handle it.
+      const user = signUpRes.data?.user;
+      if (!user || (Array.isArray(user.identities) && user.identities.length === 0)) {
+        setShowSync(false);
+        setBusy(false);
+        setAlreadyRegisteredEmail(form.email.trim());
+        setAlreadyRegistered(true);
+        return;
+      }
+
+      if (user) {
         try {
-          await ensureProfile(signUpRes.data.user.id, meta);
+          await ensureProfile(user.id, meta);
         } catch (profileErr) {
           console.warn("Non-fatal profile upsert warning:", profileErr);
         }
@@ -473,18 +517,30 @@ function ensureHttp(url) {
       // satisfying feedback delay
       await new Promise((resolve) => setTimeout(resolve, 2600));
 
+      // Clear draft before navigating so the form doesn't restore on any back-navigation
       localStorage.removeItem(DRAFT_KEY);
 
       if (signUpRes.data?.session) {
         toast("success", "Registration complete — welcome to SIH 2026!");
         navigate("/dashboard");
       } else {
-        toast("info", "Check your inbox to confirm your email, then log in using your register number.");
+        // Email confirmation is enabled — user must confirm before logging in.
+        // Navigate to login with a clear message so they don't get confused.
+        toast("success", "Registration complete! You can now log in with your register number and password.");
         navigate("/login");
       }
     } catch (err) {
       setShowSync(false);
       const msg = err instanceof Error ? err.message : "Registration failed";
+      const isAlreadyRegistered = msg.toLowerCase().includes("user already registered")
+        || msg.toLowerCase().includes("already registered")
+        || msg.toLowerCase().includes("already been registered");
+      if (isAlreadyRegistered) {
+        setBusy(false);
+        setAlreadyRegisteredEmail(form.email.trim());
+        setAlreadyRegistered(true);
+        return;
+      }
       const isNetwork = msg.includes("fetch") || msg.includes("network") || msg.includes("Failed to fetch") || msg.includes("ERR_NAME");
       toast("error", isNetwork
         ? "Could not reach the server. The backend may be starting up — please wait 30 seconds and try again."
@@ -560,6 +616,12 @@ function ensureHttp(url) {
   }
 
   return (
+    <>
+      <AlreadyRegisteredModal
+        isOpen={alreadyRegistered}
+        onClose={() => setAlreadyRegistered(false)}
+        email={alreadyRegisteredEmail}
+      />
     <div className="flex flex-col">
       <div className="mb-8">
         <p className="font-caveat text-2xl text-[#dba328]">Smart India Hackathon 2026</p>
@@ -1229,6 +1291,7 @@ function ensureHttp(url) {
         </div>
       </form>
     </div>
+    </>
   );
 }
 

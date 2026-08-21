@@ -15,7 +15,11 @@ export default function RegisterPage() {
 
   useEffect(() => {
     data.getCurrentProfile().then(({ data: profile }) => {
-      if (profile) navigate("/dashboard", { replace: true });
+      if (profile) {
+        // Clear any stale registration draft so the form is fresh on next visit
+        try { localStorage.removeItem("sih_register_form_draft"); } catch (_) {}
+        navigate("/dashboard", { replace: true });
+      }
     });
 
     // Ping the backend immediately so Render's free tier wakes up before the user submits

@@ -209,6 +209,13 @@ export default function DashboardPage() {
     (async () => {
       try {
         const { data: p, error } = await data.getCurrentProfile();
+        if (error === "profile_missing") {
+          // Auth account exists but profile row is missing — likely a signup race condition.
+          // Show a toast and stay logged in so they can retry or contact support.
+          toast("error", "Your account was created but your profile is still being set up. Please wait a moment and refresh the page.");
+          setLoading(false);
+          return;
+        }
         if (error || !p) {
           await data.logoutUser();
           navigate("/", { replace: true });

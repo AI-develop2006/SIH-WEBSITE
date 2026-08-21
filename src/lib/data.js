@@ -7,6 +7,53 @@ function getAuthHeader() {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+// Refresh the access token using the stored refresh token.
+// Called automatically before any authenticated request when the token is near expiry.
+async function refreshAccessToken() {
+  const refreshToken = localStorage.getItem("pm_refresh_token");
+  if (!refreshToken) return false;
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+    if (!res.ok) {
+      // Refresh failed — clear tokens so user is prompted to log in
+      localStorage.removeItem("pm_auth_token");
+      localStorage.removeItem("pm_refresh_token");
+      localStorage.removeItem("pm_token_expires_at");
+      return false;
+    }
+    const json = await res.json();
+    if (json.session?.access_token) {
+      localStorage.setItem("pm_auth_token", json.session.access_token);
+      localStorage.setItem("pm_refresh_token", json.session.refresh_token);
+      // Store expiry with a 5-minute buffer so we refresh before it actually expires
+      const expiresAt = Date.now() + (json.session.expires_in ?? 3600) * 1000 - 5 * 60 * 1000;
+      localStorage.setItem("pm_token_expires_at", String(expiresAt));
+      return true;
+    }
+    return false;
+  } catch (_) {
+    return false;
+  }
+}
+
+// Returns true if the stored access token is expired or will expire within 5 minutes
+function isTokenExpiredOrNearExpiry() {
+  const expiresAt = localStorage.getItem("pm_token_expires_at");
+  if (!expiresAt) return false; // no expiry info stored — assume valid (legacy token)
+  return Date.now() >= Number(expiresAt);
+}
+
+// Call this before any authenticated fetch — silently refreshes if needed
+async function ensureFreshToken() {
+  if (isTokenExpiredOrNearExpiry()) {
+    await refreshAccessToken();
+  }
+}
+
 export async function loginUser(email, password) {
   try {
     const res = await fetch(`${API_BASE}/api/auth/login`, {
@@ -19,6 +66,11 @@ export async function loginUser(email, password) {
 
     if (json.session?.access_token) {
       localStorage.setItem("pm_auth_token", json.session.access_token);
+      if (json.session.refresh_token) {
+        localStorage.setItem("pm_refresh_token", json.session.refresh_token);
+      }
+      const expiresAt = Date.now() + (json.session.expires_in ?? 3600) * 1000 - 5 * 60 * 1000;
+      localStorage.setItem("pm_token_expires_at", String(expiresAt));
     }
     return { data: json, error: null };
   } catch (err) {
@@ -38,6 +90,11 @@ export async function signupUser(email, password, meta = {}) {
 
     if (json.session?.access_token) {
       localStorage.setItem("pm_auth_token", json.session.access_token);
+      if (json.session.refresh_token) {
+        localStorage.setItem("pm_refresh_token", json.session.refresh_token);
+      }
+      const expiresAt = Date.now() + (json.session.expires_in ?? 3600) * 1000 - 5 * 60 * 1000;
+      localStorage.setItem("pm_token_expires_at", String(expiresAt));
     }
     return { data: json, error: null };
   } catch (err) {
@@ -47,6 +104,8 @@ export async function signupUser(email, password, meta = {}) {
 
 export async function logoutUser() {
   localStorage.removeItem("pm_auth_token");
+  localStorage.removeItem("pm_refresh_token");
+  localStorage.removeItem("pm_token_expires_at");
   return { data: true, error: null };
 }
 
@@ -69,12 +128,16 @@ export async function getCurrentProfile() {
   const token = localStorage.getItem("pm_auth_token");
   if (!token) return { data: null, error: "Not signed in" };
 
+  await ensureFreshToken();
+
   try {
     const res = await fetch(`${API_BASE}/api/auth/me`, {
       headers: { ...getAuthHeader() },
     });
     const json = await res.json();
     if (!res.ok) return { data: null, error: json.error || "Not signed in" };
+    // profileMissing means auth user exists but profile row wasn't created yet
+    if (json.profileMissing) return { data: null, error: "profile_missing" };
     return { data: json.profile, error: null };
   } catch (err) {
     return { data: null, error: err.message };

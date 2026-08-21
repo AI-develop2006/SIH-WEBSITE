@@ -164,7 +164,116 @@ app.post("/api/auth/signup", async (req, res) => {
     });
     if (signUpError) return res.status(400).json({ error: signUpError.message });
 
-    return res.json({ session: signUpData.session, user: signUpData.user });
+    const user = signUpData.user;
+
+    // Create the profile row immediately server-side so it's guaranteed to exist
+    // when the user lands on /dashboard. The frontend ensureProfile call is a
+    // best-effort fallback but can fail due to RLS or race conditions.
+    if (user && meta) {
+      try {
+        const profilePayload = {
+          id: user.id,
+          name: meta.name ?? "",
+          register_no: meta.register_no ?? null,
+          email: meta.email ?? email,
+          phone: meta.phone ?? "",
+          department: meta.department ?? "",
+          year: meta.year ?? null,
+          section: meta.section ?? null,
+          gender: meta.gender ?? "",
+          languages: Array.isArray(meta.languages) ? meta.languages : [],
+          linkedin: meta.linkedin ?? null,
+          resume_link: meta.resume_link ?? null,
+          domain_interests: Array.isArray(meta.domain_interests) ? meta.domain_interests : [],
+          project_type: meta.project_type ?? null,
+          project_title: meta.project_title ?? null,
+          project_description: meta.project_description ?? null,
+          youtube_link: meta.youtube_link ?? null,
+          google_drive_ppt: meta.google_drive_ppt ?? null,
+          software_domain: meta.software_domain ?? null,
+          hardware_domain: meta.hardware_domain ?? null,
+          domain: meta.domain ?? null,
+          github: meta.github ?? null,
+          github_repo: meta.github_repo ?? null,
+          role: "student",
+          sih_participant: meta.sih_participant ?? false,
+          sih_num_participations: meta.sih_num_participations ?? null,
+          sih_participation_year: meta.sih_participation_year ?? null,
+          sih_problem_statement: meta.sih_problem_statement ?? null,
+          sih_project_domain: meta.sih_project_domain ?? null,
+          sih_project_role: meta.sih_project_role ?? null,
+          sih_position_reached: meta.sih_position_reached ?? null,
+          sih_nodal_center: meta.sih_nodal_center ?? null,
+          sih_history: Array.isArray(meta.sih_history) ? meta.sih_history : [],
+          category: meta.category ?? "Pairs",
+        };
+
+        // Try PostgreSQL direct connection first (bypasses RLS entirely)
+        if (process.env.DATABASE_URL) {
+          try {
+            await dbQuery(
+              `INSERT INTO public.profiles (
+                id, name, register_no, email, phone, department, year, section, gender,
+                languages, linkedin, resume_link, domain_interests, project_type,
+                project_title, project_description, youtube_link, google_drive_ppt,
+                software_domain, hardware_domain, domain, github, github_repo, role,
+                sih_participant, sih_num_participations, sih_participation_year,
+                sih_problem_statement, sih_project_domain, sih_project_role,
+                sih_position_reached, sih_nodal_center, sih_history, category
+              ) VALUES (
+                $1,$2,$3,$4,$5,$6,$7,$8,$9,
+                $10,$11,$12,$13,$14,
+                $15,$16,$17,$18,
+                $19,$20,$21,$22,$23,$24,
+                $25,$26,$27,
+                $28,$29,$30,
+                $31,$32,$33,$34
+              ) ON CONFLICT (id) DO NOTHING;`,
+              [
+                profilePayload.id, profilePayload.name, profilePayload.register_no, profilePayload.email, profilePayload.phone,
+                profilePayload.department, profilePayload.year, profilePayload.section, profilePayload.gender,
+                JSON.stringify(profilePayload.languages), profilePayload.linkedin, profilePayload.resume_link,
+                JSON.stringify(profilePayload.domain_interests), profilePayload.project_type,
+                profilePayload.project_title, profilePayload.project_description, profilePayload.youtube_link, profilePayload.google_drive_ppt,
+                profilePayload.software_domain, profilePayload.hardware_domain, profilePayload.domain, profilePayload.github, profilePayload.github_repo, profilePayload.role,
+                profilePayload.sih_participant, profilePayload.sih_num_participations, profilePayload.sih_participation_year,
+                profilePayload.sih_problem_statement, profilePayload.sih_project_domain, profilePayload.sih_project_role,
+                profilePayload.sih_position_reached, profilePayload.sih_nodal_center,
+                JSON.stringify(profilePayload.sih_history), profilePayload.category,
+              ]
+            );
+          } catch (dbErr) {
+            // Fall through to Supabase upsert
+            console.warn("Direct DB profile insert failed, falling back to Supabase:", dbErr.message);
+            await supabase.from("profiles").upsert(profilePayload, { onConflict: "id" });
+          }
+        } else {
+          await supabase.from("profiles").upsert(profilePayload, { onConflict: "id" });
+        }
+      } catch (profileErr) {
+        // Non-fatal — log but don't fail the signup response
+        console.error("Profile creation failed during signup:", profileErr.message);
+      }
+    }
+
+    return res.json({ session: signUpData.session, user });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// 2b. Auth: Refresh Token
+app.post("/api/auth/refresh", async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: "Supabase client not configured in backend" });
+  const { refresh_token } = req.body;
+  if (!refresh_token) return res.status(400).json({ error: "refresh_token is required" });
+
+  try {
+    const { data, error } = await supabase.auth.refreshSession({ refresh_token });
+    if (error || !data?.session) {
+      return res.status(401).json({ error: error?.message || "Session refresh failed" });
+    }
+    return res.json({ session: data.session });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
@@ -183,7 +292,29 @@ app.get("/api/auth/me", async (req, res) => {
     const { data: { user }, error } = await supabase.auth.getUser(token);
     if (error || !user) return res.status(401).json({ error: "Invalid token" });
 
-    const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
+    let profile = null;
+
+    // Try direct DB first (faster, bypasses RLS)
+    if (process.env.DATABASE_URL) {
+      try {
+        const { rows } = await dbQuery(`SELECT * FROM public.profiles WHERE id = $1 LIMIT 1;`, [user.id]);
+        profile = rows[0] ?? null;
+      } catch (_) {
+        // fall through to Supabase
+      }
+    }
+
+    if (!profile) {
+      const { data: p } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
+      profile = p ?? null;
+    }
+
+    // If profile row is missing, return the user with a flag instead of null
+    // so the frontend can show a proper error rather than silently logging the user out
+    if (!profile) {
+      return res.status(200).json({ user, profile: null, profileMissing: true });
+    }
+
     return res.json({ user, profile });
   } catch (err) {
     return res.status(500).json({ error: err.message });
@@ -543,13 +674,24 @@ app.post("/api/admin/backfill-team-codes", async (req, res) => {
         .from("teams")
         .select("id, name, category, created_by_dept, team_code")
         .order("id");
+      // Fetch member IDs per team, then profiles separately — avoids relational join
+      // which requires the FK to be in Supabase's schema cache.
       const { data: memberRows } = await supabase
         .from("team_members")
-        .select("team_id, profiles(department)");
+        .select("team_id, member_id");
       const memberDeptMap = {};
-      for (const mr of memberRows || []) {
-        if (!memberDeptMap[mr.team_id]) memberDeptMap[mr.team_id] = [];
-        if (mr.profiles?.department) memberDeptMap[mr.team_id].push(mr.profiles.department);
+      if (memberRows && memberRows.length > 0) {
+        const allMemberIds = [...new Set(memberRows.map((r) => r.member_id))];
+        const { data: profileRows } = await supabase
+          .from("profiles")
+          .select("id, department")
+          .in("id", allMemberIds);
+        const profDeptMap = new Map((profileRows || []).map((p) => [p.id, p.department]));
+        for (const mr of memberRows) {
+          if (!memberDeptMap[mr.team_id]) memberDeptMap[mr.team_id] = [];
+          const dept = profDeptMap.get(mr.member_id);
+          if (dept) memberDeptMap[mr.team_id].push(dept);
+        }
       }
       teams = (teamRows || []).map((t) => ({
         ...t,
@@ -1015,9 +1157,27 @@ app.get("/api/lookup/check-regno", async (req, res) => {
 app.get("/api/lookup/check-email", async (req, res) => {
   if (!supabase) return res.status(500).json({ error: "Supabase client not configured" });
   const { email } = req.query;
-  const { data, error } = await supabase.from("profiles").select("id").ilike("email", (email || "").trim()).maybeSingle();
-  if (error) return res.status(500).json({ error: error.message });
-  return res.json({ exists: !!data });
+  const normalizedEmail = (email || "").trim().toLowerCase();
+
+  // Check profiles table first
+  const { data: profileData } = await supabase.from("profiles").select("id").ilike("email", normalizedEmail).maybeSingle();
+  if (profileData) return res.json({ exists: true });
+
+  // Also check auth.users via direct DB to catch orphaned auth accounts
+  // (signup that created an auth user but failed before creating the profile row)
+  if (process.env.DATABASE_URL) {
+    try {
+      const { rows } = await dbQuery(
+        `SELECT id FROM auth.users WHERE LOWER(email) = $1 LIMIT 1;`,
+        [normalizedEmail]
+      );
+      if (rows.length > 0) return res.json({ exists: true });
+    } catch (_) {
+      // auth schema may not be accessible via this connection — ignore
+    }
+  }
+
+  return res.json({ exists: false });
 });
 
 app.get("/api/lookup/check-phone", async (req, res) => {

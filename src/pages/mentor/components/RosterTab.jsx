@@ -27,6 +27,7 @@ const POPULAR_DOMAINS = [
 
 export function RosterTab({
   students,
+  totalStudents,
   studentsInTeams,
   teams,
   q,
@@ -244,6 +245,23 @@ export function RosterTab({
           </div>
         </div>
 
+        {/* Row count */}
+        <div className="flex items-center justify-between text-xs text-muted-foreground px-0.5">
+          {activeFiltersCount > 0 || q.trim() ? (
+            <span>
+              Showing <span className="font-bold text-white">{students.length}</span> of{" "}
+              <span className="font-bold text-white">{totalStudents}</span> student{totalStudents !== 1 ? "s" : ""}
+            </span>
+          ) : (
+            <span>
+              <span className="font-bold text-white">{totalStudents}</span> student{totalStudents !== 1 ? "s" : ""} total
+            </span>
+          )}
+          {(activeFiltersCount > 0 || q.trim()) && students.length === 0 && (
+            <span className="text-amber-400 font-medium">No results — try adjusting your filters</span>
+          )}
+        </div>
+
         {/* Student Table */}
         <Card className="overflow-hidden p-0 border border-border/40 bg-card/40">
           {/* Mobile card list */}
@@ -379,19 +397,19 @@ export function RosterTab({
                           if (cat === "Solo") {
                             return (
                               <span
-                                className="rounded-lg bg-indigo-500/15 border border-indigo-500/40 text-indigo-300 px-2.5 py-1 text-xs font-bold truncate max-w-[150px] inline-block"
+                                className="inline-flex items-center gap-1 rounded-lg bg-indigo-500/15 border border-indigo-500/40 text-indigo-300 px-2.5 py-1 text-xs font-bold truncate max-w-[150px]"
                                 title={`Solo Entry: ${assignedTeam.team.name}`}
                               >
-                                👤 Solo ({assignedTeam.team.name})
+                                <User className="size-3 shrink-0" /> Solo ({assignedTeam.team.name})
                               </span>
                             );
                           }
                           return (
                             <span
-                              className="rounded-lg bg-[#c9a227]/15 border border-[#c9a227]/40 text-[#e8c058] px-2.5 py-1 text-xs font-bold truncate max-w-[150px] inline-block"
+                              className="inline-flex items-center gap-1 rounded-lg bg-[#c9a227]/15 border border-[#c9a227]/40 text-[#e8c058] px-2.5 py-1 text-xs font-bold truncate max-w-[150px]"
                               title={`Pairs Team: ${assignedTeam.team.name}`}
                             >
-                              👥 {assignedTeam.team.name}
+                              <Users className="size-3 shrink-0" /> {assignedTeam.team.name}
                             </span>
                           );
                         })()}

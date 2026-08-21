@@ -162,6 +162,9 @@ export default function LandingPage() {
   const [showClosedModal, setShowClosedModal] = useState(false);
 
   useEffect(() => {
+    // Wake up the Render backend immediately (free tier sleeps after inactivity)
+    fetch(`${import.meta.env.VITE_BACKEND_URL || ""}/api/health`).catch(() => {});
+
     data.fetchRegistrationStatus().then((res) => {
       if (res.data) setRegStatus(res.data);
     });

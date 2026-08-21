@@ -1198,20 +1198,20 @@ function StudentTeamCard({ myTeam, currentUserId }) {
 
   return (
     <Card className="p-6 border border-[#c9a227]/30 bg-card/60 backdrop-blur-xl relative overflow-hidden space-y-5 shadow-xl">
-      {/* Top Gold Accent Bar */}
-      <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-[#c9a227] to-transparent" />
-
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/40 pb-4">
         <div>
           <div className="flex items-center gap-2.5">
-            <span className="flex size-3 rounded-full bg-emerald-500 shadow-[0_0_10px_#10b981]" />
+            <span className="flex size-3 rounded-full bg-emerald-500" />
             <h3 className="text-xl font-extrabold tracking-tight text-white">
-              {team.name}
+              {team.team_code ?? team.name}
             </h3>
+            {team.team_code && team.name !== team.team_code && (
+              <span className="text-xs text-muted-foreground font-medium">{team.name}</span>
+            )}
             {isLeader && (
               <span className="rounded-full border border-[#c9a227]/40 bg-[#c9a227]/15 px-2.5 py-0.5 text-[11px] font-bold text-[#e8c058]">
-                ★ Captain
+                Captain
               </span>
             )}
           </div>
@@ -1223,18 +1223,30 @@ function StudentTeamCard({ myTeam, currentUserId }) {
         {/* Team Diversity Status Badge */}
         <div>
           {stats.valid ? (
-            <GlowingBadge variant="success" className="px-3 py-1 text-xs font-bold">
-              ✓ SIH DIVERSITY VALID
-            </GlowingBadge>
+            <span className="inline-flex items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-300">
+              SIH Diversity Valid
+            </span>
           ) : (
-            <GlowingBadge variant="warning" className="px-3 py-1 text-xs font-bold">
-              ⚠️ DIVERSITY INCOMPLETE
-            </GlowingBadge>
+            <span className="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-bold text-amber-300">
+              Diversity Incomplete
+            </span>
           )}
         </div>
       </div>
 
       {/* Diversity Stats Pills */}
+      {/* Ministry Banner */}
+      {team.ministry ? (
+        <div className="rounded-xl border border-[#c9a227]/30 bg-[#c9a227]/5 px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-1.5">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-[#c9a227] shrink-0">Ministry / Organisation</span>
+          <span className="text-sm font-semibold text-white sm:ml-2">{team.ministry}</span>
+        </div>
+      ) : (
+        <div className="rounded-xl border border-border/30 bg-muted/10 px-4 py-3 text-xs text-muted-foreground">
+          Ministry not yet assigned — your mentor will assign one soon.
+        </div>
+      )}
+
       <div className="grid grid-cols-3 gap-2 sm:gap-3 text-center">
         <div className="rounded-xl border border-border/40 bg-muted/20 p-2.5">
           <div className="text-[10px] uppercase font-bold text-muted-foreground">Members</div>
@@ -1263,7 +1275,6 @@ function StudentTeamCard({ myTeam, currentUserId }) {
         <div className="grid gap-3">
           {members.map((member) => {
             const isMe = member.id === currentUserId;
-            const isMemberLeader = member.id === team.leader_id;
 
             return (
               <div
@@ -1295,7 +1306,7 @@ function StudentTeamCard({ myTeam, currentUserId }) {
                 <div className="sm:text-right text-xs space-y-0.5 shrink-0">
                   <p className="text-slate-300 font-mono text-[11px] truncate max-w-[200px] sm:max-w-none">{member.email}</p>
                   {member.phone && (
-                    <p className="text-muted-foreground text-[11px]">📞 {member.phone}</p>
+                    <p className="text-muted-foreground text-[11px]">{member.phone}</p>
                   )}
                 </div>
               </div>

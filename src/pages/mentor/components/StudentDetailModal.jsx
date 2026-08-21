@@ -40,9 +40,6 @@ export function StudentDetailModal({
         className="relative w-full max-w-3xl max-h-[92dvh] overflow-y-auto rounded-3xl border border-border/80 bg-[#0a0f1d] p-5 sm:p-8 shadow-2xl text-left z-[100000] space-y-6 scrollbar-thin"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Top Gold Accent Bar */}
-        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-[#c9a227] to-transparent" />
-
         {/* Header & Close Button */}
         <div className="flex items-start justify-between border-b border-border/20 pb-4 gap-3">
           <div className="flex items-start gap-3 min-w-0">

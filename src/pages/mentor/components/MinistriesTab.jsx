@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Users, User } from "lucide-react";
 import { MINISTRIES, MAX_MEMBERS_PER_MINISTRY_PER_DEPT } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
@@ -270,16 +271,16 @@ export function MinistriesTab({ teams }) {
                                     <span className="text-[10px] text-muted-foreground font-mono">{t.team.name}</span>
                                   )}
                                   <span className={cn(
-                                    "text-[10px] font-bold px-2 py-0.5 rounded-full border",
+                                    "inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border",
                                     isSolo
                                       ? "bg-indigo-500/15 border-indigo-500/30 text-indigo-300"
                                       : "bg-[#c9a227]/15 border-[#c9a227]/30 text-[#e8c058]"
                                   )}>
-                                    {isSolo ? "👤 Solo" : "👥 Pairs"}
+                                    {isSolo ? <><User className="size-3 shrink-0" /> Solo</> : <><Users className="size-3 shrink-0" /> Pairs</>}
                                   </span>
                                   {t.team.approved && (
                                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300">
-                                      ✓ Approved
+                                      Approved
                                     </span>
                                   )}
                                 </div>

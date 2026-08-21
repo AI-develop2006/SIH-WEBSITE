@@ -97,7 +97,7 @@ export function AssignStudentModal({
                       const isFull = t.members.length >= maxLimit;
                       return (
                         <option key={t.team.id} value={t.team.id} disabled={isFull}>
-                          {isSolo ? "👤 Solo: " : "👥 Pairs: "}
+                          {isSolo ? "Solo: " : "Pairs: "}
                           {t.team.team_code ? `${t.team.team_code} - ` : ""}
                           {t.team.name} ({t.members.length}/{maxLimit} members) {isFull ? "— FULL" : ""}
                         </option>
@@ -106,7 +106,7 @@ export function AssignStudentModal({
                   </Select>
                 </div>
                 <p className="text-[10px] text-muted-foreground bg-muted/10 border border-border/20 p-2.5 rounded-lg leading-normal">
-                  💡 Assigning this student will add them to the selected team/entry. If empty, they will be set as the lead member.
+                  Assigning this student will add them to the selected team/entry. If empty, they will be set as the lead member.
                 </p>
               </div>
             ) : (

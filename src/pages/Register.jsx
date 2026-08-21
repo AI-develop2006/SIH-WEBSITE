@@ -18,6 +18,9 @@ export default function RegisterPage() {
       if (profile) navigate("/dashboard", { replace: true });
     });
 
+    // Ping the backend immediately so Render's free tier wakes up before the user submits
+    fetch(`${import.meta.env.VITE_BACKEND_URL || ""}/api/health`).catch(() => {});
+
     data.fetchRegistrationStatus().then((res) => {
       if (res.data) {
         setRegStatus(res.data);

@@ -242,7 +242,9 @@ export function TeamDetailsModal({
             )}
           </div>
           <p className="text-[11px] text-muted-foreground">
-            Both members of a Pairs team are assigned under the same ministry. Max 6 members per department per ministry.
+            {isSolo
+              ? "Assign this solo entry to a ministry. Max 6 members per department per ministry."
+              : "Both members of a Pairs team are assigned under the same ministry. Max 6 members per department per ministry."}
           </p>
           <div className="flex flex-col sm:flex-row sm:items-center gap-2">
             <label className="text-[10px] font-bold uppercase tracking-wider text-[#c9a227] shrink-0 w-24">

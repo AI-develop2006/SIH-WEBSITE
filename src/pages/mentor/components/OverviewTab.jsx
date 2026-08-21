@@ -1,5 +1,4 @@
 import { Card } from "@/components/unlumen-ui/card";
-import { GlowingBadge } from "@/components/unlumen-ui/glowing-badge";
 import { cn } from "@/lib/utils";
 import { TeamFormationRules } from "./TeamFormationRules";
 

@@ -367,11 +367,20 @@ function ensureHttp(url) {
     setBusy(true);
     setShowSync(true);
     try {
-      const statusRes = await fetchRegistrationStatus();
-      if (statusRes.data && !statusRes.data.is_open) {
-        setShowSync(false);
-        setBusy(false);
-        return toast("error", statusRes.data.closing_message || "Registration is currently closed.");
+      // Check registration status — allow submission even if the check times out (backend cold start)
+      try {
+        const statusRes = await Promise.race([
+          fetchRegistrationStatus(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 5000)),
+        ]);
+        if (statusRes.data && !statusRes.data.is_open) {
+          setShowSync(false);
+          setBusy(false);
+          return toast("error", statusRes.data.closing_message || "Registration is currently closed.");
+        }
+      } catch (statusErr) {
+        // Status check failed or timed out — proceed with registration anyway
+        console.warn("Registration status check skipped:", statusErr.message);
       }
 
       const registerNoUpper = form.registerNo.trim().toUpperCase();
@@ -475,7 +484,12 @@ function ensureHttp(url) {
       }
     } catch (err) {
       setShowSync(false);
-      toast("error", err instanceof Error ? err.message : "Registration failed");
+      const msg = err instanceof Error ? err.message : "Registration failed";
+      const isNetwork = msg.includes("fetch") || msg.includes("network") || msg.includes("Failed to fetch") || msg.includes("ERR_NAME");
+      toast("error", isNetwork
+        ? "Could not reach the server. The backend may be starting up — please wait 30 seconds and try again."
+        : msg
+      );
     } finally {
       setBusy(false);
     }

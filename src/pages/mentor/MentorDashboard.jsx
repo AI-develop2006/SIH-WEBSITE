@@ -206,10 +206,14 @@ export default function MentorDashboardPage() {
     });
   }, [profiles, q, dept, gender, projType, yearFilter, sectionFilter, availabilityFilter, selectedDomains, studentsInTeams]);
 
+  const totalStudents = useMemo(
+    () => profiles.filter((p) => p.role === "student").length,
+    [profiles]
+  );
+
   const unassignedCount = useMemo(() => {
-    const totalStudents = profiles.filter((p) => p.role === "student").length;
     return Math.max(0, totalStudents - studentsInTeams.size);
-  }, [profiles, studentsInTeams]);
+  }, [totalStudents, studentsInTeams]);
 
   const availableStudents = useMemo(
     () => profiles.filter((p) => p.role === "student" && !studentsInTeams.has(p.id)),
@@ -602,6 +606,7 @@ export default function MentorDashboardPage() {
       {tab === "students" && (
         <RosterTab
           students={students}
+          totalStudents={totalStudents}
           studentsInTeams={studentsInTeams}
           teams={teams}
           q={q}

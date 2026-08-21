@@ -11,6 +11,8 @@ export default function LoginPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Wake up the Render backend
+    fetch(`${import.meta.env.VITE_BACKEND_URL || ""}/api/health`).catch(() => {});
     data.getCurrentProfile().then(({ data: profile }) => {
       if (profile) navigate("/dashboard", { replace: true });
     });

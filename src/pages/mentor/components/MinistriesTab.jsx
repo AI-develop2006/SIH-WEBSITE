@@ -324,4 +324,4 @@ export const MinistriesTab = memo(function MinistriesTab({ teams }) {
       </div>
     </div>
   );
-});
+});

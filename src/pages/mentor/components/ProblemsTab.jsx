@@ -47,4 +47,4 @@ export const ProblemsTab = memo(function ProblemsTab({ problems }) {
       </div>
     </Card>
   );
-});
+});

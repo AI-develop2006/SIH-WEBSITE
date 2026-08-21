@@ -664,4 +664,4 @@ export const PairedTeamsOverallTab = memo(function PairedTeamsOverallTab({ teams
       />
     </div>
   );
-});
+});

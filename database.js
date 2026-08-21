@@ -8,8 +8,26 @@ if (dns.setDefaultResultOrder) {
   dns.setDefaultResultOrder("ipv4first");
 }
 
-const { Client } = pg;
+const { Client, Pool } = pg;
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+let poolInstance = null;
+
+export function getPool() {
+  if (!poolInstance && process.env.DATABASE_URL) {
+    poolInstance = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false },
+    });
+  }
+  return poolInstance;
+}
+
+export async function dbQuery(text, params) {
+  const pool = getPool();
+  if (!pool) throw new Error("DATABASE_URL not configured");
+  return pool.query(text, params);
+}
 
 export async function runMigrations() {
   const dbUrl = process.env.DATABASE_URL;

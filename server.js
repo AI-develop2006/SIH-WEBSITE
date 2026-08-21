@@ -18,7 +18,7 @@ if (existsSync(join(__dirname, ".env.local"))) {
   dotenv.config();
 }
 
-import { runMigrations } from "./database.js";
+import { runMigrations, dbQuery } from "./database.js";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -246,21 +246,34 @@ app.delete("/api/profiles/:id", async (req, res) => {
 
 // 4. Fetch Enriched Teams List
 app.get("/api/teams", async (_req, res) => {
-  if (!supabase) return res.status(500).json({ error: "Supabase client not configured" });
-
   try {
-    const [{ data: teams, error: e1 }, { data: members, error: e2 }, { data: profiles, error: e3 }] =
-      await Promise.all([
-        supabase.from("teams").select("*").order("created_at", { ascending: true }),
-        supabase.from("team_members").select("*"),
-        supabase.from("profiles").select("*"),
+    let teams = [], members = [], profiles = [];
+
+    if (process.env.DATABASE_URL) {
+      const [tRes, mRes, pRes] = await Promise.all([
+        dbQuery(`SELECT * FROM public.teams ORDER BY created_at ASC;`),
+        dbQuery(`SELECT * FROM public.team_members;`),
+        dbQuery(`SELECT * FROM public.profiles;`),
       ]);
+      teams = tRes.rows;
+      members = mRes.rows;
+      profiles = pRes.rows;
+    } else if (supabase) {
+      const [{ data: t, error: e1 }, { data: m, error: e2 }, { data: p, error: e3 }] =
+        await Promise.all([
+          supabase.from("teams").select("*").order("created_at", { ascending: true }),
+          supabase.from("team_members").select("*"),
+          supabase.from("profiles").select("*"),
+        ]);
+      if (e1 || e2 || e3) return res.status(500).json({ error: (e1 || e2 || e3).message });
+      teams = t || []; members = m || []; profiles = p || [];
+    } else {
+      return res.status(500).json({ error: "No database connection configured" });
+    }
 
-    if (e1 || e2 || e3) return res.status(500).json({ error: (e1 || e2 || e3).message });
-
-    const profileMap = new Map((profiles || []).map((p) => [p.id, p]));
-    const enriched = (teams || []).map((team) => {
-      const teamMembers = (members || []).filter((m) => m.team_id === team.id);
+    const profileMap = new Map(profiles.map((p) => [p.id, p]));
+    const enriched = teams.map((team) => {
+      const teamMembers = members.filter((m) => m.team_id === team.id);
       const memberProfiles = teamMembers.map((m) => profileMap.get(m.member_id)).filter(Boolean);
       const leader = profileMap.get(team.leader_id) ?? null;
       return {
@@ -599,10 +612,10 @@ const DEPT_CODE_MAP_ADMIN = {
   "artificial intelligence and data science": "AI&DS",
   "civil engineering": "CIVIL",
   "mechanical engineering": "MECH",
-  "instrumentation and control engineering": "I&CE",
-  "computer science and engineering and business systems": "CSBS",
+  "instrumentation and control engineering": "ICE",
+  "computer science and engineering and business systems": "CSEBS",
   "computer and communication engineering": "CCE",
-  "mechatronics": "MCT",
+  "mechatronics": "MCTR",
   "electrical and electronics engineering": "EEE",
   "electronics and communication engineering": "ECE",
   "biomedical engineering": "BME",
@@ -618,42 +631,49 @@ function getAdminDeptCode(deptName) {
 
 // 19. Backfill team_codes — assigns dept-based codes to teams missing them or with old SIH… codes
 app.post("/api/admin/backfill-team-codes", async (req, res) => {
-  if (!supabase) return res.status(500).json({ error: "Supabase client not configured" });
   try {
-    // Fetch all teams
-    const { data: teamRows, error: teamsErr } = await supabase
-      .from("teams")
-      .select("id, name, category, created_by_dept, team_code")
-      .order("id");
-    if (teamsErr) throw new Error(teamsErr.message);
+    let teamRows = [], memberRows = [];
 
-    // Fetch member→dept mapping
-    const { data: memberRows, error: membersErr } = await supabase
-      .from("team_members")
-      .select("team_id, profiles(department)");
-    if (membersErr) throw new Error(membersErr.message);
-
-    const memberDeptMap = {};
-    for (const mr of memberRows || []) {
-      if (!memberDeptMap[mr.team_id]) memberDeptMap[mr.team_id] = [];
-      if (mr.profiles?.department) memberDeptMap[mr.team_id].push(mr.profiles.department);
+    if (process.env.DATABASE_URL) {
+      const { rows: t } = await dbQuery(
+        `SELECT t.id, t.name, t.category, t.created_by_dept, t.team_code,
+           ARRAY_AGG(p.department) FILTER (WHERE p.department IS NOT NULL) AS member_depts
+         FROM public.teams t
+         LEFT JOIN public.team_members tm ON tm.team_id = t.id
+         LEFT JOIN public.profiles p ON p.id = tm.member_id
+         GROUP BY t.id ORDER BY t.id`
+      );
+      teamRows = t.map((r) => ({ ...r, member_depts: r.member_depts || [] }));
+    } else if (supabase) {
+      const { data: t, error: e1 } = await supabase.from("teams").select("id, name, category, created_by_dept, team_code").order("id");
+      if (e1) throw new Error(e1.message);
+      const { data: m, error: e2 } = await supabase.from("team_members").select("team_id, member_id");
+      if (e2) throw new Error(e2.message);
+      const { data: p, error: e3 } = await supabase.from("profiles").select("id, department");
+      if (e3) throw new Error(e3.message);
+      const profMap = new Map((p || []).map((x) => [x.id, x.department]));
+      const deptMap = {};
+      for (const mr of m || []) {
+        if (!deptMap[mr.team_id]) deptMap[mr.team_id] = [];
+        const dept = profMap.get(mr.member_id);
+        if (dept) deptMap[mr.team_id].push(dept);
+      }
+      teamRows = (t || []).map((r) => ({ ...r, member_depts: deptMap[r.id] || [] }));
+    } else {
+      return res.status(500).json({ error: "No database connection configured" });
     }
 
-    // Resolve a department for every team
-    const resolved = (teamRows || []).map((t) => {
+    // Resolve canonical dept for each team
+    const resolved = teamRows.map((t) => {
       let dept = t.created_by_dept?.trim() || null;
-      if (!dept) {
-        const depts = memberDeptMap[t.id] || [];
-        if (depts.length > 0) {
-          const freq = {};
-          for (const d of depts) freq[d] = (freq[d] || 0) + 1;
-          dept = Object.entries(freq).sort((a, b) => b[1] - a[1])[0][0];
-        }
+      if (!dept && t.member_depts?.length > 0) {
+        const freq = {};
+        for (const d of t.member_depts) freq[d] = (freq[d] || 0) + 1;
+        dept = Object.entries(freq).sort((a, b) => b[1] - a[1])[0][0];
       }
       return { ...t, resolved_dept: dept };
     });
 
-    // Group by dept, sorted by id within each group
     const byDept = {};
     const unresolvable = [];
     for (const t of resolved) {
@@ -662,41 +682,30 @@ app.post("/api/admin/backfill-team-codes", async (req, res) => {
       if (!byDept[key]) byDept[key] = { dept: t.resolved_dept, teams: [] };
       byDept[key].teams.push(t);
     }
-    for (const g of Object.values(byDept)) {
-      g.teams.sort((a, b) => (a.id > b.id ? 1 : -1));
-    }
+    for (const g of Object.values(byDept)) g.teams.sort((a, b) => (a.id > b.id ? 1 : -1));
 
-    // Build updates — only for teams with missing or old-style codes
     const updates = [];
     for (const { dept, teams: deptTeams } of Object.values(byDept)) {
       const deptCode = getAdminDeptCode(dept);
       let seq = 1;
       for (const t of deptTeams) {
         const category = t.category || "Pairs";
-        const prefix = category.toLowerCase() === "solo"
-          ? `${deptCode}-SOLO#`
-          : `${deptCode}#`;
+        const prefix = category.toLowerCase() === "solo" ? `${deptCode}-SOLO#` : `${deptCode}#`;
         const newCode = `${prefix}${String(seq).padStart(3, "0")}`;
         seq++;
-
-        const needsUpdate =
-          !t.team_code ||
-          t.team_code.trim() === "" ||
-          /^SIH/i.test(t.team_code);
-
-        if (needsUpdate) {
+        if (!t.team_code || t.team_code.trim() === "" || /^SIH/i.test(t.team_code)) {
           updates.push({ id: t.id, team_code: newCode, created_by_dept: dept });
         }
       }
     }
 
-    // Apply updates
     let updatedCount = 0;
     for (const upd of updates) {
-      await supabase
-        .from("teams")
-        .update({ team_code: upd.team_code, created_by_dept: upd.created_by_dept })
-        .eq("id", upd.id);
+      if (process.env.DATABASE_URL) {
+        await dbQuery(`UPDATE public.teams SET team_code = $1, created_by_dept = $2 WHERE id = $3`, [upd.team_code, upd.created_by_dept, upd.id]);
+      } else if (supabase) {
+        await supabase.from("teams").update({ team_code: upd.team_code, created_by_dept: upd.created_by_dept }).eq("id", upd.id);
+      }
       updatedCount++;
     }
 

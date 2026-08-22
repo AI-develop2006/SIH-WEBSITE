@@ -1,12 +1,13 @@
 import { useMemo, useState, memo } from "react";
 import {
-  Users, User, Building, Building2, Eye, AlertTriangle, ChevronUp, ChevronDown,
+  Users, User, Building, Building2, Eye, AlertTriangle, ChevronUp, ChevronDown, Sparkles,
 } from "lucide-react";
 import { cn, computeStats, isSameDepartment, normalizeDepartment } from "@/lib/utils";
-import { MINISTRIES, MAX_MEMBERS_PER_MINISTRY_PER_DEPT, OUTDATED_MINISTRIES } from "@/lib/constants";
+import { MINISTRIES, MAX_MEMBERS_PER_MINISTRY_PER_DEPT, OUTDATED_MINISTRIES, NEW_MINISTRIES } from "@/lib/constants";
 import { StudentDetailModal } from "./StudentDetailModal";
 import { TeamDetailsModal } from "./TeamDetailsModal";
 import { OutdatedMinistryBadge } from "@/components/common/OutdatedMinistryBadge";
+import { NewMinistryBadge } from "@/components/common/NewMinistryBadge";
 
 const CAP = MAX_MEMBERS_PER_MINISTRY_PER_DEPT;
 
@@ -148,6 +149,7 @@ export const PairedTeamsOverallTab = memo(function PairedTeamsOverallTab({ teams
       // When filtering by dept, "empty" means no teams from that dept — don't show empties
       if (ministryStatusFilter === "inactive" && hasVisibleTeams) return false;
       if (ministryStatusFilter === "outdated" && !OUTDATED_MINISTRIES.has(m)) return false;
+      if (ministryStatusFilter === "new" && !NEW_MINISTRIES.has(m)) return false;
       // When a dept filter is active, always hide ministries with no teams from that dept
       if (deptFilter !== "All" && !hasVisibleTeams) return false;
 
@@ -388,6 +390,7 @@ export const PairedTeamsOverallTab = memo(function PairedTeamsOverallTab({ teams
                             <div className="text-[10px] text-muted-foreground border-t border-border/20 pt-2 flex items-center gap-1.5 flex-wrap">
                               Ministry: <span className="text-[#c9a227] font-semibold">{t.team.ministry}</span>
                               <OutdatedMinistryBadge ministry={t.team.ministry} inline />
+                              <NewMinistryBadge ministry={t.team.ministry} inline />
                             </div>
                           )}
                           {!stats.valid && stats.reason && (
@@ -427,6 +430,7 @@ export const PairedTeamsOverallTab = memo(function PairedTeamsOverallTab({ teams
                   { id: "active", label: "Active" },
                   { id: "inactive", label: "Empty" },
                   { id: "outdated", label: "Outdated" },
+                  { id: "new", label: "New" },
                 ].map((f) => (
                   <button
                     key={f.id}
@@ -439,11 +443,14 @@ export const PairedTeamsOverallTab = memo(function PairedTeamsOverallTab({ teams
                           ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-300"
                           : f.id === "outdated"
                           ? "bg-amber-500/20 border-amber-500/40 text-amber-300"
+                          : f.id === "new"
+                          ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-300"
                           : "bg-[#c9a227] text-black border-[#c9a227]"
                         : "bg-card/30 border-border/30 text-muted-foreground hover:text-white"
                     )}
                   >
                     {f.id === "outdated" && <AlertTriangle className="size-3 shrink-0" />}
+                    {f.id === "new" && <Sparkles className="size-3 shrink-0" />}
                     {f.label}
                   </button>
                 ))}
@@ -457,6 +464,17 @@ export const PairedTeamsOverallTab = memo(function PairedTeamsOverallTab({ teams
                 <p className="text-[11px] text-amber-300/90 leading-relaxed">
                   <span className="font-bold text-amber-300">What does "Outdated" mean?</span>
                   {" "}These ministries are not listed in the official SIH 2026 Problem Statements. Teams that selected an outdated ministry will need to be reconsidered and reassigned to one of the currently active ministries.
+                </p>
+              </div>
+            )}
+
+            {/* New banner */}
+            {ministryStatusFilter === "new" && (
+              <div className="flex items-start gap-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/8 px-4 py-3">
+                <Sparkles className="size-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                <p className="text-[11px] text-emerald-300/90 leading-relaxed">
+                  <span className="font-bold text-emerald-300">What does "New" mean?</span>
+                  {" "}These ministries were newly added to the official SIH 2026 Problem Statements. Teams choosing these ministries are working on recently introduced problem statements.
                 </p>
               </div>
             )}
@@ -522,6 +540,7 @@ export const PairedTeamsOverallTab = memo(function PairedTeamsOverallTab({ teams
                       <span className="text-[10px] font-bold text-muted-foreground w-5 shrink-0">{String(idx + 1).padStart(2, "0")}</span>
                       <span className={cn("text-sm font-semibold truncate", hasTeams ? "text-white" : "text-muted-foreground/60")}>{ministry}</span>
                       <OutdatedMinistryBadge ministry={ministry} inline />
+                      <NewMinistryBadge ministry={ministry} inline />
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
                       {cappedDepts.length > 0 && (

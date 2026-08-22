@@ -53,6 +53,17 @@ export const MINISTRIES = [
   "Autodesk",
   "MathWorks India Pvt. Ltd.",
   "Neilsoft Ltd.",
+  "Ministry of Rural Development",
+  "Ministry of MSME",
+  "Ministry of Cooperation",
+  "Ministry of Petroleum & Natural Gas",
+  "Ministry of Statistics and Programme Implementation (MoSPI)",
+  "Defence Research and Development Organisation (DRDO)",
+  "Government of Maharashtra",
+  "Mangalore Refinery and Petrochemicals Limited (MRPL)",
+  "Oil India Limited",
+  "Qualcomm Inc",
+  "Egreen Quanta",
 ];
 
 export const MAX_MEMBERS_PER_MINISTRY_PER_DEPT = 6;
@@ -139,4 +150,23 @@ export const OUTDATED_MINISTRIES = new Set([
   "Government of Gujarat",
   "Government of Chhattisgarh",
   "Neilsoft Ltd.",
+]);
+
+/**
+ * Ministries newly added from the official SIH 2026 Problem Statements.
+ * These are valid targets for team assignment — tagged "New" so mentors,
+ * participants, and admins know they were recently introduced.
+ */
+export const NEW_MINISTRIES = new Set([
+  "Ministry of Rural Development",
+  "Ministry of MSME",
+  "Ministry of Cooperation",
+  "Ministry of Petroleum & Natural Gas",
+  "Ministry of Statistics and Programme Implementation (MoSPI)",
+  "Defence Research and Development Organisation (DRDO)",
+  "Government of Maharashtra",
+  "Mangalore Refinery and Petrochemicals Limited (MRPL)",
+  "Oil India Limited",
+  "Qualcomm Inc",
+  "Egreen Quanta",
 ]);

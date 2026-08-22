@@ -1,14 +1,15 @@
 import { useState, useMemo, memo } from "react";
 import { Button } from "@/components/unlumen-ui/button";
 import {
-  Users, User, LayoutGrid, Building2, Download, AlertTriangle, Lock, Plus, ChevronUp, ChevronDown,
+  Users, User, LayoutGrid, Building2, Download, AlertTriangle, Lock, Plus, ChevronUp, ChevronDown, Sparkles,
 } from "lucide-react";
 import { cn, computeStats, isSameDepartment, normalizeDepartment } from "@/lib/utils";
-import { MINISTRIES, MAX_MEMBERS_PER_MINISTRY_PER_DEPT, OUTDATED_MINISTRIES } from "@/lib/constants";
+import { MINISTRIES, MAX_MEMBERS_PER_MINISTRY_PER_DEPT, OUTDATED_MINISTRIES, NEW_MINISTRIES } from "@/lib/constants";
 import { StudentDetailModal } from "./StudentDetailModal";
 import { TeamDetailsModal } from "./TeamDetailsModal";
 import { TeamFormationRules } from "./TeamFormationRules";
 import { OutdatedMinistryBadge } from "@/components/common/OutdatedMinistryBadge";
+import { NewMinistryBadge } from "@/components/common/NewMinistryBadge";
 
 const CAP = MAX_MEMBERS_PER_MINISTRY_PER_DEPT;
 
@@ -19,6 +20,7 @@ function MinistriesPanel({ teams, mentorDept }) {
   const [statusFilter, setStatusFilter] = useState("all");
 
   const outdatedCount = MINISTRIES.filter((m) => OUTDATED_MINISTRIES.has(m)).length;
+  const newCount = MINISTRIES.filter((m) => NEW_MINISTRIES.has(m)).length;
 
   // Only teams belonging to this mentor's dept
   const deptTeams = useMemo(
@@ -72,6 +74,7 @@ function MinistriesPanel({ teams, mentorDept }) {
       if (statusFilter === "active" && !hasTeams) return false;
       if (statusFilter === "inactive" && hasTeams) return false;
       if (statusFilter === "outdated" && !OUTDATED_MINISTRIES.has(m)) return false;
+      if (statusFilter === "new" && !NEW_MINISTRIES.has(m)) return false;
       return true;
     });
   }, [search, statusFilter, ministryData]);
@@ -104,6 +107,7 @@ function MinistriesPanel({ teams, mentorDept }) {
             { id: "active", label: "Active", count: assignedCount },
             { id: "inactive", label: "Inactive", count: MINISTRIES.length - assignedCount },
             { id: "outdated", label: "Outdated", count: outdatedCount },
+            { id: "new", label: "New", count: newCount },
           ].map((f) => (
             <button
               key={f.id}
@@ -118,6 +122,8 @@ function MinistriesPanel({ teams, mentorDept }) {
                     ? "bg-muted/30 border border-border/60 text-muted-foreground"
                     : f.id === "outdated"
                     ? "bg-amber-500/20 border border-amber-500/40 text-amber-300"
+                    : f.id === "new"
+                    ? "bg-emerald-500/20 border border-emerald-500/40 text-emerald-300"
                     : "bg-[#c9a227] text-black border border-[#c9a227]"
                   : "bg-card/30 border border-border/30 text-muted-foreground hover:text-white hover:border-border/60"
               )}
@@ -125,6 +131,7 @@ function MinistriesPanel({ teams, mentorDept }) {
               {f.id === "active" && <span className="size-1.5 rounded-full bg-emerald-400 shrink-0" />}
               {f.id === "inactive" && <span className="size-1.5 rounded-full bg-muted-foreground/40 shrink-0" />}
               {f.id === "outdated" && <AlertTriangle className="size-3 shrink-0" />}
+              {f.id === "new" && <Sparkles className="size-3 shrink-0" />}
               {f.label}
               <span className={cn(
                 "text-[10px] px-1.5 py-0.5 rounded-full font-extrabold",
@@ -157,6 +164,17 @@ function MinistriesPanel({ teams, mentorDept }) {
             </p>
           </div>
         )}
+
+        {/* New banner */}
+        {statusFilter === "new" && (
+          <div className="flex items-start gap-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/8 px-4 py-3">
+            <Sparkles className="size-3.5 text-emerald-400 shrink-0 mt-0.5" />
+            <p className="text-[11px] text-emerald-300/90 leading-relaxed">
+              <span className="font-bold text-emerald-300">What does "New" mean?</span>
+              {" "}These ministries were newly added to the official SIH 2026 Problem Statements. Teams choosing these ministries are working on recently introduced problem statements.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Ministry List */}
@@ -170,6 +188,8 @@ function MinistriesPanel({ teams, mentorDept }) {
                 ? "All ministries have at least one team assigned."
                 : statusFilter === "outdated"
                 ? "No outdated ministries found."
+                : statusFilter === "new"
+                ? "No new ministries found."
                 : "No ministries match your search."}
             </p>
           </div>
@@ -196,6 +216,7 @@ function MinistriesPanel({ teams, mentorDept }) {
                   <span className="text-[10px] font-bold text-muted-foreground w-5 shrink-0">{String(idx + 1).padStart(2, "0")}</span>
                   <span className={cn("text-sm font-semibold truncate", hasTeams ? "text-white" : "text-muted-foreground/60")}>{ministry}</span>
                   <OutdatedMinistryBadge ministry={ministry} inline />
+                  <NewMinistryBadge ministry={ministry} inline />
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
                   {cappedDepts.length > 0 && (
@@ -614,6 +635,22 @@ export const TeamsTab = memo(function TeamsTab({
                   </div>
 
                   <div className="mt-5 border-t border-border/10 pt-4 flex flex-col gap-2">
+                    {/* Ministry row — show assigned ministry with outdated/new badge */}
+                    {t.team.ministry && (
+                      <div className="flex items-center gap-1.5 flex-wrap text-[10px] text-muted-foreground">
+                        <span className="shrink-0">Ministry:</span>
+                        <span className="text-[#c9a227] font-semibold truncate">{t.team.ministry}</span>
+                        <OutdatedMinistryBadge ministry={t.team.ministry} inline />
+                        <NewMinistryBadge ministry={t.team.ministry} inline />
+                      </div>
+                    )}
+                    {/* Outdated ministry action prompt */}
+                    {t.team.ministry && OUTDATED_MINISTRIES.has(t.team.ministry) && (
+                      <div className="flex items-center gap-1.5 text-[10px] text-amber-400 bg-amber-500/5 border border-amber-500/20 px-2 py-1.5 rounded-lg">
+                        <AlertTriangle className="size-3 shrink-0" />
+                        <span>Outdated ministry — click card to reassign</span>
+                      </div>
+                    )}
                     {!stats.valid && stats.reason && (
                       <div className="text-[10px] text-danger bg-danger/5 border border-danger/20 px-2.5 py-1.5 rounded-lg font-medium leading-normal flex items-center gap-1">
                         <AlertTriangle className="size-3.5 shrink-0" /> {stats.reason}

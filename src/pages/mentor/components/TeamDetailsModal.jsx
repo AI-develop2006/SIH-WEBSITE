@@ -5,8 +5,9 @@ import {
   Users, User, Eye, Trash2, Pencil, Lock,
   AlertTriangle, CheckCircle2, X,
 } from "lucide-react";
-import { SOFTWARE_ROLES, HARDWARE_ROLES, OTHER_ROLES, MINISTRIES } from "@/lib/constants";
+import { SOFTWARE_ROLES, HARDWARE_ROLES, OTHER_ROLES, MINISTRIES, OUTDATED_MINISTRIES } from "@/lib/constants";
 import { OutdatedMinistryBadge } from "@/components/common/OutdatedMinistryBadge";
+import { NewMinistryBadge } from "@/components/common/NewMinistryBadge";
 
 const ALL_SKILLS = [...SOFTWARE_ROLES, ...HARDWARE_ROLES, ...OTHER_ROLES];
 
@@ -247,6 +248,16 @@ export function TeamDetailsModal({
               ? "Assign this solo entry to a ministry. Max 6 members per department per ministry."
               : "Both members of a Pairs team are assigned under the same ministry. Max 6 members per department per ministry."}
           </p>
+          {/* Outdated ministry warning — shown when the team's current ministry is outdated */}
+          {team.ministry && OUTDATED_MINISTRIES.has(team.ministry) && (
+            <div className="flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/8 px-3 py-2.5">
+              <AlertTriangle className="size-3.5 text-amber-400 shrink-0 mt-0.5" />
+              <p className="text-[11px] text-amber-300/90 leading-relaxed">
+                <span className="font-bold text-amber-300">Outdated Ministry</span>
+                {" — "}<span className="font-semibold">{team.ministry}</span> is not listed in the official SIH 2026 Problem Statements. Please reassign this team to an active ministry.
+              </p>
+            </div>
+          )}
           <div className="flex flex-col sm:flex-row sm:items-center gap-2">
             <label className="text-[10px] font-bold uppercase tracking-wider text-[#c9a227] shrink-0 w-24">
               Ministry
@@ -262,6 +273,7 @@ export function TeamDetailsModal({
                       ✓ Set
                     </span>
                     <OutdatedMinistryBadge ministry={team.ministry} />
+                    <NewMinistryBadge ministry={team.ministry} />
                   </>
                 )}
               </div>
@@ -273,7 +285,13 @@ export function TeamDetailsModal({
                   className="flex-1 min-w-0 w-full rounded-xl border border-border/50 bg-card/60 text-xs text-white px-3 py-2 focus:outline-none focus:border-[#c9a227] cursor-pointer"
                 >
                   <option value="">— Select Ministry / Organisation —</option>
-                  {MINISTRIES.map((m) => (
+                  {/* If team already has an outdated ministry, show it as a legacy option */}
+                  {team.ministry && OUTDATED_MINISTRIES.has(team.ministry) && (
+                    <option key={`legacy-${team.ministry}`} value={team.ministry}>
+                      ⚠ {team.ministry} (Outdated — reassign)
+                    </option>
+                  )}
+                  {MINISTRIES.filter((m) => !OUTDATED_MINISTRIES.has(m)).map((m) => (
                     <option key={m} value={m}>{m}</option>
                   ))}
                 </select>
@@ -296,6 +314,7 @@ export function TeamDetailsModal({
                   </span>
                 )}
                 {draftMinistry && <OutdatedMinistryBadge ministry={draftMinistry} />}
+                {draftMinistry && <NewMinistryBadge ministry={draftMinistry} />}
               </div>
             )}
           </div>

@@ -1,8 +1,9 @@
 import { useMemo, useState, memo } from "react";
-import { Users, User, AlertTriangle } from "lucide-react";
-import { MINISTRIES, MAX_MEMBERS_PER_MINISTRY_PER_DEPT, OUTDATED_MINISTRIES } from "@/lib/constants";
+import { Users, User, AlertTriangle, Sparkles } from "lucide-react";
+import { MINISTRIES, MAX_MEMBERS_PER_MINISTRY_PER_DEPT, OUTDATED_MINISTRIES, NEW_MINISTRIES } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { OutdatedMinistryBadge } from "@/components/common/OutdatedMinistryBadge";
+import { NewMinistryBadge } from "@/components/common/NewMinistryBadge";
 
 const CAP = MAX_MEMBERS_PER_MINISTRY_PER_DEPT; // 6
 
@@ -13,6 +14,15 @@ export const MinistriesTab = memo(function MinistriesTab({ teams }) {
 
   const outdatedCount = useMemo(
     () => MINISTRIES.filter((m) => OUTDATED_MINISTRIES.has(m)).length,
+    []
+  );
+  const newCount = useMemo(
+    () => MINISTRIES.filter((m) => NEW_MINISTRIES.has(m)).length,
+    []
+  );
+
+  const newCount = useMemo(
+    () => MINISTRIES.filter((m) => NEW_MINISTRIES.has(m)).length,
     []
   );
 
@@ -45,6 +55,7 @@ export const MinistriesTab = memo(function MinistriesTab({ teams }) {
       if (statusFilter === "active" && !hasTeams) return false;
       if (statusFilter === "inactive" && hasTeams) return false;
       if (statusFilter === "outdated" && !OUTDATED_MINISTRIES.has(m)) return false;
+      if (statusFilter === "new" && !NEW_MINISTRIES.has(m)) return false;
       return true;
     });
   }, [search, statusFilter, ministryData]);
@@ -102,6 +113,7 @@ export const MinistriesTab = memo(function MinistriesTab({ teams }) {
             { id: "active", label: "Active", count: assignedCount },
             { id: "inactive", label: "Inactive", count: MINISTRIES.length - assignedCount },
             { id: "outdated", label: "Outdated", count: outdatedCount },
+            { id: "new", label: "New", count: newCount },
           ].map((f) => (
             <button
               key={f.id}
@@ -116,6 +128,8 @@ export const MinistriesTab = memo(function MinistriesTab({ teams }) {
                     ? "bg-muted/30 border border-border/60 text-muted-foreground"
                     : f.id === "outdated"
                     ? "bg-amber-500/20 border border-amber-500/40 text-amber-300"
+                    : f.id === "new"
+                    ? "bg-emerald-500/20 border border-emerald-500/40 text-emerald-300"
                     : "bg-[#c9a227] text-black border border-[#c9a227]"
                   : "bg-card/30 border border-border/30 text-muted-foreground hover:text-white hover:border-border/60"
               )}
@@ -123,6 +137,7 @@ export const MinistriesTab = memo(function MinistriesTab({ teams }) {
               {f.id === "active" && <span className="size-1.5 rounded-full bg-emerald-400 shrink-0" />}
               {f.id === "inactive" && <span className="size-1.5 rounded-full bg-muted-foreground/40 shrink-0" />}
               {f.id === "outdated" && <AlertTriangle className="size-3 shrink-0" />}
+              {f.id === "new" && <Sparkles className="size-3 shrink-0" />}
               {f.label}
               <span className={cn(
                 "text-[10px] px-1.5 py-0.5 rounded-full font-extrabold",
@@ -130,6 +145,7 @@ export const MinistriesTab = memo(function MinistriesTab({ teams }) {
                   ? f.id === "active" ? "bg-emerald-500/20 text-emerald-300"
                     : f.id === "inactive" ? "bg-muted/30 text-muted-foreground"
                     : f.id === "outdated" ? "bg-amber-500/20 text-amber-300"
+                    : f.id === "new" ? "bg-emerald-500/20 text-emerald-300"
                     : "bg-black/20 text-black"
                   : "bg-muted/20 text-muted-foreground"
               )}>
@@ -165,6 +181,17 @@ export const MinistriesTab = memo(function MinistriesTab({ teams }) {
             </p>
           </div>
         )}
+
+        {/* New banner */}
+        {statusFilter === "new" && (
+          <div className="flex items-start gap-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/8 px-4 py-3 mt-1">
+            <Sparkles className="size-3.5 text-emerald-400 shrink-0 mt-0.5" />
+            <p className="text-[11px] text-emerald-300/90 leading-relaxed">
+              <span className="font-bold text-emerald-300">What does "New" mean?</span>
+              {" "}These ministries were newly added to the official SIH 2026 Problem Statements. Teams choosing these ministries are working on recently introduced problem statements.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Ministry List */}
@@ -178,6 +205,8 @@ export const MinistriesTab = memo(function MinistriesTab({ teams }) {
                 ? "All ministries have at least one team assigned."
                 : statusFilter === "outdated"
                 ? "No outdated ministries found."
+                : statusFilter === "new"
+                ? "No new ministries found."
                 : "No ministries match your search."}
             </p>
           </div>
@@ -212,6 +241,7 @@ export const MinistriesTab = memo(function MinistriesTab({ teams }) {
                     {ministry}
                   </span>
                   <OutdatedMinistryBadge ministry={ministry} inline />
+                  <NewMinistryBadge ministry={ministry} inline />
                 </div>
 
                 <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">

@@ -3,9 +3,10 @@ import {
   Users, User, Building, Building2, Eye, AlertTriangle, ChevronUp, ChevronDown,
 } from "lucide-react";
 import { cn, computeStats, isSameDepartment, normalizeDepartment } from "@/lib/utils";
-import { MINISTRIES, MAX_MEMBERS_PER_MINISTRY_PER_DEPT } from "@/lib/constants";
+import { MINISTRIES, MAX_MEMBERS_PER_MINISTRY_PER_DEPT, OUTDATED_MINISTRIES } from "@/lib/constants";
 import { StudentDetailModal } from "./StudentDetailModal";
 import { TeamDetailsModal } from "./TeamDetailsModal";
+import { OutdatedMinistryBadge } from "@/components/common/OutdatedMinistryBadge";
 
 const CAP = MAX_MEMBERS_PER_MINISTRY_PER_DEPT;
 
@@ -146,6 +147,7 @@ export const PairedTeamsOverallTab = memo(function PairedTeamsOverallTab({ teams
       if (ministryStatusFilter === "active" && !hasVisibleTeams) return false;
       // When filtering by dept, "empty" means no teams from that dept — don't show empties
       if (ministryStatusFilter === "inactive" && hasVisibleTeams) return false;
+      if (ministryStatusFilter === "outdated" && !OUTDATED_MINISTRIES.has(m)) return false;
       // When a dept filter is active, always hide ministries with no teams from that dept
       if (deptFilter !== "All" && !hasVisibleTeams) return false;
 
@@ -383,8 +385,9 @@ export const PairedTeamsOverallTab = memo(function PairedTeamsOverallTab({ teams
                           </div>
 
                           {t.team.ministry && (
-                            <div className="text-[10px] text-muted-foreground border-t border-border/20 pt-2">
+                            <div className="text-[10px] text-muted-foreground border-t border-border/20 pt-2 flex items-center gap-1.5 flex-wrap">
                               Ministry: <span className="text-[#c9a227] font-semibold">{t.team.ministry}</span>
+                              <OutdatedMinistryBadge ministry={t.team.ministry} inline />
                             </div>
                           )}
                           {!stats.valid && stats.reason && (
@@ -423,25 +426,40 @@ export const PairedTeamsOverallTab = memo(function PairedTeamsOverallTab({ teams
                   { id: "all", label: "All" },
                   { id: "active", label: "Active" },
                   { id: "inactive", label: "Empty" },
+                  { id: "outdated", label: "Outdated" },
                 ].map((f) => (
                   <button
                     key={f.id}
                     type="button"
                     onClick={() => setMinistryStatusFilter(f.id)}
                     className={cn(
-                      "px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border",
+                      "flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border",
                       ministryStatusFilter === f.id
                         ? f.id === "active"
                           ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-300"
+                          : f.id === "outdated"
+                          ? "bg-amber-500/20 border-amber-500/40 text-amber-300"
                           : "bg-[#c9a227] text-black border-[#c9a227]"
                         : "bg-card/30 border-border/30 text-muted-foreground hover:text-white"
                     )}
                   >
+                    {f.id === "outdated" && <AlertTriangle className="size-3 shrink-0" />}
                     {f.label}
                   </button>
                 ))}
               </div>
             </div>
+
+            {/* Outdated banner */}
+            {ministryStatusFilter === "outdated" && (
+              <div className="flex items-start gap-2.5 rounded-xl border border-amber-500/30 bg-amber-500/8 px-4 py-3">
+                <AlertTriangle className="size-3.5 text-amber-400 shrink-0 mt-0.5" />
+                <p className="text-[11px] text-amber-300/90 leading-relaxed">
+                  <span className="font-bold text-amber-300">What does "Outdated" mean?</span>
+                  {" "}These ministries are not listed in the official SIH 2026 Problem Statements. Teams that selected an outdated ministry will need to be reconsidered and reassigned to one of the currently active ministries.
+                </p>
+              </div>
+            )}
 
             {/* Dept chip filter */}
             <div className="flex items-center gap-2 flex-wrap border-t border-border/20 pt-3">
@@ -503,6 +521,7 @@ export const PairedTeamsOverallTab = memo(function PairedTeamsOverallTab({ teams
                     <div className="flex items-center gap-3 min-w-0">
                       <span className="text-[10px] font-bold text-muted-foreground w-5 shrink-0">{String(idx + 1).padStart(2, "0")}</span>
                       <span className={cn("text-sm font-semibold truncate", hasTeams ? "text-white" : "text-muted-foreground/60")}>{ministry}</span>
+                      <OutdatedMinistryBadge ministry={ministry} inline />
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
                       {cappedDepts.length > 0 && (

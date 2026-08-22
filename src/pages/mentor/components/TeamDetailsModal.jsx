@@ -6,6 +6,7 @@ import {
   AlertTriangle, CheckCircle2, X,
 } from "lucide-react";
 import { SOFTWARE_ROLES, HARDWARE_ROLES, OTHER_ROLES, MINISTRIES } from "@/lib/constants";
+import { OutdatedMinistryBadge } from "@/components/common/OutdatedMinistryBadge";
 
 const ALL_SKILLS = [...SOFTWARE_ROLES, ...HARDWARE_ROLES, ...OTHER_ROLES];
 
@@ -256,9 +257,12 @@ export function TeamDetailsModal({
                   {team.ministry || <span className="text-muted-foreground italic">Not assigned</span>}
                 </span>
                 {team.ministry && (
-                  <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 shrink-0">
-                    ✓ Set
-                  </span>
+                  <>
+                    <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 shrink-0">
+                      ✓ Set
+                    </span>
+                    <OutdatedMinistryBadge ministry={team.ministry} />
+                  </>
                 )}
               </div>
             ) : (
@@ -291,6 +295,7 @@ export function TeamDetailsModal({
                     Pending
                   </span>
                 )}
+                {draftMinistry && <OutdatedMinistryBadge ministry={draftMinistry} />}
               </div>
             )}
           </div>

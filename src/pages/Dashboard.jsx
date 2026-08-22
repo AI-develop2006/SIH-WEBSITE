@@ -26,6 +26,7 @@ import { GlowingBadge } from "@/components/unlumen-ui/glowing-badge";
 import { useToast } from "@/components/unlumen-ui/toast";
 import { Input, Select } from "@/components/unlumen-ui/input";
 import { DEPARTMENTS, YEARS } from "@/lib/constants";
+import { OutdatedMinistryBadge } from "@/components/common/OutdatedMinistryBadge";
 
 function ensureHttp(url) {
   if (!url) return "";
@@ -1244,9 +1245,10 @@ function StudentTeamCard({ myTeam, currentUserId }) {
       {/* Diversity Stats Pills */}
       {/* Ministry Banner */}
       {team.ministry ? (
-        <div className="rounded-xl border border-[#c9a227]/30 bg-[#c9a227]/5 px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-1.5">
+        <div className="rounded-xl border border-[#c9a227]/30 bg-[#c9a227]/5 px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-1.5 flex-wrap">
           <span className="text-[10px] font-bold uppercase tracking-wider text-[#c9a227] shrink-0">Ministry / Organisation</span>
           <span className="text-sm font-semibold text-white sm:ml-2">{team.ministry}</span>
+          <OutdatedMinistryBadge ministry={team.ministry} />
         </div>
       ) : (
         <div className="rounded-xl border border-border/30 bg-muted/10 px-4 py-3 text-xs text-muted-foreground">

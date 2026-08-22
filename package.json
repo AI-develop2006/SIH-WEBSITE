@@ -11,5 +11,8 @@
     "dotenv": "^17.4.2",
     "express": "^4.21.2",
     "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "docx": "^9.7.1"
   }
 }

@@ -729,6 +729,40 @@ app.post("/api/admin/backfill-team-codes", async (req, res) => {
   }
 });
 
+// ── Ministry Seats Configuration ──────────────────────────────────────────
+
+// GET /api/settings/ministry-seats — fetch seat overrides
+app.get("/api/settings/ministry-seats", async (_req, res) => {
+  if (!supabase) return res.status(500).json({ error: "Supabase not configured" });
+  try {
+    const { data, error } = await supabase
+      .from("system_settings")
+      .select("value")
+      .eq("key", "ministry_seats")
+      .maybeSingle();
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json({ data: data?.value ?? {} });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT /api/settings/ministry-seats — save seat overrides
+app.put("/api/settings/ministry-seats", async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: "Supabase not configured" });
+  const { seats } = req.body; // { "ministry|||dept": N, ... }
+  if (!seats || typeof seats !== "object") return res.status(400).json({ error: "seats object required" });
+  try {
+    const { error } = await supabase
+      .from("system_settings")
+      .upsert({ key: "ministry_seats", value: seats, updated_at: new Date().toISOString() }, { onConflict: "key" });
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json({ success: true });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 // Serve static files from Vite dist if present
 const distFolder = join(__dirname, "dist");
 const indexHtmlFile = join(distFolder, "index.html");

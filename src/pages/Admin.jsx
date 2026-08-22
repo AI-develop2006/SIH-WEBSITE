@@ -26,7 +26,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 import * as data from "@/lib/data";
-import { downloadCsv } from "@/lib/utils";
+import { downloadCsv, downloadXlsx } from "@/lib/utils";
 import { DEPARTMENTS } from "@/lib/constants";
 import { useToast } from "@/components/unlumen-ui/toast";
 import { Button } from "@/components/unlumen-ui/button";
@@ -357,30 +357,89 @@ export default function AdminPage() {
     );
   }
 
-  function exportTeams() {
-    downloadCsv(
-      "sih-teams.csv",
-      teams.map((t) => ({
-        name: t.team.name,
-        leader: t.leader?.name ?? "",
-        members: t.members.map((m) => m.name).join(" | "),
-        member_count: t.stats.memberCount,
-        departments: t.stats.deptCount,
-        female: t.stats.girlCount,
-        valid: t.stats.valid ? "Yes" : "No",
-        reason: t.stats.reason ?? "",
-        problem: problemMap.get(t.team.problem_id ?? "") ?? "",
-      })),
+  async function exportTeams() {
+    // Generate stable random IDs per team for this export session
+    // Format: DEPTCODE#XXX where XXX is a random 3-digit number (100-999)
+    // Shuffle ensures no two teams in the same dept get the same number
+    const deptCounters = {};
+
+    // Pre-assign random numbers per dept (no repeats within same dept)
+    const deptTeamMap = {};
+    for (const t of teams) {
+      const dept = t.team.created_by_dept
+        || t.members.find((m) => m.department)?.department
+        || "TEAM";
+      if (!deptTeamMap[dept]) deptTeamMap[dept] = [];
+      deptTeamMap[dept].push(t.team.id);
+    }
+    // For each dept, generate a shuffled pool of random 3-digit numbers
+    const deptRandomIds = {};
+    for (const [dept, ids] of Object.entries(deptTeamMap)) {
+      const pool = Array.from({ length: 900 }, (_, i) => i + 100);
+      // Fisher-Yates shuffle
+      for (let i = pool.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [pool[i], pool[j]] = [pool[j], pool[i]];
+      }
+      ids.forEach((id, idx) => { deptRandomIds[id] = pool[idx]; });
+    }
+
+    await downloadXlsx(
+      "sih-teams.xlsx",
+      teams.map((t) => {
+        const dept = t.team.created_by_dept
+          || t.members.find((m) => m.department)?.department
+          || "";
+
+        // Dept code prefix (e.g. "AI&DS", "CSE")
+        const deptCode = t.team.team_code
+          ? t.team.team_code.replace(/#.*$/, "").replace(/-SOLO$/, "")
+          : (dept.replace(/\s+/g, "").toUpperCase().slice(0, 8) || "TEAM");
+
+        const isSolo = (t.team.category || "Pairs") === "Solo";
+        const randomNum = String(deptRandomIds[t.team.id] ?? Math.floor(Math.random() * 900 + 100));
+        const randomId = isSolo
+          ? `${deptCode}-SOLO#${randomNum}`
+          : `${deptCode}#${randomNum}`;
+
+        // Team creation date/time
+        const createdAt = t.team.created_at
+          ? new Date(t.team.created_at).toLocaleString("en-IN", {
+              day: "2-digit", month: "2-digit", year: "numeric",
+              hour: "2-digit", minute: "2-digit", second: "2-digit",
+              hour12: true,
+            })
+          : "";
+
+        const memberNames = t.members.map((m) => m.name).join(", ");
+        const femaleCount = t.members.filter((m) => m.gender === "Female").length;
+
+        // Year and section — take from first member (same dept = same year/section typically)
+        const year = t.members.find((m) => m.year)?.year ?? "";
+        const section = t.members.find((m) => m.section)?.section ?? "";
+
+        return {
+          created_at: createdAt,
+          team_id: randomId,
+          team_name: t.team.name,
+          members: memberNames,
+          year,
+          section,
+          department: dept,
+          ministry: t.team.ministry ?? "",
+          female: femaleCount,
+        };
+      }),
       [
-        { key: "name", label: "Team Name" },
-        { key: "leader", label: "Leader" },
-        { key: "members", label: "Members" },
-        { key: "member_count", label: "Member Count" },
-        { key: "departments", label: "Departments" },
-        { key: "female", label: "Female Members" },
-        { key: "valid", label: "Valid" },
-        { key: "reason", label: "Reason" },
-        { key: "problem", label: "Problem Statement" },
+        { key: "created_at",  label: "Time and Date" },
+        { key: "team_id",     label: "Team ID" },
+        { key: "team_name",   label: "Team Name" },
+        { key: "members",     label: "Team Members" },
+        { key: "year",        label: "Year" },
+        { key: "section",     label: "Section" },
+        { key: "department",  label: "Department" },
+        { key: "ministry",    label: "Ministry" },
+        { key: "female",      label: "Female Members" },
       ]
     );
   }

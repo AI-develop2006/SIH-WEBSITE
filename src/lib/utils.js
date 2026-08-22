@@ -58,3 +58,48 @@ export function downloadCsv(filename, rows = [], columns = []) {
   a.click();
   URL.revokeObjectURL(url);
 }
+
+/**
+ * Export rows as an .xlsx file with auto-filter enabled on all columns.
+ * Requires the 'xlsx' (SheetJS) package.
+ *
+ * @param {string} filename  - e.g. "sih-teams.xlsx"
+ * @param {object[]} rows    - array of plain objects
+ * @param {{ key: string, label: string }[]} columns - column definitions
+ */
+export async function downloadXlsx(filename, rows = [], columns = []) {
+  // Dynamically import so it doesn't bloat the initial bundle
+  const XLSX = await import("xlsx");
+
+  // Build array-of-arrays: header row + data rows
+  const header = columns.map((c) => c.label);
+  const data = rows.map((r) => columns.map((c) => {
+    const v = r[c.key];
+    return v == null ? "" : v;
+  }));
+
+  const wsData = [header, ...data];
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+  // Auto-filter across all columns
+  ws["!autofilter"] = { ref: XLSX.utils.encode_range({
+    s: { r: 0, c: 0 },
+    e: { r: wsData.length - 1, c: columns.length - 1 },
+  })};
+
+  // Column widths — auto-size based on max content length
+  ws["!cols"] = columns.map((c, ci) => {
+    const maxLen = Math.max(
+      c.label.length,
+      ...rows.map((r) => String(r[c.key] ?? "").length)
+    );
+    return { wch: Math.min(Math.max(maxLen + 2, 12), 60) };
+  });
+
+  // Freeze the header row
+  ws["!freeze"] = { xSplit: 0, ySplit: 1, topLeftCell: "A2", activePane: "bottomLeft" };
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Teams");
+  XLSX.writeFile(wb, filename);
+}

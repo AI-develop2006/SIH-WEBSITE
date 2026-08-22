@@ -1131,6 +1131,99 @@ app.get("/api/announcements", async (_req, res) => {
   return res.json({ data: data ?? [] });
 });
 
+// ─── Personal Notifications ───────────────────────────────────────────────────
+
+// GET /api/notifications — fetch notifications for the authenticated user
+app.get("/api/notifications", async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith("Bearer ")) return res.status(401).json({ error: "Not signed in" });
+  const token = authHeader.split(" ")[1];
+
+  try {
+    // Get user id from token
+    let userId = null;
+    if (supabase) {
+      const { data: { user }, error } = await supabase.auth.getUser(token);
+      if (error || !user) return res.status(401).json({ error: "Invalid token" });
+      userId = user.id;
+    }
+
+    let notifications = [];
+    if (process.env.DATABASE_URL && userId) {
+      const { rows } = await dbQuery(
+        `SELECT * FROM public.notifications
+         WHERE profile_id = $1
+         ORDER BY created_at DESC
+         LIMIT 50`,
+        [userId]
+      );
+      notifications = rows;
+    } else if (supabase && userId) {
+      const { data, error } = await supabase
+        .from("notifications")
+        .select("*")
+        .eq("profile_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (error) return res.status(500).json({ error: error.message });
+      notifications = data ?? [];
+    }
+
+    return res.json({ data: notifications });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// PATCH /api/notifications/:id/read — mark a notification as read
+app.patch("/api/notifications/:id/read", async (req, res) => {
+  const { id } = req.params;
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith("Bearer ")) return res.status(401).json({ error: "Not signed in" });
+
+  try {
+    if (process.env.DATABASE_URL) {
+      await dbQuery(
+        `UPDATE public.notifications SET read = TRUE WHERE id = $1`,
+        [id]
+      );
+    } else if (supabase) {
+      await supabase.from("notifications").update({ read: true }).eq("id", id);
+    }
+    return res.json({ success: true });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// PATCH /api/notifications/read-all — mark all notifications as read for the user
+app.patch("/api/notifications/read-all", async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith("Bearer ")) return res.status(401).json({ error: "Not signed in" });
+  const token = authHeader.split(" ")[1];
+
+  try {
+    let userId = null;
+    if (supabase) {
+      const { data: { user } } = await supabase.auth.getUser(token);
+      userId = user?.id;
+    }
+    if (!userId) return res.status(401).json({ error: "Invalid token" });
+
+    if (process.env.DATABASE_URL) {
+      await dbQuery(
+        `UPDATE public.notifications SET read = TRUE WHERE profile_id = $1`,
+        [userId]
+      );
+    } else if (supabase) {
+      await supabase.from("notifications").update({ read: true }).eq("profile_id", userId);
+    }
+    return res.json({ success: true });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 app.get("/api/lookup/email-by-regno", async (req, res) => {
   if (!supabase) return res.status(500).json({ error: "Supabase client not configured" });
   const { registerNo } = req.query;

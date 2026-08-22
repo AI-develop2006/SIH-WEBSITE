@@ -1,0 +1,18 @@
+{
+  "name": "spoc-backend",
+  "version": "1.0.0",
+  "description": "SPOC Portal standalone backend server",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "migrate": "node run-migration.js",
+    "create-user": "node create-spoc-user.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.112.2",
+    "dotenv": "^17.4.2",
+    "express": "^4.21.2",
+    "pg": "^8.16.0"
+  }
+}

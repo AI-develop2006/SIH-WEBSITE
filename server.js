@@ -274,7 +274,16 @@ app.get("/api/teams", async (_req, res) => {
     const profileMap = new Map(profiles.map((p) => [p.id, p]));
     const enriched = teams.map((team) => {
       const teamMembers = members.filter((m) => m.team_id === team.id);
-      const memberProfiles = teamMembers.map((m) => profileMap.get(m.member_id)).filter(Boolean);
+      // Merge assigned_skill from team_members row into the profile object.
+      // assigned_skill lives on team_members, not profiles, so it must be
+      // explicitly carried over — otherwise it's silently dropped.
+      const memberProfiles = teamMembers
+        .map((m) => {
+          const profile = profileMap.get(m.member_id);
+          if (!profile) return null;
+          return { ...profile, assigned_skill: m.assigned_skill ?? null };
+        })
+        .filter(Boolean);
       const leader = profileMap.get(team.leader_id) ?? null;
       return {
         team,

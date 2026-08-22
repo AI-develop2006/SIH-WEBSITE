@@ -1,6 +1,6 @@
 import { useMemo, useState, memo } from "react";
 import { Users, User, AlertTriangle, Sparkles } from "lucide-react";
-import { MINISTRIES, MAX_MEMBERS_PER_MINISTRY_PER_DEPT, OUTDATED_MINISTRIES, NEW_MINISTRIES } from "@/lib/constants";
+import { MINISTRIES, MAX_MEMBERS_PER_MINISTRY_PER_DEPT, OUTDATED_MINISTRIES, NEW_MINISTRIES, ACTIVE_MINISTRIES_COUNT } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { OutdatedMinistryBadge } from "@/components/common/OutdatedMinistryBadge";
 import { NewMinistryBadge } from "@/components/common/NewMinistryBadge";
@@ -82,7 +82,7 @@ export const MinistriesTab = memo(function MinistriesTab({ teams }) {
             <h2 className="text-base font-extrabold text-white">Ministries & Organisations</h2>
             <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
               <span>
-                <span className="text-[#c9a227] font-bold">{assignedCount}</span> / {MINISTRIES.length} ministries active
+                <span className="text-[#c9a227] font-bold">{assignedCount}</span> / {ACTIVE_MINISTRIES_COUNT} ministries active
               </span>
               <span>·</span>
               <span>
@@ -109,9 +109,9 @@ export const MinistriesTab = memo(function MinistriesTab({ teams }) {
             Show:
           </span>
           {[
-            { id: "all", label: "All", count: MINISTRIES.length },
+            { id: "all", label: "All", count: ACTIVE_MINISTRIES_COUNT },
             { id: "active", label: "Active", count: assignedCount },
-            { id: "inactive", label: "Inactive", count: MINISTRIES.length - assignedCount },
+            { id: "inactive", label: "Inactive", count: ACTIVE_MINISTRIES_COUNT - assignedCount },
             { id: "outdated", label: "Outdated", count: outdatedCount },
             { id: "new", label: "New", count: newCount },
           ].map((f) => (
@@ -157,7 +157,7 @@ export const MinistriesTab = memo(function MinistriesTab({ teams }) {
           {/* Show current filter result count */}
           {(search.trim() || statusFilter !== "all") && (
             <span className="ml-auto text-[10px] text-muted-foreground">
-              Showing <span className="text-white font-bold">{filtered.length}</span> of {MINISTRIES.length}
+              Showing <span className="text-white font-bold">{filtered.length}</span> of {ACTIVE_MINISTRIES_COUNT}
               {search.trim() && (
                 <button
                   type="button"

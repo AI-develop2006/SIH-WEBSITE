@@ -27,6 +27,7 @@ import { useToast } from "@/components/unlumen-ui/toast";
 import { Input, Select } from "@/components/unlumen-ui/input";
 import { DEPARTMENTS, YEARS } from "@/lib/constants";
 import { OutdatedMinistryBadge } from "@/components/common/OutdatedMinistryBadge";
+import { fetchNotifications, markNotificationRead, markAllNotificationsRead } from "@/lib/data";
 import { NewMinistryBadge } from "@/components/common/NewMinistryBadge";
 
 function ensureHttp(url) {
@@ -183,13 +184,15 @@ export default function DashboardPage() {
   };
 
   const [myTeam, setMyTeam] = useState(null);
+  const [notifications, setNotifications] = useState([]);
 
   const refresh = useCallback(async () => {
     if (!profile) return;
-    const [announcementsRes, timelineRes, teamsRes] = await Promise.all([
+    const [announcementsRes, timelineRes, teamsRes, notifRes] = await Promise.all([
       data.fetchAnnouncements(),
       data.fetchTimelineEvents(),
       data.fetchEnrichedTeams(),
+      fetchNotifications(),
     ]);
 
     setTimeline(timelineRes.data && timelineRes.data.length > 0 ? timelineRes.data : TIMELINE_FALLBACK);
@@ -204,6 +207,10 @@ export default function DashboardPage() {
         (t) => t.team.leader_id === profile.id || t.members.some((m) => m.id === profile.id)
       );
       setMyTeam(userTeam ?? null);
+    }
+
+    if (notifRes.data) {
+      setNotifications(notifRes.data);
     }
   }, [profile]);
 
@@ -811,18 +818,86 @@ export default function DashboardPage() {
         )}
 
         {activeTab === 'notifications' && (
-          <Card className="p-5 border-border">
-            <h3 className="text-base font-bold mb-4">Announcements</h3>
-            {announcement ? (
-              <div className="rounded-xl border border-border bg-muted/20 p-4 text-left">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-bold text-primary uppercase">Active Announcement</span>
-                  <span className="text-[10px] text-muted-foreground">Recent</span>
-                </div>
-                <p className="text-sm text-foreground whitespace-pre-wrap">{announcement.content}</p>
+          <Card className="p-5 border-border space-y-5">
+            {/* Personal notifications from SPOC */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-base font-bold">Notifications</h3>
+                {notifications.some((n) => !n.read) && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await markAllNotificationsRead();
+                      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+                    }}
+                    className="text-xs text-primary hover:underline font-semibold"
+                  >
+                    Mark all read
+                  </button>
+                )}
               </div>
-            ) : (
-              <p className="text-sm text-muted-foreground text-center py-6">No new announcements at this time.</p>
+
+              {notifications.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">No notifications yet.</p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {notifications.map((n) => (
+                    <div
+                      key={n.id}
+                      className={cn(
+                        "rounded-xl border px-4 py-3 flex items-start gap-3 transition-colors",
+                        n.read
+                          ? "border-border/40 bg-card/20"
+                          : n.type === "spoc_team_added"
+                          ? "border-emerald-500/30 bg-emerald-500/5"
+                          : "border-amber-500/30 bg-amber-500/5"
+                      )}
+                    >
+                      <span className="text-lg shrink-0 mt-0.5">
+                        {n.type === "spoc_team_added" ? "🎉" : "⚠️"}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <p className={cn(
+                          "text-sm font-bold leading-tight",
+                          n.read ? "text-muted-foreground" : n.type === "spoc_team_added" ? "text-emerald-300" : "text-amber-300"
+                        )}>
+                          {n.title}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{n.message}</p>
+                        <p className="text-[10px] text-muted-foreground/60 mt-1.5">
+                          {new Date(n.created_at).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                        </p>
+                      </div>
+                      {!n.read && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await markNotificationRead(n.id);
+                            setNotifications((prev) => prev.map((x) => x.id === n.id ? { ...x, read: true } : x));
+                          }}
+                          className="shrink-0 text-[10px] text-muted-foreground hover:text-primary font-semibold mt-0.5"
+                        >
+                          ✓ Read
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Global announcement */}
+            {announcement && (
+              <div className="border-t border-border/40 pt-4">
+                <h4 className="text-sm font-bold mb-2 text-muted-foreground uppercase tracking-wider text-[10px]">Announcement</h4>
+                <div className="rounded-xl border border-border bg-muted/20 p-4 text-left">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] font-bold text-primary uppercase">Active Announcement</span>
+                    <span className="text-[10px] text-muted-foreground">Recent</span>
+                  </div>
+                  <p className="text-sm text-foreground whitespace-pre-wrap">{announcement.content}</p>
+                </div>
+              </div>
             )}
           </Card>
         )}
@@ -875,7 +950,7 @@ export default function DashboardPage() {
           )}
         >
           <Bell className="size-5" strokeWidth={2} />
-          {announcement && <span className="absolute top-1.5 right-3 size-1.5 rounded-full bg-rose-500 animate-pulse" />}
+          {(announcement || notifications.some((n) => !n.read)) && <span className="absolute top-1.5 right-3 size-1.5 rounded-full bg-rose-500 animate-pulse" />}
           <span className="text-[10px] font-bold">Notifications</span>
         </button>
 

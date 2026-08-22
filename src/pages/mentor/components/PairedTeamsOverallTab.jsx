@@ -3,7 +3,7 @@ import {
   Users, User, Building, Building2, Eye, AlertTriangle, ChevronUp, ChevronDown, Sparkles,
 } from "lucide-react";
 import { cn, computeStats, isSameDepartment, normalizeDepartment } from "@/lib/utils";
-import { MINISTRIES, MAX_MEMBERS_PER_MINISTRY_PER_DEPT, OUTDATED_MINISTRIES, NEW_MINISTRIES } from "@/lib/constants";
+import { MINISTRIES, MAX_MEMBERS_PER_MINISTRY_PER_DEPT, OUTDATED_MINISTRIES, NEW_MINISTRIES, ACTIVE_MINISTRIES_COUNT } from "@/lib/constants";
 import { StudentDetailModal } from "./StudentDetailModal";
 import { TeamDetailsModal } from "./TeamDetailsModal";
 import { OutdatedMinistryBadge } from "@/components/common/OutdatedMinistryBadge";
@@ -502,7 +502,7 @@ export const PairedTeamsOverallTab = memo(function PairedTeamsOverallTab({ teams
             </div>
 
             <div className="text-[10px] text-muted-foreground pt-1">
-              <span className="text-[#c9a227] font-bold">{assignedMinistryCount}</span> / {MINISTRIES.length} ministries active ·{" "}
+              <span className="text-[#c9a227] font-bold">{assignedMinistryCount}</span> / {ACTIVE_MINISTRIES_COUNT} ministries active ·{" "}
               Showing <span className="text-white font-bold">{filteredMinistries.length}</span> ministries
             </div>
           </div>

@@ -4,7 +4,7 @@ import {
   Users, User, LayoutGrid, Building2, Download, AlertTriangle, Lock, Plus, ChevronUp, ChevronDown, Sparkles,
 } from "lucide-react";
 import { cn, computeStats, isSameDepartment, normalizeDepartment } from "@/lib/utils";
-import { MINISTRIES, MAX_MEMBERS_PER_MINISTRY_PER_DEPT, OUTDATED_MINISTRIES, NEW_MINISTRIES } from "@/lib/constants";
+import { MINISTRIES, MAX_MEMBERS_PER_MINISTRY_PER_DEPT, OUTDATED_MINISTRIES, NEW_MINISTRIES, ACTIVE_MINISTRIES_COUNT } from "@/lib/constants";
 import { StudentDetailModal } from "./StudentDetailModal";
 import { TeamDetailsModal } from "./TeamDetailsModal";
 import { TeamFormationRules } from "./TeamFormationRules";
@@ -86,7 +86,7 @@ function MinistriesPanel({ teams, mentorDept }) {
         <div className="space-y-1">
           <h3 className="text-sm font-extrabold text-white">Ministries — {mentorDept || "Your Department"}</h3>
           <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-            <span><span className="text-[#c9a227] font-bold">{assignedCount}</span> / {MINISTRIES.length} ministries active</span>
+            <span><span className="text-[#c9a227] font-bold">{assignedCount}</span> / {ACTIVE_MINISTRIES_COUNT} ministries active</span>
             <span>·</span>
             <span><span className="text-white font-bold">{totalTeamsAssigned}</span> teams assigned</span>
             <span>·</span>
@@ -103,9 +103,9 @@ function MinistriesPanel({ teams, mentorDept }) {
         <div className="flex flex-wrap items-center gap-2 border-t border-border/20 pt-3">
           <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Show:</span>
           {[
-            { id: "all", label: "All", count: MINISTRIES.length },
+              { id: "all", label: "All", count: ACTIVE_MINISTRIES_COUNT },
             { id: "active", label: "Active", count: assignedCount },
-            { id: "inactive", label: "Inactive", count: MINISTRIES.length - assignedCount },
+            { id: "inactive", label: "Inactive", count: ACTIVE_MINISTRIES_COUNT - assignedCount },
             { id: "outdated", label: "Outdated", count: outdatedCount },
             { id: "new", label: "New", count: newCount },
           ].map((f) => (
@@ -146,7 +146,7 @@ function MinistriesPanel({ teams, mentorDept }) {
           ))}
           {(search.trim() || statusFilter !== "all") && (
             <span className="ml-auto text-[10px] text-muted-foreground">
-              Showing <span className="text-white font-bold">{filtered.length}</span> of {MINISTRIES.length}
+              Showing <span className="text-white font-bold">{filtered.length}</span> of {ACTIVE_MINISTRIES_COUNT}
               {search.trim() && (
                 <button type="button" onClick={() => setSearch("")} className="ml-2 text-danger hover:underline font-bold flex items-center gap-1 inline-flex"><X className="size-3" /> clear</button>
               )}

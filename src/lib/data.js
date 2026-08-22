@@ -549,3 +549,44 @@ export async function fetchRegistrationStatus() {
     return { data: null, error: err.message };
   }
 }
+
+// ─── Personal Notifications ───────────────────────────────────────────────────
+
+export async function fetchNotifications() {
+  try {
+    const res = await fetch(`${API_BASE}/api/notifications`, {
+      headers: { ...getAuthHeader() },
+    });
+    const json = await res.json();
+    if (!res.ok) return { data: [], error: json.error };
+    return { data: json.data ?? [], error: null };
+  } catch (err) {
+    return { data: [], error: err.message };
+  }
+}
+
+export async function markNotificationRead(id) {
+  try {
+    const res = await fetch(`${API_BASE}/api/notifications/${id}/read`, {
+      method: "PATCH",
+      headers: { ...getAuthHeader() },
+    });
+    const json = await res.json();
+    return { success: json.success ?? false, error: null };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+export async function markAllNotificationsRead() {
+  try {
+    const res = await fetch(`${API_BASE}/api/notifications/read-all`, {
+      method: "PATCH",
+      headers: { ...getAuthHeader() },
+    });
+    const json = await res.json();
+    return { success: json.success ?? false, error: null };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}

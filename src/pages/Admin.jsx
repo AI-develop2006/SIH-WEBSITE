@@ -24,6 +24,7 @@ import {
   UserMinus,
   ChevronDown,
   ChevronUp,
+  Sliders,
 } from "lucide-react";
 import * as data from "@/lib/data";
 import { downloadCsv, downloadXlsx, deptToAbbr } from "@/lib/utils";
@@ -37,6 +38,7 @@ import { Input, Select } from "@/components/unlumen-ui/input";
 import { CollegeBrand } from "@/components/common/college-brand";
 import { cn } from "@/lib/utils";
 import { OverallMinistriesView } from "./OverallMinistriesView";
+import { MinistrySeatsView } from "./MinistrySeatsView";
 import { MINISTRIES, OUTDATED_MINISTRIES } from "@/lib/constants";
 import { OutdatedMinistryBadge } from "@/components/common/OutdatedMinistryBadge";
 import { NewMinistryBadge } from "@/components/common/NewMinistryBadge";
@@ -456,6 +458,7 @@ export default function AdminPage() {
     { key: "announcements", label: "Announcements", shortLabel: "Announce", icon: Megaphone },
     { key: "registration",  label: "Registration",  shortLabel: "Reg",     icon: Settings },
     { key: "ministries",    label: "Ministries",    shortLabel: "Ministry", icon: Building2 },
+    { key: "seats",         label: "Seats",         shortLabel: "Seats",    icon: Sliders },
   ];
 
   if (loading) {
@@ -586,6 +589,10 @@ export default function AdminPage() {
 
           {tab === "ministries" && (
             <OverallMinistriesView teams={teams} onReload={load} />
+          )}
+
+          {tab === "seats" && (
+            <MinistrySeatsView />
           )}
 
           {tab === "students" && (

@@ -144,3 +144,10 @@ export const NEW_MINISTRIES = new Set([
   "Qualcomm Inc",
   "Egreen Quanta",
 ]);
+
+/**
+ * The effective active ministry count:
+ * total ministries minus outdated ones (which are no longer valid targets).
+ * Use this everywhere instead of MINISTRIES.length for display purposes.
+ */
+export const ACTIVE_MINISTRIES_COUNT = MINISTRIES.length - OUTDATED_MINISTRIES.size;

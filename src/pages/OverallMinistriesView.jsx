@@ -1,5 +1,5 @@
 import { useMemo, useState, useCallback } from "react";
-import { MINISTRIES, DEPARTMENTS, OUTDATED_MINISTRIES, NEW_MINISTRIES } from "@/lib/constants";
+import { MINISTRIES, DEPARTMENTS, OUTDATED_MINISTRIES, NEW_MINISTRIES, ACTIVE_MINISTRIES_COUNT } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/unlumen-ui/card";
 import { Button } from "@/components/unlumen-ui/button";
@@ -63,7 +63,7 @@ export function OverallMinistriesView({ teams, onReload }) {
   }, [ministryMap]);
 
   const activeCount = useMemo(() => ministrySummary.filter((s) => s.active).length, [ministrySummary]);
-  const inactiveCount = MINISTRIES.length - activeCount;
+  const inactiveCount = ACTIVE_MINISTRIES_COUNT - activeCount;
 
   const filteredMinistrySummary = useMemo(() => {
     const needle = ministrySearch.trim().toLowerCase();
@@ -176,7 +176,8 @@ export function OverallMinistriesView({ teams, onReload }) {
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <Card className="p-4 border border-border/40 bg-card/40">
           <p className="text-[10px] uppercase font-bold text-muted-foreground">Total Ministries</p>
-          <p className="text-2xl font-extrabold text-white mt-1">{MINISTRIES.length}</p>
+          <p className="text-2xl font-extrabold text-white mt-1">{ACTIVE_MINISTRIES_COUNT}</p>
+          <p className="text-[10px] text-muted-foreground/60 mt-0.5">{MINISTRIES.length - ACTIVE_MINISTRIES_COUNT} outdated excluded</p>
         </Card>
         <button type="button" onClick={() => setStatusFilter((s) => s === "active" ? "all" : "active")} className="text-left">
           <Card className={cn("p-4 border bg-card/40 transition-all h-full",
@@ -259,7 +260,7 @@ export function OverallMinistriesView({ teams, onReload }) {
               className="w-full rounded-lg border border-border/40 bg-muted/20 text-[11px] text-white px-2.5 py-1.5 focus:outline-none focus:border-primary placeholder:text-muted-foreground" />
             <div className="flex items-center gap-1.5 flex-wrap">
               {[
-                { id: "all", label: "All", count: MINISTRIES.length },
+                { id: "all", label: "All", count: ACTIVE_MINISTRIES_COUNT },
                 { id: "active", label: "Active", count: activeCount },
                 { id: "inactive", label: "Inactive", count: inactiveCount },
                 { id: "outdated", label: "Outdated", count: OUTDATED_MINISTRIES.size },

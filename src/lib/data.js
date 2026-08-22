@@ -412,3 +412,31 @@ export const api = {
 export function isConfigured() {
   return true;
 }
+
+export async function fetchMinistrySeats() {
+  try {
+    const res = await fetch(`${API_BASE}/api/settings/ministry-seats`, {
+      headers: { ...getAuthHeader() },
+    });
+    const j = await res.json();
+    if (!res.ok) return { data: {}, error: j.error };
+    return { data: j.data ?? {}, error: null };
+  } catch (e) {
+    return { data: {}, error: e.message };
+  }
+}
+
+export async function saveMinistrySeats(seats) {
+  try {
+    const res = await fetch(`${API_BASE}/api/settings/ministry-seats`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...getAuthHeader() },
+      body: JSON.stringify({ seats }),
+    });
+    const j = await res.json();
+    if (!res.ok) return { success: false, error: j.error };
+    return { success: true, error: null };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}

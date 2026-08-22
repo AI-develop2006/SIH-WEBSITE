@@ -37,8 +37,9 @@ import { Input, Select } from "@/components/unlumen-ui/input";
 import { CollegeBrand } from "@/components/common/college-brand";
 import { cn } from "@/lib/utils";
 import { OverallMinistriesView } from "./OverallMinistriesView";
-import { MINISTRIES } from "@/lib/constants";
+import { MINISTRIES, OUTDATED_MINISTRIES } from "@/lib/constants";
 import { OutdatedMinistryBadge } from "@/components/common/OutdatedMinistryBadge";
+import { NewMinistryBadge } from "@/components/common/NewMinistryBadge";
 
 export default function AdminPage() {
   const navigate = useNavigate();
@@ -1372,13 +1373,16 @@ function TeamsManager({ teams, profiles, problems, problemMap, deleting, onDelet
                       className="flex-1 min-w-[200px] rounded border border-border bg-background px-3 py-1.5 text-xs text-foreground focus:border-primary focus:outline-none disabled:opacity-50"
                     >
                       <option value="">— No Ministry —</option>
-                      {/* Current value first if not in standard list */}
-                      {t.team.ministry && !MINISTRIES_LIST.includes(t.team.ministry) && (
-                        <option key={t.team.ministry} value={t.team.ministry}>{t.team.ministry}</option>
+                      {/* If team already has an outdated/non-standard ministry, show it as a legacy option */}
+                      {t.team.ministry && (OUTDATED_MINISTRIES.has(t.team.ministry) || !MINISTRIES_LIST.includes(t.team.ministry)) && (
+                        <option key={`legacy-${t.team.ministry}`} value={t.team.ministry}>
+                          {OUTDATED_MINISTRIES.has(t.team.ministry) ? `⚠ ${t.team.ministry} (Outdated — reassign)` : t.team.ministry}
+                        </option>
                       )}
-                      {MINISTRIES_LIST.map((m) => <option key={m} value={m}>{m}</option>)}
+                      {MINISTRIES_LIST.filter((m) => !OUTDATED_MINISTRIES.has(m)).map((m) => <option key={m} value={m}>{m}</option>)}
                     </select>
                     <OutdatedMinistryBadge ministry={t.team.ministry} />
+                    <NewMinistryBadge ministry={t.team.ministry} />
                   </div>
 
                   {/* Current members */}

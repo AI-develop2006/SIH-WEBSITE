@@ -1233,6 +1233,154 @@ app.get("/api/settings/registration", async (_req, res) => {
   }
 });
 
+// ─── SPOC Final Teams API ─────────────────────────────────────────────────────
+// These endpoints manage the 6-member final teams formed by the SPOC
+// from the pair-teams created by mentors.
+
+// Ensure the spoc_final_teams table exists (creates on first request)
+async function ensureSpocTable() {
+  if (process.env.DATABASE_URL) {
+    try {
+      await dbQuery(`
+        CREATE TABLE IF NOT EXISTS public.spoc_final_teams (
+          id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          name        TEXT NOT NULL,
+          ministry    TEXT,
+          member_ids  TEXT[] NOT NULL DEFAULT '{}',
+          created_by  UUID REFERENCES public.profiles(id),
+          created_at  TIMESTAMPTZ DEFAULT now(),
+          updated_at  TIMESTAMPTZ DEFAULT now()
+        );
+      `);
+    } catch (_) { /* table may already exist */ }
+  } else if (supabase) {
+    // Supabase — table must be created via migrations; log a warning if missing
+  }
+}
+
+// GET /api/spoc/final-teams — list all final teams
+app.get("/api/spoc/final-teams", async (req, res) => {
+  try {
+    await ensureSpocTable();
+    if (process.env.DATABASE_URL) {
+      const { rows } = await dbQuery(
+        `SELECT * FROM public.spoc_final_teams ORDER BY created_at ASC;`
+      );
+      return res.json({ data: rows });
+    } else if (supabase) {
+      const { data, error } = await supabase
+        .from("spoc_final_teams")
+        .select("*")
+        .order("created_at", { ascending: true });
+      if (error) return res.status(500).json({ error: error.message });
+      return res.json({ data: data ?? [] });
+    }
+    return res.json({ data: [] });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/spoc/final-teams — create a new final team
+app.post("/api/spoc/final-teams", async (req, res) => {
+  const { name, ministry, member_ids } = req.body;
+  if (!name?.trim()) return res.status(400).json({ error: "Team name is required" });
+  if (!Array.isArray(member_ids)) return res.status(400).json({ error: "member_ids must be an array" });
+
+  try {
+    await ensureSpocTable();
+
+    // Auth — get creator id from token
+    let createdBy = null;
+    const authHeader = req.headers.authorization;
+    if (authHeader?.startsWith("Bearer ") && supabase) {
+      try {
+        const { data: { user } } = await supabase.auth.getUser(authHeader.split(" ")[1]);
+        createdBy = user?.id ?? null;
+      } catch (_) {}
+    }
+
+    if (process.env.DATABASE_URL) {
+      const { rows } = await dbQuery(
+        `INSERT INTO public.spoc_final_teams (name, ministry, member_ids, created_by)
+         VALUES ($1, $2, $3, $4)
+         RETURNING *;`,
+        [name.trim(), ministry || null, member_ids, createdBy]
+      );
+      return res.json({ data: rows[0] });
+    } else if (supabase) {
+      const { data, error } = await supabase
+        .from("spoc_final_teams")
+        .insert([{ name: name.trim(), ministry: ministry || null, member_ids, created_by: createdBy }])
+        .select()
+        .single();
+      if (error) return res.status(500).json({ error: error.message });
+      return res.json({ data });
+    }
+    return res.status(500).json({ error: "No database configured" });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// PATCH /api/spoc/final-teams/:id — update a final team
+app.patch("/api/spoc/final-teams/:id", async (req, res) => {
+  const { id } = req.params;
+  const { name, ministry, member_ids } = req.body;
+
+  try {
+    await ensureSpocTable();
+    if (process.env.DATABASE_URL) {
+      const { rows } = await dbQuery(
+        `UPDATE public.spoc_final_teams
+         SET name = COALESCE($1, name),
+             ministry = COALESCE($2, ministry),
+             member_ids = COALESCE($3, member_ids),
+             updated_at = now()
+         WHERE id = $4
+         RETURNING *;`,
+        [name?.trim() ?? null, ministry ?? null, member_ids ?? null, id]
+      );
+      if (!rows.length) return res.status(404).json({ error: "Team not found" });
+      return res.json({ data: rows[0] });
+    } else if (supabase) {
+      const patch = {};
+      if (name !== undefined) patch.name = name.trim();
+      if (ministry !== undefined) patch.ministry = ministry;
+      if (member_ids !== undefined) patch.member_ids = member_ids;
+      patch.updated_at = new Date().toISOString();
+      const { data, error } = await supabase
+        .from("spoc_final_teams")
+        .update(patch)
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) return res.status(500).json({ error: error.message });
+      return res.json({ data });
+    }
+    return res.status(500).json({ error: "No database configured" });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /api/spoc/final-teams/:id — delete a final team
+app.delete("/api/spoc/final-teams/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+    await ensureSpocTable();
+    if (process.env.DATABASE_URL) {
+      await dbQuery(`DELETE FROM public.spoc_final_teams WHERE id = $1;`, [id]);
+    } else if (supabase) {
+      const { error } = await supabase.from("spoc_final_teams").delete().eq("id", id);
+      if (error) return res.status(500).json({ error: error.message });
+    }
+    return res.json({ success: true });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 // Serve static build if present
 const distFolder = join(__dirname, "dist");
 const indexHtmlFile = join(distFolder, "index.html");

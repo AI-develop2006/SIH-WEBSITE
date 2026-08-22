@@ -222,7 +222,7 @@ export default function MentorDashboardPage() {
 
   // ─── Handlers ────────────────────────────────────────────────────────────────
 
-  async function handleAssignSubmit(e) {
+  const handleAssignSubmit = useCallback(async (e) => {
     e.preventDefault();
     if (!selectedStudent) return;
     if (!selectedTeamId) {
@@ -300,9 +300,9 @@ export default function MentorDashboardPage() {
     } finally {
       setBusyAssign(false);
     }
-  }
+  }, [selectedStudent, selectedTeamId, mentorDept, teams, toast]);
 
-  async function handleCreateTeamDirectSubmit(customName, category = "Pairs") {
+  const handleCreateTeamDirectSubmit = useCallback(async (customName, category = "Pairs") => {
     const finalName = customName?.trim();
     if (!finalName) {
       toast("error", "Team name is required. Please enter a name for your team.");
@@ -334,9 +334,9 @@ export default function MentorDashboardPage() {
     } finally {
       setBusyAssign(false);
     }
-  }
+  }, [mentorDept, toast]);
 
-  async function assignMemberSkill(teamId, memberId, skill) {
+  const assignMemberSkill = useCallback(async (teamId, memberId, skill) => {
     const prevSkill =
       teams.find((t) => t.team.id === teamId)?.members.find((m) => m.id === memberId)
         ?.assigned_skill ?? null;
@@ -360,9 +360,9 @@ export default function MentorDashboardPage() {
       );
       toast("error", res.error);
     }
-  }
+  }, [teams, toast]);
 
-  async function assignTeamMinistry(teamId, ministry) {
+  const assignTeamMinistry = useCallback(async (teamId, ministry) => {
     const prevMinistry = teams.find((t) => t.team.id === teamId)?.team.ministry ?? null;
 
     setTeams((prev) =>
@@ -380,9 +380,9 @@ export default function MentorDashboardPage() {
       );
       toast("error", res.error);
     }
-  }
+  }, [teams, toast]);
 
-  async function renameTeam(teamId, newName) {
+  const renameTeam = useCallback(async (teamId, newName) => {
     const prevName = teams.find((t) => t.team.id === teamId)?.team.name ?? "";
     setTeams((prev) =>
       prev.map((t) =>
@@ -398,9 +398,9 @@ export default function MentorDashboardPage() {
       );
       toast("error", res.error);
     }
-  }
+  }, [teams, toast]);
 
-  async function removeMember(teamId, memberId, name) {
+  const removeMember = useCallback(async (teamId, memberId, name) => {
     if (!confirm(`Are you sure you want to remove ${name} from this team?`)) return;
     try {
       const res = await data.api.removeMemberDirectMentor(teamId, memberId);
@@ -427,9 +427,9 @@ export default function MentorDashboardPage() {
       toast("error", err instanceof Error ? err.message : "Failed to remove member");
       setRefreshCount((c) => c + 1);
     }
-  }
+  }, [toast]);
 
-  async function deleteTeam(teamId, name, memberCount = 0) {
+  const deleteTeam = useCallback(async (teamId, name, memberCount = 0) => {
     if (memberCount > 0) {
       toast("error", "You cannot delete a team with active members. Please remove all members first.");
       return;
@@ -444,9 +444,9 @@ export default function MentorDashboardPage() {
       toast("error", err instanceof Error ? err.message : "Failed to delete team");
       setRefreshCount((c) => c + 1);
     }
-  }
+  }, [toast]);
 
-  async function handleProfileSubmit(e) {
+  const handleProfileSubmit = useCallback(async (e) => {
     e.preventDefault();
     if (!profileForm.name.trim()) {
       toast("error", "Name is required");
@@ -481,20 +481,20 @@ export default function MentorDashboardPage() {
     } finally {
       setBusyAssign(false);
     }
-  }
+  }, [profileForm, toast]);
 
-  function handleTeamCardClick(teamId) {
+  const handleTeamCardClick = useCallback((teamId) => {
     setFocusedTeamId(teamId);
     setTab("teams");
     setTimeout(() => {
       document.getElementById(`team-card-${teamId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 150);
-  }
+  }, []);
 
-  async function logout() {
+  const logout = useCallback(async () => {
     await data.logoutUser();
     navigate("/", { replace: true });
-  }
+  }, [navigate]);
 
   // ─── Render ───────────────────────────────────────────────────────────────────
 

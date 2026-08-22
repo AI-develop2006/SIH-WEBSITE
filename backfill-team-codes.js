@@ -183,8 +183,6 @@ async function run() {
            SET team_code       = $1,
                created_by_dept = $2
            WHERE id = $3;`,
-          [upd.new_code, upd.canonical, upd.id]
-        );
           [upd.new_code, upd.created_by_dept, upd.id]
         );
       } else if (supabase) {

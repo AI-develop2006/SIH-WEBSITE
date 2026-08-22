@@ -1,5 +1,5 @@
 import { useMemo, useState, useCallback } from "react";
-import { MINISTRIES, DEPARTMENTS } from "@/lib/constants";
+import { MINISTRIES, DEPARTMENTS, OUTDATED_MINISTRIES } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/unlumen-ui/card";
 import { Button } from "@/components/unlumen-ui/button";
@@ -7,6 +7,8 @@ import { GlowingBadge } from "@/components/unlumen-ui/glowing-badge";
 import { Avatar } from "@/components/unlumen-ui/avatar";
 import * as data from "@/lib/data";
 import { useToast } from "@/components/unlumen-ui/toast";
+import { OutdatedMinistryBadge } from "@/components/common/OutdatedMinistryBadge";
+import { AlertTriangle } from "lucide-react";
 
 const CAP = 6; // max members per dept per ministry
 
@@ -67,6 +69,7 @@ export function OverallMinistriesView({ teams, onReload }) {
     return ministrySummary.filter((s) => {
       if (statusFilter === "active" && !s.active) return false;
       if (statusFilter === "inactive" && s.active) return false;
+      if (statusFilter === "outdated" && !OUTDATED_MINISTRIES.has(s.ministry)) return false;
       if (needle && !s.ministry.toLowerCase().includes(needle)) return false;
       return true;
     });
@@ -189,13 +192,29 @@ export function OverallMinistriesView({ teams, onReload }) {
             <p className="text-[10px] text-muted-foreground/60 mt-0.5">{statusFilter === "inactive" ? "← inactive only" : "click to filter"}</p>
           </Card>
         </button>
-        <Card className="p-4 border border-border/40 bg-card/40">
-          <p className="text-[10px] uppercase font-bold text-muted-foreground">Members Placed</p>
-          <p className="text-2xl font-extrabold text-white mt-1">
-            {teams.filter((t) => t.team?.ministry).reduce((s, t) => s + t.members.length, 0)}
-          </p>
-        </Card>
+        <button type="button" onClick={() => setStatusFilter((s) => s === "outdated" ? "all" : "outdated")} className="text-left">
+          <Card className={cn("p-4 border bg-card/40 transition-all h-full",
+            statusFilter === "outdated" ? "border-amber-500/50 bg-amber-500/10" : "border-border/40 hover:border-amber-500/30")}>
+            <div className="flex items-center gap-1.5 mb-1">
+              <AlertTriangle className="size-3 text-amber-400" />
+              <p className="text-[10px] uppercase font-bold text-muted-foreground">Outdated</p>
+            </div>
+            <p className={cn("text-2xl font-extrabold mt-1", statusFilter === "outdated" ? "text-amber-400" : "text-amber-500/70")}>{OUTDATED_MINISTRIES.size}</p>
+            <p className="text-[10px] text-muted-foreground/60 mt-0.5">{statusFilter === "outdated" ? "← outdated only" : "click to filter"}</p>
+          </Card>
+        </button>
       </div>
+
+      {/* Outdated info banner */}
+      {statusFilter === "outdated" && (
+        <div className="flex items-start gap-2.5 rounded-xl border border-amber-500/30 bg-amber-500/8 px-4 py-3">
+          <AlertTriangle className="size-3.5 text-amber-400 shrink-0 mt-0.5" />
+          <p className="text-[11px] text-amber-300/90 leading-relaxed">
+            <span className="font-bold text-amber-300">What does "Outdated" mean?</span>
+            {" "}These ministries are not listed in the official SIH 2026 Problem Statements. Teams that selected an outdated ministry will need to be reconsidered and reassigned to one of the currently active ministries.
+          </p>
+        </div>
+      )}
 
       <div className="grid lg:grid-cols-[320px_1fr] gap-4 items-start">
         {/* ── Left: Ministry Selector ────────────────────────────────────── */}
@@ -214,11 +233,12 @@ export function OverallMinistriesView({ teams, onReload }) {
             <input type="text" placeholder="Search ministry..." value={ministrySearch}
               onChange={(e) => setMinistrySearch(e.target.value)}
               className="w-full rounded-lg border border-border/40 bg-muted/20 text-[11px] text-white px-2.5 py-1.5 focus:outline-none focus:border-primary placeholder:text-muted-foreground" />
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
               {[
                 { id: "all", label: "All", count: MINISTRIES.length },
                 { id: "active", label: "Active", count: activeCount },
                 { id: "inactive", label: "Inactive", count: inactiveCount },
+                { id: "outdated", label: "Outdated", count: OUTDATED_MINISTRIES.size },
               ].map((f) => (
                 <button key={f.id} type="button"
                   onClick={() => {
@@ -228,6 +248,7 @@ export function OverallMinistriesView({ teams, onReload }) {
                       if (s) {
                         if (f.id === "active" && !s.active) setSelectedMinistry("");
                         if (f.id === "inactive" && s.active) setSelectedMinistry("");
+                        if (f.id === "outdated" && !OUTDATED_MINISTRIES.has(s.ministry)) setSelectedMinistry("");
                       }
                     }
                   }}
@@ -236,16 +257,19 @@ export function OverallMinistriesView({ teams, onReload }) {
                     statusFilter === f.id
                       ? f.id === "active" ? "bg-emerald-500/20 border border-emerald-500/40 text-emerald-300"
                         : f.id === "inactive" ? "bg-muted/40 border border-border/60 text-muted-foreground"
+                        : f.id === "outdated" ? "bg-amber-500/20 border border-amber-500/40 text-amber-300"
                         : "bg-primary/20 border border-primary/40 text-primary"
                       : "bg-card/30 border border-border/30 text-muted-foreground hover:text-foreground hover:border-border/60"
                   )}>
                   {f.id === "active" && <span className="size-1.5 rounded-full bg-emerald-400 shrink-0" />}
                   {f.id === "inactive" && <span className="size-1.5 rounded-full bg-muted-foreground/40 shrink-0" />}
+                  {f.id === "outdated" && <AlertTriangle className="size-2.5 shrink-0" />}
                   {f.label}
                   <span className={cn("text-[9px] font-extrabold px-1 py-0.5 rounded-full ml-0.5",
                     statusFilter === f.id
                       ? f.id === "active" ? "bg-emerald-500/20 text-emerald-300"
                         : f.id === "inactive" ? "bg-muted/30 text-muted-foreground"
+                        : f.id === "outdated" ? "bg-amber-500/20 text-amber-300"
                         : "bg-primary/20 text-primary"
                       : "bg-muted/20 text-muted-foreground")}>
                     {f.count}
@@ -271,6 +295,7 @@ export function OverallMinistriesView({ teams, onReload }) {
                   <div className="flex items-center gap-2 min-w-0">
                     <span className={cn("size-1.5 rounded-full shrink-0", active ? "bg-emerald-400" : "bg-muted-foreground/30")} />
                     <span className="truncate leading-relaxed">{m}</span>
+                    <OutdatedMinistryBadge ministry={m} inline />
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
                     {active ? (
@@ -299,7 +324,10 @@ export function OverallMinistriesView({ teams, onReload }) {
               <Card className="p-4 border border-border/40 bg-card/40 space-y-3">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <h3 className="text-sm font-extrabold text-white leading-tight">{selectedMinistry}</h3>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-sm font-extrabold text-white leading-tight">{selectedMinistry}</h3>
+                      <OutdatedMinistryBadge ministry={selectedMinistry} />
+                    </div>
                     <p className="text-xs text-muted-foreground mt-1">
                       {selectedMinistryTeams.length} team{selectedMinistryTeams.length !== 1 ? "s" : ""} ·{" "}
                       {totalInMinistry} member{totalInMinistry !== 1 ? "s" : ""}

@@ -2,6 +2,72 @@ export function cn(...classes) {
   return classes.filter(Boolean).join(" ");
 }
 
+/**
+ * Maps full department names (and common abbreviations) to their canonical
+ * short code, e.g. "Artificial Intelligence and Data Science" → "AI&DS".
+ * Used to normalise the `created_by_dept` field which can be stored in
+ * either full or abbreviated form.
+ */
+const DEPT_FULL_TO_CODE = {
+  "Computer Science and Engineering": "CSE",
+  "Information Technology": "IT",
+  "Artificial Intelligence and Data Science": "AI&DS",
+  "Civil Engineering": "CIVIL",
+  "Mechanical Engineering": "MECH",
+  "Instrumentation and Control Engineering": "ICE",
+  "Computer Science and Engineering and Business Systems": "CSEBS",
+  "Computer and Communication Engineering": "CCE",
+  "Mechatronics": "MCTR",
+  "Electrical and Electronics Engineering": "EEE",
+  "Electronics and Communication Engineering": "ECE",
+  "BioMedical Engineering": "BME",
+  "Master of Computer Applications": "MCA",
+  "Master of Business Administration": "MBA",
+};
+
+// Also accept already-abbreviated forms (case-insensitive)
+const DEPT_ABBR_ALIASES = {
+  "cse": "CSE",
+  "it": "IT",
+  "ai&ds": "AI&DS",
+  "ai & ds": "AI&DS",
+  "aids": "AI&DS",
+  "civil": "CIVIL",
+  "mech": "MECH",
+  "ice": "ICE",
+  "i&ce": "ICE",
+  "csebs": "CSEBS",
+  "csbs": "CSEBS",
+  "cse&bs": "CSEBS",
+  "cce": "CCE",
+  "c&ce": "CCE",
+  "mctr": "MCTR",
+  "mct": "MCTR",
+  "mechatronics": "MCTR",
+  "eee": "EEE",
+  "ece": "ECE",
+  "bme": "BME",
+  "biomedical engineering": "BME",
+  "mca": "MCA",
+  "mba": "MBA",
+};
+
+/**
+ * Normalizes any department string (full name or abbreviation) to its
+ * short code form. Returns the input trimmed if no match found.
+ */
+export function deptToAbbr(dept) {
+  if (!dept) return "";
+  const trimmed = dept.trim();
+  // Exact match on full name
+  if (DEPT_FULL_TO_CODE[trimmed]) return DEPT_FULL_TO_CODE[trimmed];
+  // Case-insensitive alias lookup
+  const lower = trimmed.toLowerCase();
+  if (DEPT_ABBR_ALIASES[lower]) return DEPT_ABBR_ALIASES[lower];
+  // Already an abbr or unknown — return as-is
+  return trimmed;
+}
+
 const RULES = {
   MAX_MEMBERS: 6,
   MIN_GIRLS: 2,

@@ -26,7 +26,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 import * as data from "@/lib/data";
-import { downloadCsv, downloadXlsx } from "@/lib/utils";
+import { downloadCsv, downloadXlsx, deptToAbbr } from "@/lib/utils";
 import { DEPARTMENTS } from "@/lib/constants";
 import { useToast } from "@/components/unlumen-ui/toast";
 import { Button } from "@/components/unlumen-ui/button";
@@ -37,6 +37,8 @@ import { Input, Select } from "@/components/unlumen-ui/input";
 import { CollegeBrand } from "@/components/common/college-brand";
 import { cn } from "@/lib/utils";
 import { OverallMinistriesView } from "./OverallMinistriesView";
+import { MINISTRIES } from "@/lib/constants";
+import { OutdatedMinistryBadge } from "@/components/common/OutdatedMinistryBadge";
 
 export default function AdminPage() {
   const navigate = useNavigate();
@@ -425,7 +427,7 @@ export default function AdminPage() {
           members: memberNames,
           year,
           section,
-          department: dept,
+          department: deptToAbbr(dept),
           ministry: t.team.ministry ?? "",
           female: femaleCount,
         };
@@ -1125,13 +1127,15 @@ function TeamsManager({ teams, profiles, problems, problemMap, deleting, onDelet
   const assignedIds = new Set(teams.flatMap((t) => t.members.map((m) => m.id)));
 
   // Filtered teams — case-insensitive dept match handles abbreviations like 'AI & DS'
-  const allTeamDepts = [...new Set(teams.map((t) => t.team.created_by_dept).filter(Boolean))].sort();
+  const allTeamDepts = useMemo(
+    () => [...new Set(teams.map((t) => deptToAbbr(t.team.created_by_dept)).filter(Boolean))].sort(),
+    [teams]
+  );
   const allTeamMinistries = [...new Set(teams.map((t) => t.team.ministry).filter(Boolean))].sort();
 
   const displayTeams = teams.filter((t) => {
     if (teamDeptFilter) {
-      const raw = (t.team.created_by_dept ?? "").toLowerCase().trim();
-      if (raw !== teamDeptFilter.toLowerCase().trim()) return false;
+      if (deptToAbbr(t.team.created_by_dept ?? "") !== teamDeptFilter) return false;
     }
     if (teamMinistryFilter && t.team.ministry !== teamMinistryFilter) return false;
     if (teamSearch.trim()) {
@@ -1143,45 +1147,7 @@ function TeamsManager({ teams, profiles, problems, problemMap, deleting, onDelet
     return true;
   });
 
-  const MINISTRIES_LIST = [
-    "Ministry of Development of North Eastern Region (MoDoNER)",
-    "Ministry of Fisheries, Animal Husbandry & Dairying",
-    "Ministry of Railways",
-    "Ministry of Ayush",
-    "Ministry of Corporate Affairs (MoCA)",
-    "Ministry of Earth Sciences (MoES)",
-    "Ministry of Consumer Affairs, Food & Public Distribution",
-    "Ministry of Social Justice & Empowerment (MoSJE)",
-    "Ministry of Jal Shakti (MoJS)",
-    "Ministry of Mines",
-    "Ministry of Youth Affairs and Sports",
-    "Ministry of Tribal Affairs (MoTA)",
-    "Ministry of Agriculture & Farmers Welfare (MoA&FW)",
-    "Ministry of Coal (MoC)",
-    "Ministry of Defence (MoD)",
-    "Ministry of Steel (MoS)",
-    "Ministry of Power (MoP)",
-    "Ministry of Home Affairs (MHA)",
-    "Ministry of Skill Development & Entrepreneurship (MSDE)",
-    "Ministry of Science and Technology",
-    "Ministry of Education (MoE)",
-    "Government of Punjab",
-    "Government of Jharkhand",
-    "Government of Odisha",
-    "Government of Sikkim",
-    "Government of Kerala",
-    "Government of Jammu and Kashmir",
-    "Government of Rajasthan",
-    "Government of Gujarat",
-    "Government of Chhattisgarh",
-    "AICTE",
-    "National Technical Research Organisation (NTRO)",
-    "Indian Space Research Organisation (ISRO)",
-    "Bharat Electronics Limited (BEL)",
-    "Autodesk",
-    "MathWorks India Pvt. Ltd.",
-    "Neilsoft Ltd.",
-  ];
+  const MINISTRIES_LIST = MINISTRIES;
 
   return (
     <div className="flex flex-col gap-4">
@@ -1412,6 +1378,7 @@ function TeamsManager({ teams, profiles, problems, problemMap, deleting, onDelet
                       )}
                       {MINISTRIES_LIST.map((m) => <option key={m} value={m}>{m}</option>)}
                     </select>
+                    <OutdatedMinistryBadge ministry={t.team.ministry} />
                   </div>
 
                   {/* Current members */}

@@ -87,3 +87,30 @@ export const OTHER_ROLES = [
   "Data Analysis & Visualization",
   "Research & Innovation",
 ];
+
+/**
+ * Ministries that are in our codebase but NOT present in the
+ * official SIH_2026_Problem_Statements.xlsx — tagged as outdated.
+ * These should show a warning badge wherever they appear.
+ */
+export const OUTDATED_MINISTRIES = new Set([
+  "Ministry of Corporate Affairs (MoCA)",
+  "Ministry of Jal Shakti (MoJS)",
+  "Ministry of Mines",
+  "Ministry of Youth Affairs and Sports",
+  "Ministry of Tribal Affairs (MoTA)",
+  "Ministry of Agriculture & Farmers Welfare (MoA&FW)",
+  "Ministry of Power (MoP)",
+  "Ministry of Skill Development & Entrepreneurship (MSDE)",
+  "Ministry of Science and Technology",
+  "Ministry of Education (MoE)",
+  "Government of Punjab",
+  "Government of Odisha",
+  "Government of Sikkim",
+  "Government of Kerala",
+  "Government of Jammu and Kashmir",
+  "Government of Rajasthan",
+  "Government of Gujarat",
+  "Government of Chhattisgarh",
+  "Neilsoft Ltd.",
+]);

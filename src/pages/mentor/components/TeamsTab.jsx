@@ -1,7 +1,7 @@
 import { useState, useMemo, memo } from "react";
 import { Button } from "@/components/unlumen-ui/button";
 import {
-  Users, User, LayoutGrid, Building2, Download, AlertTriangle, Lock, Plus, ChevronUp, ChevronDown, Sparkles,
+  Users, User, LayoutGrid, Building2, Download, AlertTriangle, Lock, Plus, ChevronUp, ChevronDown, Sparkles, Search, X,
 } from "lucide-react";
 import { cn, computeStats, isSameDepartment, normalizeDepartment } from "@/lib/utils";
 import { MINISTRIES, MAX_MEMBERS_PER_MINISTRY_PER_DEPT, OUTDATED_MINISTRIES, NEW_MINISTRIES, ACTIVE_MINISTRIES_COUNT } from "@/lib/constants";
@@ -346,6 +346,10 @@ export const TeamsTab = memo(function TeamsTab({
   const [selectedTeamOverlay, setSelectedTeamOverlay] = useState(null);
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [subTab, setSubTab] = useState("teams"); // "teams" | "ministries"
+  const [teamSearch, setTeamSearch] = useState("");
+  const [ministryFilter, setMinistryFilter] = useState("");
+  const [approvalFilter, setApprovalFilter] = useState("all"); // "all" | "approved" | "pending"
+  const [sectionFilter, setSectionFilter] = useState("");
 
   // Keep selectedTeamOverlay in sync when teams array updates
   const activeOverlayData = selectedTeamOverlay
@@ -368,12 +372,35 @@ export const TeamsTab = memo(function TeamsTab({
   }, [teams, mentorDept]);
 
   const displayTeams = useMemo(() => {
+    const needle = teamSearch.trim().toLowerCase();
     return myTeams.filter((t) => {
-      if (categoryFilter === "All") return true;
-      const cat = t.team.category || (t.members.length === 1 ? "Solo" : "Pairs");
-      return cat === categoryFilter;
+      if (categoryFilter !== "All") {
+        const cat = t.team.category || (t.members.length === 1 ? "Solo" : "Pairs");
+        if (cat !== categoryFilter) return false;
+      }
+      if (ministryFilter && t.team.ministry !== ministryFilter) return false;
+      if (approvalFilter === "approved" && !t.team.approved) return false;
+      if (approvalFilter === "pending" && t.team.approved) return false;
+      if (sectionFilter && !t.members.some((m) => (m.section ?? "").toUpperCase() === sectionFilter.toUpperCase())) return false;
+      if (needle) {
+        const hay = [t.team.team_code, t.team.name, t.team.ministry, ...t.members.map((m) => m.name)]
+          .filter(Boolean).join(" ").toLowerCase();
+        if (!hay.includes(needle)) return false;
+      }
+      return true;
     });
-  }, [myTeams, categoryFilter]);
+  }, [myTeams, categoryFilter, teamSearch, ministryFilter, approvalFilter, sectionFilter]);
+
+  // Derived filter options from own teams
+  const availableMinistries = useMemo(
+    () => [...new Set(myTeams.map((t) => t.team.ministry).filter(Boolean))].sort(),
+    [myTeams]
+  );
+  const availableSections = useMemo(
+    () => [...new Set(myTeams.flatMap((t) => t.members.map((m) => m.section)).filter(Boolean))].sort(),
+    [myTeams]
+  );
+  const hasActiveFilters = teamSearch || ministryFilter || approvalFilter !== "all" || sectionFilter;
 
   // ── Export teams as CSV (one row per team, members in single cells) ─────────
   function exportTeamsCSV() {
@@ -497,7 +524,7 @@ export const TeamsTab = memo(function TeamsTab({
             </div>
             <div className="flex items-center justify-between sm:justify-end gap-3">
               <span className="text-xs text-muted-foreground font-semibold">
-                <span className="text-white font-bold">{displayTeams.length}</span> team{displayTeams.length !== 1 ? "s" : ""}
+                <span className="text-white font-bold">{displayTeams.length}</span>{myTeams.length !== displayTeams.length && <span className="text-muted-foreground"> of {myTeams.length}</span>} team{displayTeams.length !== 1 ? "s" : ""}
                 {mentorDept && <span className="text-muted-foreground"> · {mentorDept}</span>}
               </span>
               {myTeams.length > 0 && (
@@ -521,6 +548,74 @@ export const TeamsTab = memo(function TeamsTab({
               )}
             </div>
           </div>
+
+          {/* Search + Filters row */}
+          {myTeams.length > 0 && (
+            <div className="flex flex-wrap gap-2 items-center">
+              {/* Name / team-code search */}
+              <div className="relative flex-1 min-w-[180px]">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="Search name, team code…"
+                  value={teamSearch}
+                  onChange={(e) => setTeamSearch(e.target.value)}
+                  className="w-full rounded-xl border border-border/50 bg-card/60 pl-9 pr-3 py-2 text-xs text-white placeholder:text-muted-foreground/60 focus:outline-none focus:border-[#c9a227]/50 transition-all"
+                />
+                {teamSearch && (
+                  <button type="button" onClick={() => setTeamSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white">
+                    <X className="size-3" />
+                  </button>
+                )}
+              </div>
+              {/* Ministry dropdown */}
+              {availableMinistries.length > 0 && (
+                <select
+                  value={ministryFilter}
+                  onChange={(e) => setMinistryFilter(e.target.value)}
+                  className="rounded-xl border border-border/50 bg-card/60 px-3 py-2 text-xs text-white focus:outline-none focus:border-[#c9a227]/50 transition-all max-w-[200px] cursor-pointer"
+                >
+                  <option value="">All Ministries</option>
+                  {availableMinistries.map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              )}
+              {/* Section dropdown */}
+              {availableSections.length > 0 && (
+                <select
+                  value={sectionFilter}
+                  onChange={(e) => setSectionFilter(e.target.value)}
+                  className="rounded-xl border border-border/50 bg-card/60 px-3 py-2 text-xs text-white focus:outline-none focus:border-[#c9a227]/50 transition-all w-28 cursor-pointer"
+                >
+                  <option value="">All Sections</option>
+                  {availableSections.map((s) => (
+                    <option key={s} value={s}>Section {s}</option>
+                  ))}
+                </select>
+              )}
+              {/* Approval status */}
+              <select
+                value={approvalFilter}
+                onChange={(e) => setApprovalFilter(e.target.value)}
+                className="rounded-xl border border-border/50 bg-card/60 px-3 py-2 text-xs text-white focus:outline-none focus:border-[#c9a227]/50 transition-all w-32 cursor-pointer"
+              >
+                <option value="all">All Status</option>
+                <option value="approved">Approved</option>
+                <option value="pending">Pending</option>
+              </select>
+              {/* Clear all */}
+              {hasActiveFilters && (
+                <button
+                  type="button"
+                  onClick={() => { setTeamSearch(""); setMinistryFilter(""); setSectionFilter(""); setApprovalFilter("all"); }}
+                  className="text-xs text-red-400 hover:underline font-semibold px-2 py-2"
+                >
+                  ✕ Clear
+                </button>
+              )}
+            </div>
+          )}
 
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {displayTeams.length === 0 && (

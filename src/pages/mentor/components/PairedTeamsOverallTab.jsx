@@ -1,6 +1,6 @@
 import { useMemo, useState, memo } from "react";
 import {
-  Users, User, Building, Building2, Eye, AlertTriangle, ChevronUp, ChevronDown, Sparkles,
+  Users, User, Building, Building2, Eye, AlertTriangle, ChevronUp, ChevronDown, Sparkles, X,
 } from "lucide-react";
 import { cn, computeStats, isSameDepartment, normalizeDepartment } from "@/lib/utils";
 import { MINISTRIES, MAX_MEMBERS_PER_MINISTRY_PER_DEPT, OUTDATED_MINISTRIES, NEW_MINISTRIES, ACTIVE_MINISTRIES_COUNT } from "@/lib/constants";
@@ -27,6 +27,7 @@ export const PairedTeamsOverallTab = memo(function PairedTeamsOverallTab({ teams
 
   // By Department — selected dept in sidebar
   const [selectedDept, setSelectedDept] = useState(null);
+  const [deptTeamSearch, setDeptTeamSearch] = useState("");
 
   // By Ministry filters
   const [ministrySearch, setMinistrySearch] = useState("");
@@ -92,10 +93,16 @@ export const PairedTeamsOverallTab = memo(function PairedTeamsOverallTab({ teams
     return own ? own[0] : deptGrouped[0][0];
   }, [deptGrouped, selectedDept, mentorDept]);
 
-  const activeDeptTeams = useMemo(
-    () => deptGrouped.find(([d]) => d === activeDept)?.[1] ?? [],
-    [deptGrouped, activeDept]
-  );
+  const activeDeptTeams = useMemo(() => {
+    const base = deptGrouped.find(([d]) => d === activeDept)?.[1] ?? [];
+    if (!deptTeamSearch.trim()) return base;
+    const needle = deptTeamSearch.trim().toLowerCase();
+    return base.filter((t) => {
+      const hay = [t.team.team_code, t.team.name, t.team.ministry, ...t.members.map((m) => `${m.name} ${m.section ?? ""}`)]
+        .filter(Boolean).join(" ").toLowerCase();
+      return hay.includes(needle);
+    });
+  }, [deptGrouped, activeDept, deptTeamSearch]);
 
   // Ministry grouping
   const ministryData = useMemo(() => {
@@ -326,6 +333,21 @@ export const PairedTeamsOverallTab = memo(function PairedTeamsOverallTab({ teams
                         <Eye className="size-3 shrink-0" /> view only
                       </span>
                     )}
+                    {/* Team search within dept */}
+                    <div className="relative ml-auto">
+                      <input
+                        type="text"
+                        placeholder="Search teams, names, section…"
+                        value={deptTeamSearch}
+                        onChange={(e) => setDeptTeamSearch(e.target.value)}
+                        className="rounded-xl border border-border/40 bg-card/60 pl-3 pr-7 py-1.5 text-xs text-white placeholder:text-muted-foreground/50 focus:outline-none focus:border-[#c9a227]/50 transition-all w-48"
+                      />
+                      {deptTeamSearch && (
+                        <button type="button" onClick={() => setDeptTeamSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white">
+                          <X className="size-3" />
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {/* Team cards */}

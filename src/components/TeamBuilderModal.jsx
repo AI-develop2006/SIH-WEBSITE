@@ -58,6 +58,9 @@ export function TeamBuilderModal({ ministry, sourceTeams, editingTeam, profileMa
   const [teamName, setTeamName] = useState(editingTeam?.name ?? "");
   const [selected, setSelected] = useState(initialSelected);
   const [busy, setSaving] = useState(false);
+  const [memberSearch, setMemberSearch] = useState("");
+  const [memberDeptFilter, setMemberDeptFilter] = useState("");
+  const [memberGenderFilter, setMemberGenderFilter] = useState("");
 
   useEffect(() => {
     modalRef.current?.focus();
@@ -112,14 +115,28 @@ export function TeamBuilderModal({ ministry, sourceTeams, editingTeam, profileMa
 
   // Group available members by their pair-team for better UI
   const membersByPairTeam = useMemo(() => {
+    const needle = memberSearch.trim().toLowerCase();
     const map = new Map();
     for (const m of allMembers) {
+      // Apply filters
+      if (memberDeptFilter && m.department !== memberDeptFilter) continue;
+      if (memberGenderFilter && m.gender !== memberGenderFilter) continue;
+      if (needle && !`${m.name} ${m.assigned_skill ?? ""} ${m.section ?? ""}`.toLowerCase().includes(needle)) continue;
       const key = m._pairTeamCode;
       if (!map.has(key)) map.set(key, []);
       map.get(key).push(m);
     }
     return map;
-  }, [allMembers]);
+  }, [allMembers, memberSearch, memberDeptFilter, memberGenderFilter]);
+
+  const availableMemberDepts = useMemo(
+    () => [...new Set(allMembers.map((m) => m.department).filter(Boolean))].sort(),
+    [allMembers]
+  );
+  const filteredMemberCount = useMemo(
+    () => [...membersByPairTeam.values()].reduce((s, arr) => s + arr.length, 0),
+    [membersByPairTeam]
+  );
 
   return (
     <div
@@ -159,13 +176,61 @@ export function TeamBuilderModal({ ministry, sourceTeams, editingTeam, profileMa
         <div className="p-6 grid lg:grid-cols-2 gap-6">
           {/* ── Left: Source members ── */}
           <div className="space-y-4">
-            <p className="text-xs font-bold uppercase tracking-wider text-[#94a3b8]">
-              Available Members ({allMembers.length})
-            </p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-bold uppercase tracking-wider text-[#94a3b8]">
+                Available Members ({filteredMemberCount}/{allMembers.length})
+              </p>
+              {(memberSearch || memberDeptFilter || memberGenderFilter) && (
+                <button type="button" onClick={() => { setMemberSearch(""); setMemberDeptFilter(""); setMemberGenderFilter(""); }} className="text-[10px] text-red-400 hover:underline font-semibold">✕ Clear</button>
+              )}
+            </div>
+
+            {/* Member search + filters */}
+            <div className="space-y-2">
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Search by name, skill, section…"
+                  value={memberSearch}
+                  onChange={(e) => setMemberSearch(e.target.value)}
+                  className="w-full rounded-xl border border-[rgba(147,197,253,0.18)] bg-[#050b18]/60 pl-3 pr-8 py-2 text-xs text-white outline-none placeholder:text-[#94a3b8]/50 focus:border-[#c9a227]/60 transition-all"
+                />
+                {memberSearch && (
+                  <button type="button" onClick={() => setMemberSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#94a3b8] hover:text-white">
+                    <X className="size-3" />
+                  </button>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <select
+                  value={memberDeptFilter}
+                  onChange={(e) => setMemberDeptFilter(e.target.value)}
+                  className="flex-1 rounded-xl border border-[rgba(147,197,253,0.18)] bg-[#050b18]/60 px-2.5 py-1.5 text-xs text-white outline-none focus:border-[#c9a227]/60 transition-all cursor-pointer"
+                >
+                  <option value="">All Depts</option>
+                  {availableMemberDepts.map((d) => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+                <select
+                  value={memberGenderFilter}
+                  onChange={(e) => setMemberGenderFilter(e.target.value)}
+                  className="w-28 rounded-xl border border-[rgba(147,197,253,0.18)] bg-[#050b18]/60 px-2.5 py-1.5 text-xs text-white outline-none focus:border-[#c9a227]/60 transition-all cursor-pointer"
+                >
+                  <option value="">Any Gender</option>
+                  <option value="Female">Female</option>
+                  <option value="Male">Male</option>
+                </select>
+              </div>
+            </div>
 
             {allMembers.length === 0 ? (
               <div className="py-10 text-center text-sm text-[#94a3b8] rounded-2xl border border-[rgba(147,197,253,0.08)]">
                 No members in pair teams for this ministry.
+              </div>
+            ) : membersByPairTeam.size === 0 ? (
+              <div className="py-8 text-center text-xs text-[#94a3b8] rounded-2xl border border-[rgba(147,197,253,0.08)]">
+                No members match your filters.
               </div>
             ) : (
               <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">

@@ -387,8 +387,175 @@ app.delete("/api/spoc/final-teams/:id", async (req, res) => {
   }
 });
 
-// ─── Fallback ─────────────────────────────────────────────────────────────────
-app.get("*", (_req, res) => res.status(404).json({ error: "Not found" }));
+// ─── Fallback / Root health page ─────────────────────────────────────────────
+app.get("*", (_req, res) => {
+  const dbStatus = DATABASE_URL ? "PostgreSQL (direct)" : supabase ? "Supabase client" : "⚠ Not configured";
+  res.status(200).send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>SPOC Backend API — SIH 2026</title>
+      <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+          font-family: system-ui, -apple-system, sans-serif;
+          background: #050b18;
+          color: #e8ecf7;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 100vh;
+          padding: 1.5rem;
+        }
+        .card {
+          text-align: center;
+          max-width: 520px;
+          width: 100%;
+          padding: 2.5rem 2rem;
+          border: 1px solid rgba(201,162,39,0.25);
+          border-radius: 1.25rem;
+          background: #0a1226;
+          box-shadow: 0 0 40px rgba(201,162,39,0.06);
+        }
+        .icon {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 3rem;
+          height: 3rem;
+          border-radius: 0.75rem;
+          background: rgba(201,162,39,0.1);
+          border: 1px solid rgba(201,162,39,0.3);
+          font-size: 1.4rem;
+          margin-bottom: 1.25rem;
+        }
+        .badge {
+          display: inline-block;
+          padding: 0.2rem 0.75rem;
+          border-radius: 9999px;
+          background: rgba(34,197,94,0.1);
+          color: #22c55e;
+          border: 1px solid rgba(34,197,94,0.3);
+          font-size: 0.7rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          margin-bottom: 1rem;
+        }
+        h1 {
+          font-size: 1.5rem;
+          font-weight: 800;
+          color: #ffffff;
+          margin-bottom: 0.4rem;
+        }
+        .subtitle {
+          color: #94a3b8;
+          font-size: 0.8rem;
+          margin-bottom: 1.75rem;
+        }
+        .info-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 0.75rem;
+          margin-bottom: 1.75rem;
+        }
+        .info-item {
+          background: rgba(147,197,253,0.05);
+          border: 1px solid rgba(147,197,253,0.1);
+          border-radius: 0.75rem;
+          padding: 0.75rem;
+          text-align: left;
+        }
+        .info-label {
+          font-size: 0.65rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+          color: #94a3b8;
+          margin-bottom: 0.25rem;
+        }
+        .info-value {
+          font-size: 0.8rem;
+          font-weight: 600;
+          color: #e8ecf7;
+          word-break: break-all;
+        }
+        .info-value.ok { color: #22c55e; }
+        .info-value.warn { color: #f59e0b; }
+        .divider {
+          border: none;
+          border-top: 1px solid rgba(147,197,253,0.1);
+          margin: 0 0 1.5rem 0;
+        }
+        .links {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+        a {
+          display: block;
+          padding: 0.6rem 1rem;
+          border-radius: 0.65rem;
+          background: rgba(201,162,39,0.08);
+          border: 1px solid rgba(201,162,39,0.25);
+          color: #c9a227;
+          text-decoration: none;
+          font-size: 0.8rem;
+          font-weight: 600;
+          transition: background 0.15s, border-color 0.15s;
+        }
+        a:hover {
+          background: rgba(201,162,39,0.15);
+          border-color: rgba(201,162,39,0.45);
+        }
+        .footer {
+          margin-top: 1.5rem;
+          font-size: 0.7rem;
+          color: #94a3b8;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <div class="icon">🛡</div>
+        <span class="badge">● Backend Active</span>
+        <h1>SPOC Backend API</h1>
+        <p class="subtitle">SIH 2026 · Final Team Formation · SMVEC</p>
+
+        <div class="info-grid">
+          <div class="info-item">
+            <div class="info-label">Status</div>
+            <div class="info-value ok">Running</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Port</div>
+            <div class="info-value">${PORT}</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Database</div>
+            <div class="info-value ${DATABASE_URL ? "ok" : supabase ? "ok" : "warn"}">${dbStatus}</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Uptime</div>
+            <div class="info-value">${Math.floor(process.uptime())}s</div>
+          </div>
+        </div>
+
+        <hr class="divider" />
+
+        <div class="links">
+          <a href="/api/health">Check Health Status — /api/health →</a>
+          <a href="/api/spoc/final-teams">List Final Teams — /api/spoc/final-teams →</a>
+        </div>
+
+        <p class="footer">SPOC Portal REST API · Not Found responses go to <code>/api/*</code> routes</p>
+      </div>
+    </body>
+    </html>
+  `);
+});
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {

@@ -4,6 +4,7 @@
   "description": "SPOC Portal standalone backend server",
   "type": "module",
   "scripts": {
+    "build": "echo 'No build step required for Node.js backend'",
     "start": "node server.js",
     "dev": "node --watch server.js",
     "migrate": "node run-migration.js",
@@ -14,5 +15,8 @@
     "dotenv": "^17.4.2",
     "express": "^4.21.2",
     "pg": "^8.16.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
   }
 }

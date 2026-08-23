@@ -208,6 +208,31 @@ app.get("/api/teams", async (_req, res) => {
 
 // ─── SPOC Final Teams ─────────────────────────────────────────────────────────
 
+// ── Notification helper ───────────────────────────────────────────────────────
+/**
+ * Insert a notification row for each profile_id in the list.
+ * Fire-and-forget — errors are logged but don't fail the main request.
+ */
+async function sendNotifications(profileIds, { type, title, message, metadata = {} }) {
+  if (!profileIds || profileIds.length === 0) return;
+  const rows = profileIds.map((id) => ({ profile_id: id, type, title, message, metadata }));
+  try {
+    if (DATABASE_URL) {
+      for (const r of rows) {
+        await dbQuery(
+          `INSERT INTO public.notifications (profile_id, type, title, message, metadata)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [r.profile_id, r.type, r.title, r.message, JSON.stringify(r.metadata)]
+        );
+      }
+    } else if (supabase) {
+      await supabase.from("notifications").insert(rows);
+    }
+  } catch (err) {
+    console.warn("[notifications] Failed to send:", err.message);
+  }
+}
+
 // GET — list all final teams
 app.get("/api/spoc/final-teams", async (_req, res) => {
   try {
@@ -251,6 +276,13 @@ app.post("/api/spoc/final-teams", async (req, res) => {
          VALUES ($1, $2, $3, $4) RETURNING *;`,
         [name.trim(), ministry || null, member_ids, createdBy]
       );
+      // Notify all members they've been added to a final team
+      sendNotifications(member_ids, {
+        type: "spoc_team_added",
+        title: "🎉 You're in the Final Team!",
+        message: `You have been selected for the final SIH 2026 team "${name.trim()}"${ministry ? ` under ${ministry}` : ""}. Congratulations!`,
+        metadata: { team_name: name.trim(), ministry: ministry || null, team_id: rows[0]?.id },
+      });
       return res.json({ data: rows[0] });
     } else if (supabase) {
       const { data, error } = await supabase
@@ -258,6 +290,13 @@ app.post("/api/spoc/final-teams", async (req, res) => {
         .insert([{ name: name.trim(), ministry: ministry || null, member_ids, created_by: createdBy }])
         .select().single();
       if (error) return res.status(500).json({ error: error.message });
+      // Notify all members
+      sendNotifications(member_ids, {
+        type: "spoc_team_added",
+        title: "🎉 You're in the Final Team!",
+        message: `You have been selected for the final SIH 2026 team "${name.trim()}"${ministry ? ` under ${ministry}` : ""}. Congratulations!`,
+        metadata: { team_name: name.trim(), ministry: ministry || null, team_id: data?.id },
+      });
       return res.json({ data });
     }
     return res.status(500).json({ error: "No database configured" });
@@ -304,12 +343,44 @@ app.patch("/api/spoc/final-teams/:id", async (req, res) => {
 app.delete("/api/spoc/final-teams/:id", async (req, res) => {
   const { id } = req.params;
   try {
+    // Fetch the team first so we know who to notify
+    let memberIds = [];
+    let teamName = "";
+    let ministry = "";
+
     if (DATABASE_URL) {
+      const { rows } = await dbQuery(
+        `SELECT name, ministry, member_ids FROM public.spoc_final_teams WHERE id = $1`,
+        [id]
+      );
+      if (rows[0]) {
+        memberIds = rows[0].member_ids || [];
+        teamName  = rows[0].name;
+        ministry  = rows[0].ministry || "";
+      }
       await dbQuery(`DELETE FROM public.spoc_final_teams WHERE id = $1;`, [id]);
     } else if (supabase) {
+      const { data: ft } = await supabase
+        .from("spoc_final_teams").select("name, ministry, member_ids").eq("id", id).single();
+      if (ft) {
+        memberIds = ft.member_ids || [];
+        teamName  = ft.name;
+        ministry  = ft.ministry || "";
+      }
       const { error } = await supabase.from("spoc_final_teams").delete().eq("id", id);
       if (error) return res.status(500).json({ error: error.message });
     }
+
+    // Notify all affected members
+    if (memberIds.length > 0) {
+      sendNotifications(memberIds, {
+        type: "spoc_team_removed",
+        title: "⚠ Final Team Disbanded",
+        message: `The final SIH 2026 team "${teamName}"${ministry ? ` (${ministry})` : ""} that you were part of has been removed by the SPOC. Please await further instructions.`,
+        metadata: { team_name: teamName, ministry, team_id: id },
+      });
+    }
+
     return res.json({ success: true });
   } catch (err) {
     return res.status(500).json({ error: err.message });

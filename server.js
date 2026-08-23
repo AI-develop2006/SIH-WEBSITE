@@ -52,33 +52,26 @@ function computeStats(members = []) {
   };
 }
 
-// Allowed CORS origins
-const allowedOrigins = [
-  "https://sih-website-h8ajvlchv-srimaansrimaan543-2911s-projects.vercel.app",
-  "https://sih-website-101h.onrender.com",
+// Allowed CORS origins — strict exact-match, sourced from env
+const allowedOriginsSet = new Set([
+  "https://sih-website-4axu.vercel.app",
   "http://localhost:5173",
   "http://localhost:5174",
   "http://localhost:3000",
   "http://localhost:3001",
-  ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(",").map((s) => s.trim()) : [])
-];
+  ...(process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(",").map((s) => s.trim().replace(/\/$/, ""))
+    : []),
+]);
 
-// CORS Middleware enforcing allowed frontend origin
+// CORS Middleware — only the listed origins are allowed
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  const isAllowed =
-    !origin ||
-    allowedOrigins.includes(origin) ||
-    allowedOrigins.includes("*") ||
-    (origin && origin.endsWith(".vercel.app"));
-
-  if (isAllowed) {
-    res.header("Access-Control-Allow-Origin", origin || "*");
-  } else {
-    res.header("Access-Control-Allow-Origin", "https://sih-website-h8ajvlchv-srimaansrimaan543-2911s-projects.vercel.app");
+  if (origin && allowedOriginsSet.has(origin)) {
+    res.header("Access-Control-Allow-Origin", origin);
   }
   res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH");
   res.header("Access-Control-Allow-Credentials", "true");
 
   if (req.method === "OPTIONS") {

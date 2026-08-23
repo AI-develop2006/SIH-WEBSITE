@@ -722,9 +722,82 @@ export default function DashboardPage() {
             {profileCard}
           </div>
 
-          {/* Right Column: Key Dates / Timeline */}
+          {/* Right Column: Key Dates / Timeline + Notifications */}
           <div className="lg:col-span-5 flex flex-col gap-6">
             {timelineCard}
+
+            {/* Notifications Panel — Desktop */}
+            <Card className="p-5 border-border space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Bell className="size-4 text-primary" strokeWidth={2} />
+                  <h3 className="text-base font-bold">Notifications</h3>
+                  {notifications.some((n) => !n.read) && (
+                    <span className="size-2 rounded-full bg-rose-500 animate-pulse" />
+                  )}
+                </div>
+                {notifications.some((n) => !n.read) && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await markAllNotificationsRead();
+                      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+                    }}
+                    className="text-xs text-primary hover:underline font-semibold"
+                  >
+                    Mark all read
+                  </button>
+                )}
+              </div>
+
+              {notifications.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">No notifications yet.</p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {notifications.map((n) => (
+                    <div
+                      key={n.id}
+                      className={cn(
+                        "rounded-xl border px-4 py-3 flex items-start gap-3 transition-colors",
+                        n.read
+                          ? "border-border/40 bg-card/20"
+                          : n.type === "spoc_team_added"
+                          ? "border-emerald-500/30 bg-emerald-500/5"
+                          : "border-amber-500/30 bg-amber-500/5"
+                      )}
+                    >
+                      <span className="text-lg shrink-0 mt-0.5">
+                        {n.type === "spoc_team_added" ? "🎉" : "⚠️"}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <p className={cn(
+                          "text-sm font-bold leading-tight",
+                          n.read ? "text-muted-foreground" : n.type === "spoc_team_added" ? "text-emerald-300" : "text-amber-300"
+                        )}>
+                          {n.title}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{n.message}</p>
+                        <p className="text-[10px] text-muted-foreground/60 mt-1.5">
+                          {new Date(n.created_at).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                        </p>
+                      </div>
+                      {!n.read && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await markNotificationRead(n.id);
+                            setNotifications((prev) => prev.map((x) => x.id === n.id ? { ...x, read: true } : x));
+                          }}
+                          className="shrink-0 text-[10px] text-muted-foreground hover:text-primary font-semibold mt-0.5"
+                        >
+                          ✓ Read
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
           </div>
         </div>
       </div>

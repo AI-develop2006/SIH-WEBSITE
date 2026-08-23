@@ -98,20 +98,24 @@ function computeStats(members = [], category = "Pairs") {
   };
 }
 
-// CORS Middleware
-const allowedOrigins = [
+// CORS Middleware — strict exact-match only
+const allowedOriginsSet = new Set([
   "http://localhost:5173",
   "http://localhost:5174",
   "http://localhost:3003",
-  ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(",").map((s) => s.trim()) : [])
-];
+  "https://sih-website-4axu.vercel.app",
+  ...(process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(",").map((s) => s.trim().replace(/\/$/, ""))
+    : []),
+]);
 
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  const isAllowed = !origin || allowedOrigins.includes(origin) || allowedOrigins.includes("*") || (origin && origin.endsWith(".vercel.app"));
-  res.header("Access-Control-Allow-Origin", isAllowed ? (origin || "*") : "*");
+  if (origin && allowedOriginsSet.has(origin)) {
+    res.header("Access-Control-Allow-Origin", origin);
+  }
   res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH");
   res.header("Access-Control-Allow-Credentials", "true");
   if (req.method === "OPTIONS") return res.sendStatus(200);
   next();
@@ -1321,6 +1325,34 @@ app.get("/api/settings/registration", async (_req, res) => {
 
     const value = data?.value || { manual_status: "open", closing_date: null };
     return res.json({ data: computeRegistrationStatus(value) });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/settings/ministry-seats — public read, no auth required
+// Returns the admin-configured seat caps as { "Ministry|||Dept": N, ... }
+// Falls back gracefully to {} if the row doesn't exist yet.
+app.get("/api/settings/ministry-seats", async (_req, res) => {
+  try {
+    let seats = {};
+    if (process.env.DATABASE_URL) {
+      const { rows } = await dbQuery(
+        `SELECT value FROM public.system_settings WHERE key = 'ministry_seats' LIMIT 1`
+      );
+      seats = rows[0]?.value ?? {};
+    } else if (supabase) {
+      const { data, error } = await supabase
+        .from("system_settings")
+        .select("value")
+        .eq("key", "ministry_seats")
+        .maybeSingle();
+      if (error && !error.message.includes("does not exist")) {
+        return res.status(500).json({ error: error.message });
+      }
+      seats = data?.value ?? {};
+    }
+    return res.json({ data: seats });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }

@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Shield, LogOut, Users, Building2, CheckCircle2, AlertTriangle,
-  ChevronDown, ChevronUp, Plus, X, Download, Search, RefreshCw, Sparkles,
+  ChevronDown, ChevronUp, Plus, X, Download, Search, RefreshCw, Sparkles, Trash2,
 } from "lucide-react";
 import {
   getCurrentProfile, logoutSpoc, fetchEnrichedTeams,
@@ -30,10 +30,10 @@ function genderBadge(gender) {
 }
 
 // ─── Mini member chip ────────────────────────────────────────────────────────
-function MemberChip({ member, onRemove }) {
+function MemberChip({ member }) {
   return (
-    <div className="flex items-center gap-2 rounded-xl border border-[rgba(147,197,253,0.14)] bg-[#0a1226] px-3 py-2 group">
-      <Avatar name={member.name} className="size-7" />
+    <div className="flex items-center gap-2 rounded-xl border border-[rgba(147,197,253,0.14)] bg-[#0a1226] px-3 py-2">
+      <Avatar name={member.name} className="size-7 shrink-0" />
       <div className="min-w-0 flex-1">
         <p className="text-xs font-semibold text-white truncate leading-tight">{member.name}</p>
         <p className="text-[10px] text-[#94a3b8] truncate">
@@ -42,16 +42,6 @@ function MemberChip({ member, onRemove }) {
         </p>
       </div>
       {genderBadge(member.gender)}
-      {onRemove && (
-        <button
-          type="button"
-          onClick={() => onRemove(member.id)}
-          className="shrink-0 text-[#94a3b8] hover:text-red-400 transition-colors cursor-pointer opacity-0 group-hover:opacity-100"
-          aria-label="Remove"
-        >
-          <X className="size-3.5" />
-        </button>
-      )}
     </div>
   );
 }
@@ -89,13 +79,136 @@ function ValidationBar({ members }) {
   );
 }
 
+// ─── Inline delete confirm ───────────────────────────────────────────────────
+function DeleteConfirm({ teamName, onConfirm, onCancel, loading }) {
+  return (
+    <div className="rounded-2xl border border-red-500/30 bg-red-500/8 px-4 py-3 flex items-center justify-between gap-3 flex-wrap animate-fade-in">
+      <p className="text-xs text-red-300 font-semibold">
+        Delete <span className="font-black">"{teamName}"</span>? This cannot be undone.
+      </p>
+      <div className="flex items-center gap-2 shrink-0">
+        <Button variant="ghost" onClick={onCancel} className="text-[11px] px-3 py-1.5 text-[#94a3b8]" disabled={loading}>
+          Cancel
+        </Button>
+        <Button
+          variant="danger"
+          onClick={onConfirm}
+          loading={loading}
+          className="text-[11px] px-3 py-1.5"
+        >
+          <Trash2 className="size-3" />
+          Confirm Delete
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Final team card ─────────────────────────────────────────────────────────
+function FinalTeamCard({ ft, profileMap, onEdit, onDelete }) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const members = useMemo(
+    () => (ft.member_ids || []).map((id) => profileMap.get(id)).filter(Boolean),
+    [ft.member_ids, profileMap]
+  );
+  const errors = validateFinalTeam(members);
+  const isValid = errors.length === 0;
+
+  async function handleConfirmDelete() {
+    setDeleting(true);
+    await onDelete(ft.id, ft.name);
+    setDeleting(false);
+    setConfirmDelete(false);
+  }
+
+  return (
+    <div className={cn(
+      "rounded-2xl border p-4 space-y-3 transition-all duration-200",
+      isValid ? "border-emerald-500/25 bg-emerald-500/5" : "border-amber-500/20 bg-amber-500/5"
+    )}>
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2">
+          {isValid
+            ? <CheckCircle2 className="size-4 text-emerald-400 shrink-0" />
+            : <AlertTriangle className="size-4 text-amber-400 shrink-0" />
+          }
+          <span className="text-sm font-extrabold text-white">{ft.name}</span>
+        </div>
+        {!confirmDelete && (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => onEdit(ft)}
+              className="text-[11px] px-3 py-1.5 text-[#c9a227] hover:bg-[#c9a227]/10"
+            >
+              Edit
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => setConfirmDelete(true)}
+              className="text-[11px] px-3 py-1.5 text-red-400 hover:bg-red-500/10"
+            >
+              <Trash2 className="size-3" />
+              Delete
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {confirmDelete && (
+        <DeleteConfirm
+          teamName={ft.name}
+          loading={deleting}
+          onConfirm={handleConfirmDelete}
+          onCancel={() => setConfirmDelete(false)}
+        />
+      )}
+
+      <ValidationBar members={members} />
+
+      <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3 mt-2">
+        {members.map((m) => (
+          <MemberChip key={m.id} member={m} />
+        ))}
+      </div>
+
+      {!isValid && !confirmDelete && (
+        <div className="space-y-1">
+          {errors.map((e) => (
+            <p key={e} className="text-[10px] text-amber-400 flex items-center gap-1">
+              <AlertTriangle className="size-3 shrink-0" />{e}
+            </p>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Ministry accordion row ──────────────────────────────────────────────────
 function MinistryRow({ ministry, pairTeams, finalTeams, onBuildTeam, onEditTeam, onDeleteTeam, profileMap }) {
   const [open, setOpen] = useState(false);
+  const bodyRef = useRef(null);
   const isOutdated = OUTDATED_MINISTRIES.has(ministry);
 
   const finalsForMinistry = finalTeams.filter((ft) => ft.ministry === ministry);
   const totalPairMembers = pairTeams.reduce((s, t) => s + t.members.length, 0);
+  const canExpand = !isOutdated && pairTeams.length > 0;
+
+  // Animate open/close with max-height
+  useEffect(() => {
+    const el = bodyRef.current;
+    if (!el) return;
+    if (open) {
+      el.style.maxHeight = el.scrollHeight + "px";
+      el.style.opacity = "1";
+    } else {
+      el.style.maxHeight = "0px";
+      el.style.opacity = "0";
+    }
+  }, [open]);
 
   return (
     <div className={cn(
@@ -109,10 +222,10 @@ function MinistryRow({ ministry, pairTeams, finalTeams, onBuildTeam, onEditTeam,
       {/* Header */}
       <button
         type="button"
-        onClick={() => !isOutdated && pairTeams.length > 0 && setOpen((o) => !o)}
+        onClick={() => canExpand && setOpen((o) => !o)}
         className={cn(
           "w-full flex items-center justify-between gap-3 px-5 py-4 text-left transition-colors",
-          isOutdated ? "cursor-not-allowed" : pairTeams.length > 0 ? "cursor-pointer hover:bg-[rgba(201,162,39,0.04)]" : "cursor-default"
+          canExpand ? "cursor-pointer hover:bg-[rgba(201,162,39,0.04)]" : "cursor-default"
         )}
       >
         <div className="flex items-center gap-3 min-w-0">
@@ -126,23 +239,25 @@ function MinistryRow({ ministry, pairTeams, finalTeams, onBuildTeam, onEditTeam,
         <div className="flex items-center gap-2 shrink-0">
           {finalsForMinistry.length > 0 && (
             <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300">
-              {finalsForMinistry.length} final team{finalsForMinistry.length !== 1 ? "s" : ""}
+              {finalsForMinistry.length} final{finalsForMinistry.length !== 1 ? "s" : ""}
             </span>
           )}
           {pairTeams.length > 0 ? (
             <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-[#c9a227]/15 border border-[#c9a227]/30 text-[#e8c058]">
-              {pairTeams.length} pair team{pairTeams.length !== 1 ? "s" : ""} · {totalPairMembers} member{totalPairMembers !== 1 ? "s" : ""}
+              {pairTeams.length} pair{pairTeams.length !== 1 ? "s" : ""} · {totalPairMembers}
             </span>
           ) : (
             <span className="text-[10px] text-[#94a3b8]/40 font-medium">No teams</span>
           )}
-          {pairTeams.length > 0 && (
-            open ? <ChevronUp className="size-4 text-[#94a3b8]" /> : <ChevronDown className="size-4 text-[#94a3b8]" />
+          {canExpand && (
+            <div className={cn("transition-transform duration-200", open ? "rotate-180" : "rotate-0")}>
+              <ChevronDown className="size-4 text-[#94a3b8]" />
+            </div>
           )}
         </div>
       </button>
 
-      {/* Outdated ministry — collapsed notice (never expand) */}
+      {/* Outdated ministry notice */}
       {isOutdated && pairTeams.length > 0 && (
         <div className="border-t border-amber-500/15 px-5 py-3 flex items-center gap-2 text-[11px] text-amber-400/70">
           <AlertTriangle className="size-3.5 shrink-0" />
@@ -150,117 +265,72 @@ function MinistryRow({ ministry, pairTeams, finalTeams, onBuildTeam, onEditTeam,
         </div>
       )}
 
-      {/* Expanded body — only for non-outdated ministries */}
-      {open && !isOutdated && pairTeams.length > 0 && (
-        <div className="border-t border-[rgba(147,197,253,0.08)] px-5 pb-5 pt-4 space-y-5">
+      {/* Animated body */}
+      <div
+        ref={bodyRef}
+        style={{ maxHeight: "0px", opacity: "0", overflow: "hidden", transition: "max-height 0.28s ease, opacity 0.2s ease" }}
+      >
+        {canExpand && (
+          <div className="border-t border-[rgba(147,197,253,0.08)] px-5 pb-5 pt-4 space-y-5">
 
-          {/* Pair teams from mentor phase */}
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-[#94a3b8] mb-3">
-              Available Pair Teams ({pairTeams.length})
-            </p>
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {pairTeams.map((t) => (
-                <div key={t.team.id} className="rounded-xl border border-[rgba(147,197,253,0.12)] bg-[#050b18]/60 p-3 space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-extrabold text-[#e8c058] truncate">
-                      {t.team.team_code || t.team.name}
-                    </span>
-                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-[rgba(147,197,253,0.08)] border border-[rgba(147,197,253,0.14)] text-[#94a3b8]">
-                      {t.team.category || "Pairs"}
-                    </span>
-                  </div>
-                  <div className="space-y-1">
-                    {t.members.length === 0 ? (
-                      <p className="text-[10px] text-[#94a3b8]/60 italic">No members</p>
-                    ) : (
-                      t.members.map((m) => (
-                        <div key={m.id} className="flex items-center gap-2">
-                          <Avatar name={m.name} className="size-5" />
-                          <span className="text-[11px] text-[#e8ecf7] truncate flex-1">{m.name}</span>
-                          {genderBadge(m.gender)}
-                          {m.assigned_skill && (
-                            <span className="text-[9px] text-[#94a3b8] shrink-0">{m.assigned_skill}</span>
-                          )}
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Final teams for this ministry */}
-          {finalsForMinistry.length > 0 && (
+            {/* Pair teams from mentor phase */}
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-[#94a3b8] mb-3">
-                Final Teams Formed ({finalsForMinistry.length})
+                Available Pair Teams ({pairTeams.length})
               </p>
-              <div className="space-y-3">
-                {finalsForMinistry.map((ft) => {
-                  const members = (ft.member_ids || []).map((id) => profileMap.get(id)).filter(Boolean);
-                  const errors = validateFinalTeam(members);
-                  const isValid = errors.length === 0;
-                  return (
-                    <div key={ft.id} className={cn(
-                      "rounded-2xl border p-4 space-y-3",
-                      isValid ? "border-emerald-500/25 bg-emerald-500/5" : "border-amber-500/20 bg-amber-500/5"
-                    )}>
-                      <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <div className="flex items-center gap-2">
-                          {isValid
-                            ? <CheckCircle2 className="size-4 text-emerald-400 shrink-0" />
-                            : <AlertTriangle className="size-4 text-amber-400 shrink-0" />
-                          }
-                          <span className="text-sm font-extrabold text-white">{ft.name}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            onClick={() => onEditTeam(ft)}
-                            className="text-[11px] px-3 py-1.5 text-[#c9a227] hover:bg-[#c9a227]/10"
-                          >
-                            Edit
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            onClick={() => onDeleteTeam(ft.id, ft.name)}
-                            className="text-[11px] px-3 py-1.5 text-red-400 hover:bg-red-500/10"
-                          >
-                            Delete
-                          </Button>
-                        </div>
-                      </div>
-                      <ValidationBar members={members} />
-                      <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3 mt-2">
-                        {members.map((m) => (
-                          <MemberChip key={m.id} member={m} />
-                        ))}
-                      </div>
-                      {!isValid && (
-                        <div className="space-y-1">
-                          {errors.map((e) => (
-                            <p key={e} className="text-[10px] text-amber-400 flex items-center gap-1">
-                              <AlertTriangle className="size-3 shrink-0" />{e}
-                            </p>
-                          ))}
-                        </div>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {pairTeams.map((t) => (
+                  <div key={t.team.id} className="rounded-xl border border-[rgba(147,197,253,0.12)] bg-[#050b18]/60 p-3 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-extrabold text-[#e8c058] truncate">
+                        {t.team.team_code || t.team.name}
+                      </span>
+                      <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-[rgba(147,197,253,0.08)] border border-[rgba(147,197,253,0.14)] text-[#94a3b8]">
+                        {t.team.category || "Pairs"}
+                      </span>
+                    </div>
+                    <div className="space-y-1">
+                      {t.members.length === 0 ? (
+                        <p className="text-[10px] text-[#94a3b8]/60 italic">No members</p>
+                      ) : (
+                        t.members.map((m) => (
+                          <div key={m.id} className="flex items-center gap-2">
+                            <Avatar name={m.name} className="size-5" />
+                            <span className="text-[11px] text-[#e8ecf7] truncate flex-1">{m.name}</span>
+                            {genderBadge(m.gender)}
+                            {m.assigned_skill && (
+                              <span className="text-[9px] text-[#94a3b8] shrink-0">{m.assigned_skill}</span>
+                            )}
+                          </div>
+                        ))
                       )}
                     </div>
-                  );
-                })}
+                  </div>
+                ))}
               </div>
             </div>
-          )}
 
-          {/* Build new final team button — disabled for outdated ministries */}
-          {isOutdated ? (
-            <div className="flex items-center gap-2 w-full rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-2.5 text-xs text-amber-400/80">
-              <AlertTriangle className="size-3.5 shrink-0" />
-              <span>This ministry is outdated — no new final teams can be created. Reassign pair teams to an active ministry first.</span>
-            </div>
-          ) : (
+            {/* Final teams for this ministry */}
+            {finalsForMinistry.length > 0 && (
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[#94a3b8] mb-3">
+                  Final Teams Formed ({finalsForMinistry.length})
+                </p>
+                <div className="space-y-3">
+                  {finalsForMinistry.map((ft) => (
+                    <FinalTeamCard
+                      key={ft.id}
+                      ft={ft}
+                      profileMap={profileMap}
+                      onEdit={onEditTeam}
+                      onDelete={onDeleteTeam}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Build new final team button */}
             <Button
               variant="outline"
               onClick={() => onBuildTeam(ministry, pairTeams)}
@@ -269,10 +339,46 @@ function MinistryRow({ ministry, pairTeams, finalTeams, onBuildTeam, onEditTeam,
               <Plus className="size-3.5" />
               Build Final Team from this Ministry
             </Button>
-          )}
-        </div>
-      )}
+          </div>
+        )}
+      </div>
     </div>
+  );
+}
+
+// ─── Skeleton loader ─────────────────────────────────────────────────────────
+function Skeleton({ className }) {
+  return <div className={cn("animate-pulse rounded-xl bg-[rgba(147,197,253,0.07)]", className)} />;
+}
+
+function DashboardSkeleton() {
+  return (
+    <main className="mx-auto min-h-screen max-w-[1400px] px-4 sm:px-6 pb-20 bg-[#050b18] text-white">
+      <header className="sticky top-0 z-40 -mx-4 sm:-mx-6 mb-6 border-b border-[rgba(147,197,253,0.10)] bg-[#050b18]/90 px-4 sm:px-6 backdrop-blur">
+        <div className="flex h-14 items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-xl border border-[#c9a227]/30 bg-[#c9a227]/10">
+              <Shield className="size-4 text-[#c9a227]" strokeWidth={2} />
+            </div>
+            <div className="hidden sm:block">
+              <p className="text-sm font-extrabold text-white">SPOC Portal</p>
+              <p className="text-[10px] text-[#94a3b8]">SIH 2026 · Final Team Formation</p>
+            </div>
+          </div>
+        </div>
+      </header>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-24" />)}
+      </div>
+      <Skeleton className="h-16 mb-5" />
+      <div className="space-y-2 mb-5">
+        <Skeleton className="h-12" />
+        <Skeleton className="h-10" />
+      </div>
+      <div className="space-y-2">
+        {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-16" />)}
+      </div>
+    </main>
   );
 }
 
@@ -286,7 +392,8 @@ export default function SpocDashboard() {
   const [pairTeams, setPairTeams] = useState([]);
   const [finalTeams, setFinalTeams] = useState([]);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("active"); // "active" | "all" | "outdated"
+  const [statusFilter, setStatusFilter] = useState("active");
+  const [refreshing, setRefreshing] = useState(false);
 
   // Team builder modal state
   const [builderOpen, setBuilderOpen] = useState(false);
@@ -317,23 +424,41 @@ export default function SpocDashboard() {
     setFinalTeams(finalRes.data ?? []);
   }, [navigate, toast]);
 
+  const refreshData = useCallback(async (silent = true) => {
+    if (!silent) setRefreshing(true);
+    const [teamsRes, finalRes] = await Promise.all([
+      fetchEnrichedTeams(),
+      fetchFinalTeams(),
+    ]);
+    if (teamsRes.data) setPairTeams(teamsRes.data);
+    if (finalRes.data) setFinalTeams(finalRes.data);
+    setLastRefreshed(new Date());
+    if (!silent) setRefreshing(false);
+  }, []);
+
+  const [lastRefreshed, setLastRefreshed] = useState(new Date());
+
   useEffect(() => {
     (async () => {
       await loadAll();
+      setLastRefreshed(new Date());
       setLoading(false);
     })();
   }, [loadAll]);
 
-  // ── Derived state ──────────────────────────────────────────────────────────
+  // Auto-poll every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => refreshData(true), 30_000);
+    return () => clearInterval(interval);
+  }, [refreshData]);
 
-  // Map from profile id → profile (for rendering final team members by id)
+  // ── Derived state ──────────────────────────────────────────────────────────
   const profileMap = useMemo(() => {
     const map = new Map();
     pairTeams.forEach((t) => t.members.forEach((m) => map.set(m.id, m)));
     return map;
   }, [pairTeams]);
 
-  // Group pair-teams by ministry
   const byMinistry = useMemo(() => {
     const map = new Map();
     MINISTRIES.forEach((m) => map.set(m, []));
@@ -346,7 +471,6 @@ export default function SpocDashboard() {
     return map;
   }, [pairTeams]);
 
-  // Stats
   const stats = useMemo(() => {
     const activeMinistries = [...byMinistry.entries()].filter(([, ts]) => ts.length > 0).length;
     const validFinals = finalTeams.filter((ft) => {
@@ -356,16 +480,16 @@ export default function SpocDashboard() {
     return { activeMinistries, finalCount: finalTeams.length, validFinals };
   }, [byMinistry, finalTeams, profileMap]);
 
-  // Filtered ministries — now handled by displayedMinistries below
-
   const displayedMinistries = useMemo(() => {
     const needle = search.trim().toLowerCase();
     return MINISTRIES.filter((m) => {
       const teams = byMinistry.get(m) ?? [];
       const hasTeams = teams.length > 0;
-      if (statusFilter === "active" && !hasTeams) return false;
-      if (statusFilter === "outdated" && !OUTDATED_MINISTRIES.has(m)) return false;
+      const isOutdated = OUTDATED_MINISTRIES.has(m);
+      if (statusFilter === "active" && (!hasTeams || isOutdated)) return false;
+      if (statusFilter === "outdated" && !isOutdated) return false;
       if (statusFilter === "new" && !NEW_MINISTRIES.has(m)) return false;
+      if (statusFilter === "all" && isOutdated) return false;
       if (needle && !m.toLowerCase().includes(needle)) return false;
       return true;
     });
@@ -382,25 +506,39 @@ export default function SpocDashboard() {
 
   async function handleSaveFinalTeam({ name, ministry, member_ids }) {
     if (editingFinalTeam) {
+      // Optimistic update
+      setFinalTeams((prev) =>
+        prev.map((ft) => ft.id === editingFinalTeam.id ? { ...ft, name, ministry, member_ids } : ft)
+      );
       const res = await updateFinalTeam(editingFinalTeam.id, { name, ministry, member_ids });
-      if (res.error) { toast("error", res.error); return; }
-      setFinalTeams((prev) => prev.map((ft) => ft.id === editingFinalTeam.id ? { ...ft, name, ministry, member_ids } : ft));
+      if (res.error) {
+        toast("error", res.error);
+        await refreshData(true); // rollback
+        return;
+      }
       toast("success", `Final team "${name}" updated!`);
     } else {
       const res = await saveFinalTeam({ name, ministry, member_ids });
       if (res.error) { toast("error", res.error); return; }
+      // Optimistic add
       if (res.data) setFinalTeams((prev) => [...prev, res.data]);
       toast("success", `Final team "${name}" saved!`);
     }
     setBuilderOpen(false);
     setEditingFinalTeam(null);
+    // Sync from DB in background
+    refreshData(true);
   }
 
   async function handleDeleteFinalTeam(id, name) {
-    if (!confirm(`Delete final team "${name}"?`)) return;
-    const res = await deleteFinalTeam(id);
-    if (res.error) { toast("error", res.error); return; }
+    // Optimistic remove
     setFinalTeams((prev) => prev.filter((ft) => ft.id !== id));
+    const res = await deleteFinalTeam(id);
+    if (res.error) {
+      toast("error", res.error);
+      await refreshData(true); // rollback
+      return;
+    }
     toast("success", `Team "${name}" deleted.`);
   }
 
@@ -444,16 +582,7 @@ export default function SpocDashboard() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#050b18]">
-        <div className="flex flex-col items-center gap-3">
-          <div className="size-8 animate-spin rounded-full border-2 border-[#c9a227] border-t-transparent" />
-          <p className="text-sm text-[#94a3b8]">Loading SPOC Portal…</p>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <DashboardSkeleton />;
 
   return (
     <main className="mx-auto min-h-screen max-w-[1400px] px-4 sm:px-6 pb-20 bg-[#050b18] text-white">
@@ -465,15 +594,23 @@ export default function SpocDashboard() {
               <Shield className="size-4 text-[#c9a227]" strokeWidth={2} />
             </div>
             <div className="hidden sm:block min-w-0">
-              <p className="text-sm font-extrabold text-white truncate">SPOC Portal — {spocName}</p>
-              <p className="text-[10px] text-[#94a3b8]">SIH 2026 · Final Team Formation</p>
+              <p className="text-sm font-extrabold text-white truncate">SPOC Portal</p>
+              <p className="text-[10px] text-[#94a3b8]">SIH 2026 · {spocName}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" onClick={() => loadAll()} className="gap-1.5 text-xs px-3 py-1.5 text-[#94a3b8]">
-              <RefreshCw className="size-3.5" />
-              <span className="hidden sm:inline">Refresh</span>
-            </Button>
+            <button
+              type="button"
+              onClick={() => refreshData(false)}
+              disabled={refreshing}
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl text-[#94a3b8] hover:bg-[rgba(147,197,253,0.08)] hover:text-white transition-all disabled:opacity-50 cursor-pointer"
+            >
+              <RefreshCw className={cn("size-3.5", refreshing && "animate-spin")} />
+              <span className="hidden sm:inline">{refreshing ? "Refreshing…" : "Refresh"}</span>
+            </button>
+            <span className="hidden sm:inline text-[10px] text-[#94a3b8]/50">
+              {lastRefreshed.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+            </span>
             {finalTeams.length > 0 && (
               <Button variant="outline" onClick={exportFinalTeams} className="gap-1.5 text-xs px-3 py-1.5 border-[#c9a227]/30 text-[#c9a227] hover:bg-[#c9a227]/8">
                 <Download className="size-3.5" />
@@ -496,7 +633,7 @@ export default function SpocDashboard() {
           { label: "Final Teams", value: stats.finalCount, icon: CheckCircle2, color: "text-emerald-400" },
           { label: "Valid Finals", value: stats.validFinals, icon: CheckCircle2, color: "text-emerald-400" },
         ].map((s) => (
-          <div key={s.label} className="rounded-2xl border border-[rgba(147,197,253,0.10)] bg-[#0a1226]/60 p-4">
+          <div key={s.label} className="rounded-2xl border border-[rgba(147,197,253,0.10)] bg-[#0a1226]/60 p-4 transition-all hover:border-[rgba(147,197,253,0.18)]">
             <s.icon className={cn("size-5 mb-2", s.color)} />
             <p className="text-2xl font-black text-white">{s.value}</p>
             <p className="text-[10px] text-[#94a3b8] font-semibold uppercase tracking-wider mt-0.5">{s.label}</p>
@@ -519,7 +656,7 @@ export default function SpocDashboard() {
       {/* Search + Filter */}
       <div className="space-y-3 mb-5">
         <div className="relative">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-[#94a3b8]" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-[#94a3b8] pointer-events-none" />
           <input
             type="text"
             placeholder="Search ministry…"
@@ -527,6 +664,15 @@ export default function SpocDashboard() {
             onChange={(e) => setSearch(e.target.value)}
             className="w-full rounded-2xl border border-[rgba(147,197,253,0.14)] bg-[#0a1226]/60 pl-10 pr-4 py-3 text-sm text-white outline-none placeholder:text-[#94a3b8]/60 focus:border-[#c9a227]/50 transition-all"
           />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#94a3b8] hover:text-white transition-colors"
+            >
+              <X className="size-4" />
+            </button>
+          )}
         </div>
 
         {/* Filter chips */}
@@ -560,28 +706,26 @@ export default function SpocDashboard() {
             </button>
           ))}
           <span className="ml-auto text-[10px] text-[#94a3b8]">
-            <span className="text-white font-bold">{displayedMinistries.length}</span> / {MINISTRIES.length} shown
+            <span className="text-white font-bold">{displayedMinistries.length}</span> / {ACTIVE_MINISTRIES_COUNT} shown
           </span>
         </div>
 
-        {/* Outdated info banner */}
         {statusFilter === "outdated" && (
           <div className="flex items-start gap-2.5 rounded-2xl border border-amber-500/30 bg-amber-500/8 px-4 py-3">
             <AlertTriangle className="size-3.5 text-amber-400 shrink-0 mt-0.5" />
             <p className="text-[11px] text-amber-300/90 leading-relaxed">
               <span className="font-bold text-amber-300">What does "Outdated" mean?</span>
-              {" "}These ministries are not listed in the official SIH 2026 Problem Statements. Teams that selected an outdated ministry will need to be reconsidered and reassigned to one of the currently active ministries.
+              {" "}These ministries are not listed in the official SIH 2026 Problem Statements. Teams assigned here need to be reassigned to an active ministry.
             </p>
           </div>
         )}
 
-        {/* New info banner */}
         {statusFilter === "new" && (
           <div className="flex items-start gap-2.5 rounded-2xl border border-emerald-500/30 bg-emerald-500/8 px-4 py-3">
             <Sparkles className="size-3.5 text-emerald-400 shrink-0 mt-0.5" />
             <p className="text-[11px] text-emerald-300/90 leading-relaxed">
               <span className="font-bold text-emerald-300">What does "New" mean?</span>
-              {" "}These ministries were newly added to the official SIH 2026 Problem Statements. Teams choosing these ministries are working on recently introduced problem statements.
+              {" "}These ministries were newly added to the official SIH 2026 Problem Statements.
             </p>
           </div>
         )}
@@ -589,7 +733,7 @@ export default function SpocDashboard() {
 
       {/* Ministry accordion list */}
       <div className="space-y-2">
-          {displayedMinistries.length === 0 && (
+        {displayedMinistries.length === 0 && (
           <div className="py-16 text-center text-sm text-[#94a3b8] rounded-2xl border border-[rgba(147,197,253,0.08)]">
             {statusFilter === "outdated"
               ? "No outdated ministries found."

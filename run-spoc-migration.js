@@ -75,6 +75,82 @@ const STEPS = [
         FOR EACH ROW EXECUTE FUNCTION public.spoc_set_updated_at();
     `,
   },
+  {
+    name: "Create notifications table",
+    sql: `
+      CREATE TABLE IF NOT EXISTS public.notifications (
+        id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        profile_id  UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+        type        TEXT NOT NULL,
+        title       TEXT NOT NULL,
+        message     TEXT NOT NULL,
+        read        BOOLEAN NOT NULL DEFAULT FALSE,
+        metadata    JSONB DEFAULT '{}',
+        created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+    `,
+  },
+  {
+    name: "Create notifications profile_id index",
+    sql: `
+      CREATE INDEX IF NOT EXISTS idx_notifications_profile_id
+        ON public.notifications(profile_id);
+    `,
+  },
+  {
+    name: "Create notifications unread index",
+    sql: `
+      CREATE INDEX IF NOT EXISTS idx_notifications_unread
+        ON public.notifications(profile_id, read)
+        WHERE read = FALSE;
+    `,
+  },
+  {
+    name: "Enable RLS on notifications",
+    sql: `ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;`,
+  },
+  {
+    name: "Create notifications RLS policies",
+    sql: `
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_policies
+          WHERE schemaname = 'public' AND tablename = 'notifications'
+            AND policyname = 'users_read_own_notifications'
+        ) THEN
+          CREATE POLICY "users_read_own_notifications" ON public.notifications
+            FOR SELECT USING (profile_id = auth.uid());
+        END IF;
+
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_policies
+          WHERE schemaname = 'public' AND tablename = 'notifications'
+            AND policyname = 'users_update_own_notifications'
+        ) THEN
+          CREATE POLICY "users_update_own_notifications" ON public.notifications
+            FOR UPDATE USING (profile_id = auth.uid());
+        END IF;
+
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_policies
+          WHERE schemaname = 'public' AND tablename = 'notifications'
+            AND policyname = 'backend_insert_notifications'
+        ) THEN
+          CREATE POLICY "backend_insert_notifications" ON public.notifications
+            FOR INSERT WITH CHECK (TRUE);
+        END IF;
+
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_policies
+          WHERE schemaname = 'public' AND tablename = 'notifications'
+            AND policyname = 'backend_delete_notifications'
+        ) THEN
+          CREATE POLICY "backend_delete_notifications" ON public.notifications
+            FOR DELETE USING (TRUE);
+        END IF;
+      END $$;
+    `,
+  },
 ];
 
 async function run() {
@@ -93,9 +169,12 @@ async function run() {
 
     const { rows: tables } = await client.query(`
       SELECT table_name FROM information_schema.tables
-      WHERE table_schema = 'public' AND table_name = 'spoc_final_teams';
+      WHERE table_schema = 'public' AND table_name IN ('spoc_final_teams', 'notifications')
+      ORDER BY table_name;
     `);
-    console.log(`  ${tables.length > 0 ? "✓" : "✗"}  spoc_final_teams table`);
+    const tableNames = tables.map((r) => r.table_name);
+    console.log(`  ${tableNames.includes("spoc_final_teams") ? "✓" : "✗"}  spoc_final_teams table`);
+    console.log(`  ${tableNames.includes("notifications") ? "✓" : "✗"}  notifications table`);
 
     const { rows: cols } = await client.query(`
       SELECT column_name, data_type FROM information_schema.columns

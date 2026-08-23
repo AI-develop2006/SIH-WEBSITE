@@ -37,8 +37,9 @@ const ALLOWED = new Set([
   "http://localhost:5175",
   "http://localhost:5176",
   "http://localhost:3004",
+  "https://sih-website-4axu.vercel.app",
   ...(process.env.ALLOWED_ORIGINS
-    ? process.env.ALLOWED_ORIGINS.split(",").map((s) => s.trim())
+    ? process.env.ALLOWED_ORIGINS.split(",").map((s) => s.trim().replace(/\/$/, ""))
     : []),
 ]);
 

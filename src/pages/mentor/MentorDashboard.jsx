@@ -28,6 +28,7 @@ export default function MentorDashboardPage() {
   const [profiles, setProfiles] = useState([]);
   const [teams, setTeams] = useState([]);
   const [problems, setProblems] = useState([]);
+  const [ministrySeats, setMinistrySeats] = useState({});
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
@@ -76,11 +77,12 @@ export default function MentorDashboardPage() {
   // ─── Data Loading ────────────────────────────────────────────────────────────
 
   const loadData = useCallback(async () => {
-    const [profilesRes, teamsRes, problemsRes, announcementsRes] = await Promise.all([
+    const [profilesRes, teamsRes, problemsRes, announcementsRes, seatsRes] = await Promise.all([
       data.fetchAllProfiles(),
       data.fetchEnrichedTeams(),
       data.fetchProblems(),
       data.fetchAnnouncements(),
+      data.fetchMinistrySeats(),
     ]);
 
     if (profilesRes.error) toast("error", profilesRes.error);
@@ -99,6 +101,7 @@ export default function MentorDashboardPage() {
       }))
     );
     setProblems(problemsRes.data ?? []);
+    setMinistrySeats(seatsRes.data ?? {});
 
     if (announcementsRes.data) {
       const active = announcementsRes.data.find(
@@ -639,6 +642,7 @@ export default function MentorDashboardPage() {
           mentorDept={mentorDept}
           focusedTeamId={focusedTeamId}
           problemMap={problemMap}
+          ministrySeats={ministrySeats}
           removeMember={removeMember}
           deleteTeam={deleteTeam}
           renameTeam={renameTeam}
@@ -658,6 +662,7 @@ export default function MentorDashboardPage() {
           teams={teams}
           mentorDept={mentorDept}
           problemMap={problemMap}
+          ministrySeats={ministrySeats}
         />
       )}
 

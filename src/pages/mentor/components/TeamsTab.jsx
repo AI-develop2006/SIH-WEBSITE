@@ -11,10 +11,16 @@ import { TeamFormationRules } from "./TeamFormationRules";
 import { OutdatedMinistryBadge } from "@/components/common/OutdatedMinistryBadge";
 import { NewMinistryBadge } from "@/components/common/NewMinistryBadge";
 
-const CAP = MAX_MEMBERS_PER_MINISTRY_PER_DEPT;
+const DEFAULT_CAP = MAX_MEMBERS_PER_MINISTRY_PER_DEPT;
+
+/** Look up the admin-configured cap for a given ministry+dept combo. Falls back to DEFAULT_CAP. */
+function getCap(ministrySeats, ministry, dept) {
+  if (!ministry || !dept) return DEFAULT_CAP;
+  return ministrySeats[`${ministry}|||${dept}`] ?? DEFAULT_CAP;
+}
 
 // ─── Ministry Panel (inline within Teams Builder) ────────────────────────────
-function MinistriesPanel({ teams, mentorDept }) {
+function MinistriesPanel({ teams, mentorDept, ministrySeats = {} }) {
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState(null);
   const [statusFilter, setStatusFilter] = useState("all");
@@ -199,8 +205,11 @@ function MinistriesPanel({ teams, mentorDept }) {
           const hasTeams = entry.teams.length > 0;
           const isOpen = expanded === ministry;
           const totalMembers = entry.teams.reduce((s, t) => s + t.members.length, 0);
-          const cappedDepts = Object.entries(entry.membersByDept).filter(([, c]) => c >= CAP);
-          const nearCapDepts = Object.entries(entry.membersByDept).filter(([, c]) => c === CAP - 1);
+          const cappedDepts = Object.entries(entry.membersByDept).filter(([dept, count]) => count >= getCap(ministrySeats, ministry, dept));
+          const nearCapDepts = Object.entries(entry.membersByDept).filter(([dept, count]) => {
+            const cap = getCap(ministrySeats, ministry, dept);
+            return count === cap - 1;
+          });
 
           return (
             <div key={ministry} className={cn(
@@ -248,22 +257,24 @@ function MinistriesPanel({ teams, mentorDept }) {
                     <>
                       {/* Dept capacity bars */}
                       <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Dept Capacity (max {CAP} per dept)</p>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Dept Capacity</p>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                           {Object.entries(entry.membersByDept).sort((a, b) => b[1] - a[1]).map(([dept, count]) => {
-                            const pct = Math.min((count / CAP) * 100, 100);
-                            const isFull = count >= CAP;
-                            const isNear = count === CAP - 1;
+                            const cap = getCap(ministrySeats, ministry, dept);
+                            const pct = Math.min((count / cap) * 100, 100);
+                            const isFull = count >= cap;
+                            const isNear = count === cap - 1;
                             return (
                               <div key={dept} className="rounded-xl border border-border/30 bg-muted/10 p-2.5 space-y-1.5">
                                 <div className="flex justify-between items-center gap-1">
                                   <span className="text-[10px] font-bold text-white truncate">{dept}</span>
-                                  <span className={cn("text-[10px] font-extrabold shrink-0", isFull ? "text-red-400" : isNear ? "text-amber-400" : "text-emerald-400")}>{count}/{CAP}</span>
+                                  <span className={cn("text-[10px] font-extrabold shrink-0", isFull ? "text-red-400" : isNear ? "text-amber-400" : "text-emerald-400")}>{count}/{cap}</span>
                                 </div>
                                 <div className="h-1.5 rounded-full bg-muted/30 overflow-hidden">
                                   <div className={cn("h-full rounded-full transition-all duration-500", isFull ? "bg-red-500" : isNear ? "bg-amber-400" : "bg-emerald-500")} style={{ width: `${pct}%` }} />
                                 </div>
                                 {isFull && <p className="text-[9px] text-red-400 font-bold">⚠ Max capacity reached</p>}
+                                {cap !== DEFAULT_CAP && <p className="text-[9px] text-[#c9a227] font-semibold">Cap extended to {cap} by admin</p>}
                               </div>
                             );
                           })}
@@ -334,6 +345,7 @@ export const TeamsTab = memo(function TeamsTab({
   mentorDept,
   focusedTeamId,
   problemMap,
+  ministrySeats = {},
   removeMember,
   deleteTeam,
   renameTeam,
@@ -776,7 +788,7 @@ export const TeamsTab = memo(function TeamsTab({
 
       {/* ── Ministries sub-tab ── */}
       {subTab === "ministries" && (
-        <MinistriesPanel teams={teams} mentorDept={mentorDept} />
+        <MinistriesPanel teams={teams} mentorDept={mentorDept} ministrySeats={ministrySeats} />
       )}
 
       {/* Large Team Details Overlay */}

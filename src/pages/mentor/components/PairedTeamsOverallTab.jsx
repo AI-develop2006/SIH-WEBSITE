@@ -9,7 +9,12 @@ import { TeamDetailsModal } from "./TeamDetailsModal";
 import { OutdatedMinistryBadge } from "@/components/common/OutdatedMinistryBadge";
 import { NewMinistryBadge } from "@/components/common/NewMinistryBadge";
 
-const CAP = MAX_MEMBERS_PER_MINISTRY_PER_DEPT;
+const DEFAULT_CAP = MAX_MEMBERS_PER_MINISTRY_PER_DEPT;
+
+function getCap(ministrySeats, ministry, dept) {
+  if (!ministry || !dept) return DEFAULT_CAP;
+  return ministrySeats[`${ministry}|||${dept}`] ?? DEFAULT_CAP;
+}
 
 /**
  * PairedTeamsOverallTab
@@ -19,7 +24,7 @@ const CAP = MAX_MEMBERS_PER_MINISTRY_PER_DEPT;
  *   • "By Department" — left-sidebar dept list + right team grid
  *   • "By Ministry"  — cross-dept ministry accordion
  */
-export const PairedTeamsOverallTab = memo(function PairedTeamsOverallTab({ teams, mentorDept, problemMap }) {
+export const PairedTeamsOverallTab = memo(function PairedTeamsOverallTab({ teams, mentorDept, problemMap, ministrySeats = {} }) {
   const [detailStudent, setDetailStudent] = useState(null);
   const [selectedTeamOverlay, setSelectedTeamOverlay] = useState(null);
   const [categoryFilter, setCategoryFilter] = useState("All");
@@ -133,9 +138,7 @@ export const PairedTeamsOverallTab = memo(function PairedTeamsOverallTab({ teams
           t.team.created_by_dept === deptFilter
       );
     }).length;
-  }, [ministryData, deptFilter]);
-
-  const filteredMinistries = useMemo(() => {
+  }, [ministryData, deptFilter]);  const filteredMinistries = useMemo(() => {
     const needle = ministrySearch.trim().toLowerCase();
     return MINISTRIES.filter((m) => {
       if (needle && !m.toLowerCase().includes(needle)) return false;
@@ -541,8 +544,6 @@ export const PairedTeamsOverallTab = memo(function PairedTeamsOverallTab({ teams
               const hasTeams = entry.teams.length > 0;
               const isOpen = expandedMinistry === ministry;
               const totalMembers = entry.teams.reduce((s, t) => s + t.members.length, 0);
-              const cappedDepts = Object.entries(entry.membersByDept).filter(([, c]) => c >= CAP);
-              const nearCapDepts = Object.entries(entry.membersByDept).filter(([, c]) => c === CAP - 1);
 
               const visibleTeams = deptFilter === "All"
                 ? entry.teams
@@ -550,6 +551,12 @@ export const PairedTeamsOverallTab = memo(function PairedTeamsOverallTab({ teams
                     t.members.some((m) => m.department === deptFilter) ||
                     t.team.created_by_dept === deptFilter
                   );
+
+              const cappedDepts = Object.entries(entry.membersByDept).filter(([dept, count]) => count >= getCap(ministrySeats, ministry, dept));
+              const nearCapDepts = Object.entries(entry.membersByDept).filter(([dept, count]) => {
+                const cap = getCap(ministrySeats, ministry, dept);
+                return count === cap - 1;
+              });
 
               return (
                 <div key={ministry} className={cn("rounded-2xl border transition-all duration-200", hasTeams ? "border-[#c9a227]/30 bg-card/30" : "border-border/20 bg-card/10")}>
@@ -593,13 +600,14 @@ export const PairedTeamsOverallTab = memo(function PairedTeamsOverallTab({ teams
                           {/* Per-dept capacity bars */}
                           <div>
                             <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
-                              Dept Capacity (max {CAP} per dept)
+                              Dept Capacity
                             </p>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                               {Object.entries(entry.membersByDept).sort((a, b) => b[1] - a[1]).map(([dept, count]) => {
-                                const pct = Math.min((count / CAP) * 100, 100);
-                                const isFull = count >= CAP;
-                                const isNear = count === CAP - 1;
+                                const cap = getCap(ministrySeats, ministry, dept);
+                                const pct = Math.min((count / cap) * 100, 100);
+                                const isFull = count >= cap;
+                                const isNear = count === cap - 1;
                                 const isOwn = isSameDepartment(dept, mentorDept || "");
                                 return (
                                   <div key={dept} className={cn("rounded-xl border bg-muted/10 p-2.5 space-y-1.5", isOwn ? "border-[#c9a227]/30" : "border-border/30")}>
@@ -607,12 +615,13 @@ export const PairedTeamsOverallTab = memo(function PairedTeamsOverallTab({ teams
                                       <span className={cn("text-[10px] font-bold truncate", isOwn ? "text-[#e8c058]" : "text-white")}>
                                         {isOwn ? `${dept} (You)` : dept}
                                       </span>
-                                      <span className={cn("text-[10px] font-extrabold shrink-0", isFull ? "text-red-400" : isNear ? "text-amber-400" : "text-emerald-400")}>{count}/{CAP}</span>
+                                      <span className={cn("text-[10px] font-extrabold shrink-0", isFull ? "text-red-400" : isNear ? "text-amber-400" : "text-emerald-400")}>{count}/{cap}</span>
                                     </div>
                                     <div className="h-1.5 rounded-full bg-muted/30 overflow-hidden">
                                       <div className={cn("h-full rounded-full transition-all duration-500", isFull ? "bg-red-500" : isNear ? "bg-amber-400" : "bg-emerald-500")} style={{ width: `${pct}%` }} />
                                     </div>
                                     {isFull && <p className="text-[9px] text-red-400 font-bold">⚠ Max capacity reached</p>}
+                                    {cap !== DEFAULT_CAP && <p className="text-[9px] text-[#c9a227] font-semibold">Cap extended to {cap} by admin</p>}
                                   </div>
                                 );
                               })}

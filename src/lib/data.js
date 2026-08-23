@@ -550,6 +550,21 @@ export async function fetchRegistrationStatus() {
   }
 }
 
+// ─── Ministry Seat Caps ───────────────────────────────────────────────────────
+// Fetches admin-configured per-(ministry, dept) seat caps.
+// Returns { data: { "Ministry|||Dept": N, ... }, error }
+// Falls back to {} on any error so callers can use DEFAULT_CAP safely.
+export async function fetchMinistrySeats() {
+  try {
+    const res = await fetch(`${API_BASE}/api/settings/ministry-seats`);
+    const json = await res.json();
+    if (!res.ok) return { data: {}, error: json.error };
+    return { data: json.data ?? {}, error: null };
+  } catch (err) {
+    return { data: {}, error: err.message };
+  }
+}
+
 // ─── Personal Notifications ───────────────────────────────────────────────────
 
 export async function fetchNotifications() {

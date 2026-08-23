@@ -1047,6 +1047,9 @@ function TeamsManager({ teams, profiles, problems, problemMap, deleting, onDelet
   const [teamDeptFilter, setTeamDeptFilter] = useState("");
   const [teamMinistryFilter, setTeamMinistryFilter] = useState("");
   const [teamSearch, setTeamSearch] = useState("");
+  const [teamSectionFilter, setTeamSectionFilter] = useState("");
+  const [teamApprovalFilter, setTeamApprovalFilter] = useState(""); // "" | "approved" | "pending"
+  const [teamCategoryFilter, setTeamCategoryFilter] = useState(""); // "" | "Pairs" | "Solo"
 
   // Create team form
   const [showCreate, setShowCreate] = useState(false);
@@ -1146,14 +1149,32 @@ function TeamsManager({ teams, profiles, problems, problemMap, deleting, onDelet
       if (deptToAbbr(t.team.created_by_dept ?? "") !== teamDeptFilter) return false;
     }
     if (teamMinistryFilter && t.team.ministry !== teamMinistryFilter) return false;
+    if (teamCategoryFilter) {
+      const cat = t.team.category || (t.members.length === 1 ? "Solo" : "Pairs");
+      if (cat !== teamCategoryFilter) return false;
+    }
+    if (teamApprovalFilter === "approved" && !t.team.approved) return false;
+    if (teamApprovalFilter === "pending" && t.team.approved) return false;
+    if (teamSectionFilter) {
+      const hasSection = t.members.some((m) => (m.section ?? "").toUpperCase() === teamSectionFilter.toUpperCase());
+      if (!hasSection) return false;
+    }
     if (teamSearch.trim()) {
       const needle = teamSearch.trim().toLowerCase();
-      const haystack = [t.team.name, t.team.team_code, t.team.created_by_dept, t.team.ministry]
-        .filter(Boolean).join(" ").toLowerCase();
+      const haystack = [
+        t.team.name, t.team.team_code, t.team.created_by_dept, t.team.ministry,
+        ...t.members.map((m) => `${m.name} ${m.register_no ?? ""} ${m.section ?? ""}`),
+      ].filter(Boolean).join(" ").toLowerCase();
       if (!haystack.includes(needle)) return false;
     }
     return true;
   });
+
+  const allTeamSections = useMemo(
+    () => [...new Set(teams.flatMap((t) => t.members.map((m) => m.section)).filter(Boolean))].sort(),
+    [teams]
+  );
+  const hasTeamFilters = teamSearch || teamDeptFilter || teamMinistryFilter || teamSectionFilter || teamApprovalFilter || teamCategoryFilter;
 
   const MINISTRIES_LIST = MINISTRIES;
 
@@ -1203,15 +1224,15 @@ function TeamsManager({ teams, profiles, problems, problemMap, deleting, onDelet
         <input
           value={teamSearch}
           onChange={(e) => setTeamSearch(e.target.value)}
-          placeholder="Search team name, ID…"
+          placeholder="Search name, ID, member…"
           className="rounded-xl border border-border bg-background/60 px-3.5 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground/70 focus:border-ring/70 w-44 grow"
         />
         <select
           value={teamDeptFilter}
           onChange={(e) => setTeamDeptFilter(e.target.value)}
-          className="rounded-xl border border-border bg-background/60 px-3.5 py-2 text-sm text-foreground outline-none focus:border-ring/70 w-52"
+          className="rounded-xl border border-border bg-background/60 px-3.5 py-2 text-sm text-foreground outline-none focus:border-ring/70 w-36"
         >
-          <option value="">All departments</option>
+          <option value="">All depts</option>
           {allTeamDepts.map((d) => (
             <option key={d} value={d}>{d}</option>
           ))}
@@ -1219,17 +1240,45 @@ function TeamsManager({ teams, profiles, problems, problemMap, deleting, onDelet
         <select
           value={teamMinistryFilter}
           onChange={(e) => setTeamMinistryFilter(e.target.value)}
-          className="rounded-xl border border-border bg-background/60 px-3.5 py-2 text-sm text-foreground outline-none focus:border-ring/70 w-56"
+          className="rounded-xl border border-border bg-background/60 px-3.5 py-2 text-sm text-foreground outline-none focus:border-ring/70 w-44"
         >
           <option value="">All ministries</option>
           {allTeamMinistries.map((m) => (
             <option key={m} value={m}>{m}</option>
           ))}
         </select>
-        {(teamSearch || teamDeptFilter || teamMinistryFilter) && (
+        <select
+          value={teamSectionFilter}
+          onChange={(e) => setTeamSectionFilter(e.target.value)}
+          className="rounded-xl border border-border bg-background/60 px-3.5 py-2 text-sm text-foreground outline-none focus:border-ring/70 w-28"
+        >
+          <option value="">All sections</option>
+          {allTeamSections.map((s) => (
+            <option key={s} value={s}>Sec {s}</option>
+          ))}
+        </select>
+        <select
+          value={teamCategoryFilter}
+          onChange={(e) => setTeamCategoryFilter(e.target.value)}
+          className="rounded-xl border border-border bg-background/60 px-3.5 py-2 text-sm text-foreground outline-none focus:border-ring/70 w-28"
+        >
+          <option value="">Any type</option>
+          <option value="Pairs">Pairs</option>
+          <option value="Solo">Solo</option>
+        </select>
+        <select
+          value={teamApprovalFilter}
+          onChange={(e) => setTeamApprovalFilter(e.target.value)}
+          className="rounded-xl border border-border bg-background/60 px-3.5 py-2 text-sm text-foreground outline-none focus:border-ring/70 w-32"
+        >
+          <option value="">All status</option>
+          <option value="approved">Approved</option>
+          <option value="pending">Pending</option>
+        </select>
+        {hasTeamFilters && (
           <button
             type="button"
-            onClick={() => { setTeamSearch(""); setTeamDeptFilter(""); setTeamMinistryFilter(""); }}
+            onClick={() => { setTeamSearch(""); setTeamDeptFilter(""); setTeamMinistryFilter(""); setTeamSectionFilter(""); setTeamApprovalFilter(""); setTeamCategoryFilter(""); }}
             className="text-xs text-muted-foreground hover:text-foreground border border-border rounded-xl px-3 py-2 transition-colors"
           >
             Clear

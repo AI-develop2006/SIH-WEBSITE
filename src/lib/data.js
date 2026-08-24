@@ -173,3 +173,45 @@ export function subscribeToTeamEvents(onUpdate) {
     if (es) es.close();
   };
 }
+
+
+// ─── SSE: subscribe to pair-team changes from the mentor backend ──────────────
+// The mentor portal emits `pair_teams_updated` events whenever a ministry is
+// assigned, a skill is changed, a member is added/removed, or a team is renamed.
+// SPOC needs to react to these so the pairTeams list stays current without a
+// manual refresh.
+//
+// PM_API_BASE falls back to the same host as the SPOC backend if the env var
+// is not set (safe for monorepo deployments where both backends are on one host).
+const PM_API_BASE = import.meta.env.VITE_PM_BACKEND_URL || API_BASE;
+
+export function subscribeToPairTeamEvents(onUpdate) {
+  const url = `${PM_API_BASE}/api/events`;
+  let es;
+  let retryTimer;
+  let active = true;
+
+  function connect() {
+    if (!active) return;
+    es = new EventSource(url);
+
+    es.addEventListener("pair_teams_updated", () => {
+      onUpdate();
+    });
+
+    es.onerror = () => {
+      es.close();
+      if (active) {
+        retryTimer = setTimeout(connect, 3000);
+      }
+    };
+  }
+
+  connect();
+
+  return function cleanup() {
+    active = false;
+    clearTimeout(retryTimer);
+    if (es) es.close();
+  };
+}

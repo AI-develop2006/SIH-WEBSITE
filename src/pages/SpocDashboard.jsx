@@ -3,11 +3,12 @@ import { useNavigate } from "react-router-dom";
 import {
   Shield, LogOut, Users, Building2, CheckCircle2, AlertTriangle,
   ChevronDown, ChevronUp, Plus, X, Download, Search, RefreshCw, Sparkles, Trash2,
+  ListChecks,
 } from "lucide-react";
 import {
   getCurrentProfile, logoutSpoc, fetchEnrichedTeams,
   fetchFinalTeams, saveFinalTeam, updateFinalTeam, deleteFinalTeam,
-  fetchClaimedMembers, subscribeToTeamEvents,
+  fetchClaimedMembers, subscribeToTeamEvents, subscribeToPairTeamEvents,
 } from "@/lib/data";
 import { useToast } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
@@ -176,6 +177,163 @@ function FinalTeamCard({ ft, profileMap, onEdit, onDelete }) {
               <AlertTriangle className="size-3 shrink-0" />{e}
             </p>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Final Teams Panel ────────────────────────────────────────────────────────
+// Standalone filterable view of all created final teams, shown above the ministry accordion.
+function FinalTeamsPanel({ finalTeams, profileMap, onEdit, onDelete }) {
+  const [open, setOpen] = useState(true);
+  const [search, setSearch] = useState("");
+  const [ministryFilter, setMinistryFilter] = useState("all");
+  const [validFilter, setValidFilter] = useState("all"); // "all" | "valid" | "invalid"
+
+  const allMinistries = useMemo(() => {
+    const s = new Set(finalTeams.map((ft) => ft.ministry).filter(Boolean));
+    return [...s].sort();
+  }, [finalTeams]);
+
+  const filtered = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    return finalTeams.filter((ft) => {
+      const members = (ft.member_ids || []).map((id) => profileMap.get(id)).filter(Boolean);
+      const isValid = validateFinalTeam(members).length === 0;
+
+      if (ministryFilter !== "all" && ft.ministry !== ministryFilter) return false;
+      if (validFilter === "valid" && !isValid) return false;
+      if (validFilter === "invalid" && isValid) return false;
+      if (needle) {
+        const hay = [
+          ft.name,
+          ft.ministry,
+          ...members.map((m) => `${m.name} ${m.register_no ?? ""} ${m.department ?? ""}`),
+        ].join(" ").toLowerCase();
+        if (!hay.includes(needle)) return false;
+      }
+      return true;
+    });
+  }, [finalTeams, profileMap, search, ministryFilter, validFilter]);
+
+  const validCount   = useMemo(() => finalTeams.filter((ft) => validateFinalTeam((ft.member_ids || []).map((id) => profileMap.get(id)).filter(Boolean)).length === 0).length, [finalTeams, profileMap]);
+  const invalidCount = finalTeams.length - validCount;
+
+  if (finalTeams.length === 0) return null;
+
+  return (
+    <div className="mb-6 rounded-2xl border border-emerald-500/25 bg-[#050b18]/60 overflow-hidden">
+      {/* Header — click to collapse */}
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between gap-3 px-5 py-4 text-left hover:bg-emerald-500/5 transition-colors cursor-pointer"
+      >
+        <div className="flex items-center gap-3">
+          <ListChecks className="size-4 text-emerald-400 shrink-0" />
+          <span className="text-sm font-extrabold text-white">Final Teams Created</span>
+          <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300">
+            {finalTeams.length} total
+          </span>
+          {validCount > 0 && (
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400">
+              {validCount} valid
+            </span>
+          )}
+          {invalidCount > 0 && (
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/25 text-amber-400">
+              {invalidCount} incomplete
+            </span>
+          )}
+        </div>
+        <ChevronDown className={cn("size-4 text-[#94a3b8] transition-transform duration-200", open ? "rotate-180" : "rotate-0")} />
+      </button>
+
+      {open && (
+        <div className="border-t border-emerald-500/15 px-5 pb-5 pt-4 space-y-4">
+          {/* Filters row */}
+          <div className="flex flex-col sm:flex-row gap-2.5">
+            {/* Search */}
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-[#94a3b8] pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Search team name or member…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full rounded-xl border border-[rgba(147,197,253,0.18)] bg-[#050b18]/60 pl-9 pr-8 py-2 text-xs text-white outline-none placeholder:text-[#94a3b8]/50 focus:border-[#c9a227]/50 transition-all"
+              />
+              {search && (
+                <button type="button" onClick={() => setSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#94a3b8] hover:text-white">
+                  <X className="size-3" />
+                </button>
+              )}
+            </div>
+
+            {/* Ministry filter */}
+            <select
+              value={ministryFilter}
+              onChange={(e) => setMinistryFilter(e.target.value)}
+              className="rounded-xl border border-[rgba(147,197,253,0.18)] bg-[#050b18]/60 px-3 py-2 text-xs text-white outline-none focus:border-[#c9a227]/50 transition-all cursor-pointer min-w-[160px]"
+            >
+              <option value="all">All Ministries</option>
+              {allMinistries.map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+
+            {/* Validity filter chips */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              {[
+                { id: "all",     label: "All" },
+                { id: "valid",   label: "✓ Valid" },
+                { id: "invalid", label: "⚠ Incomplete" },
+              ].map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => setValidFilter(f.id)}
+                  className={cn(
+                    "px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer",
+                    validFilter === f.id
+                      ? f.id === "valid"
+                        ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-300"
+                        : f.id === "invalid"
+                        ? "bg-amber-500/20 border-amber-500/40 text-amber-300"
+                        : "bg-[#c9a227]/20 border-[#c9a227]/40 text-[#e8c058]"
+                      : "bg-[#0a1226]/60 border-[rgba(147,197,253,0.14)] text-[#94a3b8] hover:text-white hover:border-[rgba(147,197,253,0.3)]"
+                  )}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Result count */}
+          {(search || ministryFilter !== "all" || validFilter !== "all") && (
+            <p className="text-[10px] text-[#94a3b8]">
+              Showing <span className="text-white font-bold">{filtered.length}</span> of {finalTeams.length} teams
+            </p>
+          )}
+
+          {/* Team cards */}
+          {filtered.length === 0 ? (
+            <p className="py-8 text-center text-xs text-[#94a3b8]">No final teams match your filters.</p>
+          ) : (
+            <div className="space-y-3">
+              {filtered.map((ft) => (
+                <FinalTeamCard
+                  key={ft.id}
+                  ft={ft}
+                  profileMap={profileMap}
+                  onEdit={onEdit}
+                  onDelete={onDelete}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -467,8 +625,8 @@ export default function SpocDashboard() {
     })();
   }, [loadAll]);
 
-  // ── SSE: real-time updates from other SPOC sessions ───────────────────────
-  // Subscribes to server-sent events; refreshes data on any final-team change.
+  // ── SSE: real-time updates from other SPOC sessions (final teams) ─────────
+  // Subscribes to SPOC backend SSE; refreshes data on any final-team change.
   // Falls back to 30-second polling if SSE is unavailable.
   useEffect(() => {
     const cleanup = subscribeToTeamEvents(() => refreshData(true));
@@ -477,6 +635,18 @@ export default function SpocDashboard() {
     const poll = setInterval(() => refreshData(true), 30_000);
     return () => { cleanup(); setLiveConnected(false); clearInterval(poll); };
   }, [refreshData]);
+
+  // ── SSE: real-time updates from the mentor backend (pair teams) ────────────
+  // When a mentor assigns/changes a ministry or skill on a pair-team, or adds /
+  // removes a member, the mentor backend broadcasts `pair_teams_updated`.
+  // We re-fetch pairTeams so the SPOC view stays in sync without a manual reload.
+  useEffect(() => {
+    const cleanupPair = subscribeToPairTeamEvents(async () => {
+      const teamsRes = await fetchEnrichedTeams();
+      if (teamsRes.data) setPairTeams(teamsRes.data);
+    });
+    return () => cleanupPair();
+  }, []);
 
   // ── Derived state ──────────────────────────────────────────────────────────
   const profileMap = useMemo(() => {
@@ -699,6 +869,17 @@ export default function SpocDashboard() {
           <span>• All members must have <strong className="text-white">different skillsets</strong></span>
         </div>
       </div>
+
+      {/* Final Teams Panel — filterable overview of all created teams */}
+      <FinalTeamsPanel
+        finalTeams={finalTeams}
+        profileMap={profileMap}
+        onEdit={(ft) => {
+          const srcTeams = byMinistry.get(ft.ministry) ?? [];
+          openBuilder(ft.ministry, srcTeams, ft);
+        }}
+        onDelete={handleDeleteFinalTeam}
+      />
 
       {/* Search + Filter */}
       <div className="space-y-3 mb-5">

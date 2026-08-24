@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import * as data from "@/lib/data";
 import { useToast } from "@/components/unlumen-ui/toast";
@@ -66,6 +66,12 @@ export default function MentorDashboardPage() {
     domain: "Software",
     department: "",
   });
+
+  // ── Ministry seat cap state ─────────────────────────────────────────────────
+  // seatAlerts: [{ ministry, cap, usage, prevCap }] — ministries where the admin
+  //   recently raised this mentor's dept cap; shown as notification badges.
+  const [seatAlerts, setSeatAlerts] = useState([]);
+  const prevSeatsRef = useRef({});
 
   // Create Team Modal
   const [showCreateTeamModal, setShowCreateTeamModal] = useState(false);
@@ -169,14 +175,72 @@ export default function MentorDashboardPage() {
     refreshTeams();
   }, [refreshCount, refreshTeams]);
 
-  // Auto-refresh ministry seat caps every 60 seconds so admin changes appear live
+  // ── Ministry seat polling: detect changes and alert mentor ───────────────────
+  // Polls every 20s. If a cap for this mentor's dept was RAISED, shows a toast
+  // and adds it to seatAlerts so the OverviewTab can display it prominently.
   useEffect(() => {
-    const interval = setInterval(async () => {
+    if (!mentorDept) return; // wait until dept is known
+
+    async function checkSeats(isFirstRun = false) {
       const { data: seats } = await data.fetchMinistrySeats();
-      if (seats) setMinistrySeats(seats);
-    }, 60_000);
+      if (!seats) return;
+
+      const prev = prevSeatsRef.current;
+      const DEFAULT_CAP = 6;
+
+      if (!isFirstRun) {
+        // Find ministries where the cap for this dept was raised
+        const raised = [];
+        const allKeys = new Set([...Object.keys(prev), ...Object.keys(seats)]);
+        for (const key of allKeys) {
+          if (!key.endsWith(`|||${mentorDept}`)) continue;
+          const prevCap = prev[key] ?? DEFAULT_CAP;
+          const newCap  = seats[key] ?? DEFAULT_CAP;
+          if (newCap > prevCap) {
+            const ministry = key.split("|||")[0];
+            raised.push({ ministry, cap: newCap, prevCap });
+          }
+        }
+
+        if (raised.length > 0) {
+          // Toast notification for each raised ministry
+          raised.forEach(({ ministry, cap, prevCap }) => {
+            toast(
+              "success",
+              `🎉 Seats increased for "${ministry}" — ${mentorDept} now has ${cap} slots (was ${prevCap}). You can add more students!`
+            );
+          });
+
+          // Also fetch current usage for those ministries and add to seatAlerts
+          const { data: deptData } = await data.fetchMinistrySeatsForDept(mentorDept);
+          const usageMap = {};
+          for (const row of deptData ?? []) usageMap[row.ministry] = row;
+
+          setSeatAlerts((prev) => {
+            const next = [...prev];
+            for (const r of raised) {
+              const usage = usageMap[r.ministry]?.usage ?? 0;
+              const existing = next.findIndex((a) => a.ministry === r.ministry);
+              const entry = { ministry: r.ministry, cap: r.cap, usage, prevCap: r.prevCap };
+              if (existing >= 0) next[existing] = entry;
+              else next.push(entry);
+            }
+            return next;
+          });
+        }
+      }
+
+      prevSeatsRef.current = seats;
+      setMinistrySeats(seats);
+    }
+
+    // Run once immediately on mount (isFirstRun=true so no alerts)
+    checkSeats(true);
+
+    // Then poll every 20s
+    const interval = setInterval(() => checkSeats(false), 20_000);
     return () => clearInterval(interval);
-  }, []);
+  }, [mentorDept, toast]);
 
   // ─── Derived State ───────────────────────────────────────────────────────────
 
@@ -612,6 +676,11 @@ export default function MentorDashboardPage() {
           unassignedCount={unassignedCount}
           handleTeamCardClick={handleTeamCardClick}
           setShowCreateTeamModal={setShowCreateTeamModal}
+          seatAlerts={seatAlerts}
+          mentorDept={mentorDept}
+          onDismissAlert={(ministry) =>
+            setSeatAlerts((prev) => prev.filter((a) => a.ministry !== ministry))
+          }
         />
       )}
 

@@ -565,6 +565,22 @@ export async function fetchMinistrySeats() {
   }
 }
 
+// Fetches seat caps + current usage for a specific department.
+// Returns { data: [{ ministry, cap, usage }], seats: {...}, error }
+// Used by the mentor dashboard to show capacity alerts for their department.
+export async function fetchMinistrySeatsForDept(dept) {
+  try {
+    const res = await fetch(
+      `${API_BASE}/api/settings/ministry-seats-for-dept?dept=${encodeURIComponent(dept)}`
+    );
+    const json = await res.json();
+    if (!res.ok) return { data: [], seats: {}, error: json.error };
+    return { data: json.data ?? [], seats: json.seats ?? {}, error: null };
+  } catch (err) {
+    return { data: [], seats: {}, error: err.message };
+  }
+}
+
 // ─── SPOC Final Team ─────────────────────────────────────────────────────────
 // Returns the SPOC final team the logged-in participant belongs to,
 // with all member profiles resolved. Returns { data: null } if not in a team.

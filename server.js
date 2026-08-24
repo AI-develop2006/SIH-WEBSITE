@@ -129,6 +129,31 @@ app.get(["/health", "/api/health"], (_req, res) => {
   });
 });
 
+// ─── Cross-portal broadcast helper ───────────────────────────────────────────
+// Notifies the mentor/participant backend to push a `pair_teams_updated` SSE
+// event to all connected mentor and participant clients. Fire-and-forget —
+// a failure here never blocks the admin operation.
+const PM_BACKEND_URL = process.env.PM_BACKEND_URL || null;
+const INTERNAL_BROADCAST_SECRET = process.env.INTERNAL_BROADCAST_SECRET || null;
+
+async function notifyPairTeamUpdate(action, meta = {}) {
+  if (!PM_BACKEND_URL) return; // not configured — skip silently
+  try {
+    const headers = { "Content-Type": "application/json" };
+    if (INTERNAL_BROADCAST_SECRET) {
+      headers["Authorization"] = `Bearer ${INTERNAL_BROADCAST_SECRET}`;
+    }
+    await fetch(`${PM_BACKEND_URL}/api/internal/broadcast-pair-team-update`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ action, ...meta }),
+      signal: AbortSignal.timeout(3000), // don't wait more than 3 s
+    });
+  } catch (_) {
+    // Fire-and-forget — ignore errors so admin ops never fail due to this
+  }
+}
+
 // ==========================================
 // REST API ENDPOINTS FOR ADMIN OPERATIONS
 // ==========================================
@@ -322,6 +347,7 @@ app.post("/api/teams", async (req, res) => {
     .single();
 
   if (error) return res.status(500).json({ error: error.message });
+  notifyPairTeamUpdate("team_created", { team_id: data?.id });
   return res.json({ data });
 });
 
@@ -344,6 +370,7 @@ app.patch("/api/teams/:id", async (req, res) => {
 
   const { error } = await supabase.from("teams").update(patch).eq("id", id);
   if (error) return res.status(500).json({ error: error.message });
+  notifyPairTeamUpdate("team_updated", { team_id: id });
   return res.json({ success: true });
 });
 
@@ -364,6 +391,7 @@ app.post("/api/teams/:id/members", async (req, res) => {
   if (team && !team.leader_id) {
     await supabase.from("teams").update({ leader_id: member_id }).eq("id", id);
   }
+  notifyPairTeamUpdate("member_added", { team_id: id, member_id });
   return res.json({ success: true });
 });
 
@@ -386,6 +414,7 @@ app.delete("/api/teams/:id/members/:memberId", async (req, res) => {
     const nextLeader = remaining?.[0]?.member_id ?? null;
     await supabase.from("teams").update({ leader_id: nextLeader }).eq("id", id);
   }
+  notifyPairTeamUpdate("member_removed", { team_id: id, member_id: memberId });
   return res.json({ success: true });
 });
 
@@ -397,6 +426,7 @@ app.put("/api/teams/:id/ministry", async (req, res) => {
 
   const { error } = await supabase.from("teams").update({ ministry: ministry || null }).eq("id", id);
   if (error) return res.status(500).json({ error: error.message });
+  notifyPairTeamUpdate("ministry_updated", { team_id: id, ministry: ministry || null });
   return res.json({ success: true });
 });
 
@@ -412,6 +442,7 @@ app.put("/api/teams/:id/members/:memberId/skill", async (req, res) => {
     .eq("team_id", id)
     .eq("member_id", memberId);
   if (error) return res.status(500).json({ error: error.message });
+  notifyPairTeamUpdate("skill_updated", { team_id: id, member_id: memberId });
   return res.json({ success: true });
 });
 
@@ -433,6 +464,7 @@ app.delete("/api/teams/:id", async (req, res) => {
     await supabase.from("team_members").delete().eq("team_id", id);
     const { error } = await supabase.from("teams").delete().eq("id", id);
     if (error) throw new Error(error.message);
+    notifyPairTeamUpdate("team_deleted", { team_id: id });
     return res.json({ success: true });
   } catch (err) {
     return res.status(500).json({ error: err.message });

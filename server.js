@@ -133,6 +133,70 @@ app.get(["/health", "/api/health"], (_req, res) => {
   });
 });
 
+// ─── SSE: real-time broadcast for pair-team changes ───────────────────────────
+// Any portal that cares about team data (SPOC, mentor, participant) can
+// connect to this endpoint and receive push notifications when pair-team
+// data changes (ministry assigned, skill changed, member added/removed, etc.).
+const pairTeamSseClients = new Set();
+
+function broadcastPairTeamUpdate(action, meta = {}) {
+  const payload = `event: pair_teams_updated\ndata: ${JSON.stringify({ action, ...meta })}\n\n`;
+  for (const res of pairTeamSseClients) {
+    try { res.write(payload); } catch (_) { pairTeamSseClients.delete(res); }
+  }
+}
+
+app.get("/api/events", (req, res) => {
+  const origin = req.headers.origin;
+  if (origin && allowedOriginsSet.has(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+  }
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  res.flushHeaders();
+
+  res.write("event: connected\ndata: {}\n\n");
+
+  const keepAlive = setInterval(() => {
+    try { res.write(": ping\n\n"); } catch (_) { clearInterval(keepAlive); }
+  }, 25_000);
+
+  pairTeamSseClients.add(res);
+  req.on("close", () => {
+    clearInterval(keepAlive);
+    pairTeamSseClients.delete(res);
+  });
+});
+
+// ─── Internal: allow sibling backends to trigger a broadcast ─────────────────
+// POST /api/internal/broadcast-pair-team-update
+// Called by the admin backend after it mutates teams/team_members.
+// Requires the shared secret in the Authorization header to prevent abuse.
+// Fire-and-forget for the caller — returns 200 immediately.
+app.post("/api/internal/broadcast-pair-team-update", (req, res) => {
+  const secret = process.env.INTERNAL_BROADCAST_SECRET;
+  // If no secret is configured, allow calls from loopback only
+  if (secret) {
+    const auth = req.headers.authorization;
+    if (auth !== `Bearer ${secret}`) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+  } else {
+    // Fallback: allow only from localhost when no secret is set
+    const clientIp = (req.headers["x-forwarded-for"] || req.socket.remoteAddress || "").split(",")[0].trim().replace(/^::ffff:/, "");
+    const isLocal = clientIp === "127.0.0.1" || clientIp === "::1" || clientIp === "localhost";
+    if (!isLocal) {
+      return res.status(401).json({ error: "Unauthorized — set INTERNAL_BROADCAST_SECRET" });
+    }
+  }
+
+  const { action = "team_updated", ...meta } = req.body || {};
+  broadcastPairTeamUpdate(action, meta);
+  return res.json({ ok: true, clients: pairTeamSseClients.size });
+});
+
 // ==========================================
 // REST API ENDPOINTS FOR PARTICIPANT / MENTOR
 // ==========================================
@@ -938,6 +1002,7 @@ app.post("/api/teams/:teamId/members", async (req, res) => {
       }
     }
 
+    broadcastPairTeamUpdate("member_added", { team_id: teamId, member_id: memberId });
     return res.json({ success: true });
   } catch (err) {
     return res.status(500).json({ error: err.message });
@@ -996,13 +1061,14 @@ app.put("/api/teams/:teamId/members/:memberId/skill", async (req, res) => {
         .eq("member_id", memberId);
     }
 
+    broadcastPairTeamUpdate("skill_updated", { team_id: teamId, member_id: memberId });
     return res.json({ success: true, assigned_skill: skill || null });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
 });
 
-// Assign Ministry to Team (sets ministry for the whole team — Pairs share one ministry)
+// Assign Ministry to Team
 app.put("/api/teams/:teamId/ministry", async (req, res) => {
   const { teamId } = req.params;
   const { ministry } = req.body;
@@ -1120,6 +1186,7 @@ app.put("/api/teams/:teamId/ministry", async (req, res) => {
       await supabase.from("teams").update({ ministry: ministry || null }).eq("id", teamId);
     }
 
+    broadcastPairTeamUpdate("ministry_updated", { team_id: teamId, ministry: ministry || null });
     return res.json({ success: true, ministry: ministry || null });
   } catch (err) {
     return res.status(500).json({ error: err.message });
@@ -1143,6 +1210,7 @@ app.put("/api/teams/:teamId/name", async (req, res) => {
     if (supabase) {
       await supabase.from("teams").update({ name: name.trim() }).eq("id", teamId);
     }
+    broadcastPairTeamUpdate("team_renamed", { team_id: teamId });
     return res.json({ success: true, name: name.trim() });
   } catch (err) {
     return res.status(500).json({ error: err.message });

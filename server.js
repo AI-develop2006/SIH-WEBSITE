@@ -1464,6 +1464,32 @@ async function ensureSpocTable() {
   }
 }
 
+/**
+ * Fire-and-forget notification sender for SPOC final team events.
+ * Inserts one notification row per profile_id. Errors are logged only.
+ */
+async function sendFinalTeamNotifications(profileIds, { type, title, message, metadata = {} }) {
+  if (!profileIds || profileIds.length === 0) return;
+  try {
+    if (process.env.DATABASE_URL) {
+      for (const pid of profileIds) {
+        await dbQuery(
+          `INSERT INTO public.notifications (profile_id, type, title, message, metadata)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [pid, type, title, message, JSON.stringify(metadata)]
+        );
+      }
+    } else if (supabase) {
+      const rows = profileIds.map((pid) => ({
+        profile_id: pid, type, title, message, metadata,
+      }));
+      await supabase.from("notifications").insert(rows);
+    }
+  } catch (err) {
+    console.warn("[notifications] Failed to insert:", err.message);
+  }
+}
+
 // GET /api/spoc/final-teams — list all final teams
 app.get("/api/spoc/final-teams", async (req, res) => {
   try {
@@ -1506,6 +1532,7 @@ app.post("/api/spoc/final-teams", async (req, res) => {
       } catch (_) {}
     }
 
+    let created = null;
     if (process.env.DATABASE_URL) {
       const { rows } = await dbQuery(
         `INSERT INTO public.spoc_final_teams (name, ministry, member_ids, created_by)
@@ -1513,7 +1540,7 @@ app.post("/api/spoc/final-teams", async (req, res) => {
          RETURNING *;`,
         [name.trim(), ministry || null, member_ids, createdBy]
       );
-      return res.json({ data: rows[0] });
+      created = rows[0];
     } else if (supabase) {
       const { data, error } = await supabase
         .from("spoc_final_teams")
@@ -1521,9 +1548,20 @@ app.post("/api/spoc/final-teams", async (req, res) => {
         .select()
         .single();
       if (error) return res.status(500).json({ error: error.message });
-      return res.json({ data });
+      created = data;
+    } else {
+      return res.status(500).json({ error: "No database configured" });
     }
-    return res.status(500).json({ error: "No database configured" });
+
+    // Notify all members they've been added to a final team
+    sendFinalTeamNotifications(member_ids, {
+      type: "spoc_team_added",
+      title: "🎉 You're in the Final Team!",
+      message: `You have been selected for the final SIH 2026 team "${name.trim()}"${ministry ? ` under ${ministry}` : ""}. Congratulations!`,
+      metadata: { team_name: name.trim(), ministry: ministry || null, team_id: created?.id },
+    });
+
+    return res.json({ data: created });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
@@ -1536,6 +1574,22 @@ app.patch("/api/spoc/final-teams/:id", async (req, res) => {
 
   try {
     await ensureSpocTable();
+
+    // Fetch current team to detect member changes for notifications
+    let prevMemberIds = [];
+    let prevName = "";
+    if (process.env.DATABASE_URL) {
+      const { rows: prev } = await dbQuery(
+        `SELECT name, member_ids FROM public.spoc_final_teams WHERE id = $1`, [id]
+      );
+      if (prev[0]) { prevMemberIds = prev[0].member_ids || []; prevName = prev[0].name; }
+    } else if (supabase) {
+      const { data: prev } = await supabase
+        .from("spoc_final_teams").select("name, member_ids").eq("id", id).maybeSingle();
+      if (prev) { prevMemberIds = prev.member_ids || []; prevName = prev.name; }
+    }
+
+    let updated = null;
     if (process.env.DATABASE_URL) {
       const { rows } = await dbQuery(
         `UPDATE public.spoc_final_teams
@@ -1548,7 +1602,7 @@ app.patch("/api/spoc/final-teams/:id", async (req, res) => {
         [name?.trim() ?? null, ministry ?? null, member_ids ?? null, id]
       );
       if (!rows.length) return res.status(404).json({ error: "Team not found" });
-      return res.json({ data: rows[0] });
+      updated = rows[0];
     } else if (supabase) {
       const patch = {};
       if (name !== undefined) patch.name = name.trim();
@@ -1562,26 +1616,119 @@ app.patch("/api/spoc/final-teams/:id", async (req, res) => {
         .select()
         .single();
       if (error) return res.status(500).json({ error: error.message });
-      return res.json({ data });
+      updated = data;
+    } else {
+      return res.status(500).json({ error: "No database configured" });
     }
-    return res.status(500).json({ error: "No database configured" });
+
+    // Send notifications for membership changes
+    const finalName = updated?.name ?? name?.trim() ?? prevName;
+    const finalMinistry = updated?.ministry ?? ministry ?? null;
+    const finalIds = updated?.member_ids ?? member_ids ?? prevMemberIds;
+    const prevSet = new Set(prevMemberIds);
+    const newSet = new Set(finalIds);
+    const addedIds = finalIds.filter((uid) => !prevSet.has(uid));
+    const removedIds = prevMemberIds.filter((uid) => !newSet.has(uid));
+    const keptIds = finalIds.filter((uid) => prevSet.has(uid));
+
+    await sendFinalTeamNotifications(addedIds, {
+      type: "spoc_team_added",
+      title: "🎉 You're in the Final Team!",
+      message: `You have been selected for the final SIH 2026 team "${finalName}"${finalMinistry ? ` under ${finalMinistry}` : ""}. Congratulations!`,
+      metadata: { team_name: finalName, ministry: finalMinistry, team_id: id },
+    });
+    await sendFinalTeamNotifications(removedIds, {
+      type: "spoc_team_removed",
+      title: "⚠ Removed from Final Team",
+      message: `You have been removed from the final SIH 2026 team "${finalName}"${finalMinistry ? ` (${finalMinistry})` : ""}. Please await further instructions from your SPOC.`,
+      metadata: { team_name: finalName, ministry: finalMinistry, team_id: id },
+    });
+    if (keptIds.length > 0 && (name !== undefined || ministry !== undefined)) {
+      await sendFinalTeamNotifications(keptIds, {
+        type: "spoc_team_added",
+        title: "📋 Your Final Team Was Updated",
+        message: `Your SIH 2026 final team has been updated to "${finalName}"${finalMinistry ? ` under ${finalMinistry}` : ""}. Your membership continues.`,
+        metadata: { team_name: finalName, ministry: finalMinistry, team_id: id },
+      });
+    }
+
+    return res.json({ data: updated });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
 });
 
-// DELETE /api/spoc/final-teams/:id — delete a final team
-app.delete("/api/spoc/final-teams/:id", async (req, res) => {
-  const { id } = req.params;
+// DELETE /api/spoc/final-teams/:id — disabled to protect finalised teams
+app.delete("/api/spoc/final-teams/:id", async (_req, res) => {
+  return res.status(403).json({
+    error: "Final teams cannot be deleted once formed. Use the PATCH endpoint to update membership.",
+  });
+});
+
+// ─── Participant: "Which final team am I in?" ────────────────────────────────
+// GET /api/spoc/my-final-team — returns the SPOC final team the authenticated
+// participant belongs to, with all member profiles resolved.
+app.get("/api/spoc/my-final-team", async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith("Bearer ")) return res.status(401).json({ error: "Not signed in" });
+  const token = authHeader.split(" ")[1];
+
   try {
-    await ensureSpocTable();
-    if (process.env.DATABASE_URL) {
-      await dbQuery(`DELETE FROM public.spoc_final_teams WHERE id = $1;`, [id]);
-    } else if (supabase) {
-      const { error } = await supabase.from("spoc_final_teams").delete().eq("id", id);
-      if (error) return res.status(500).json({ error: error.message });
+    // Resolve user id
+    let userId = null;
+    if (supabase) {
+      const { data: { user }, error } = await supabase.auth.getUser(token);
+      if (error || !user) return res.status(401).json({ error: "Invalid token" });
+      userId = user.id;
+    } else {
+      return res.status(500).json({ error: "Auth not configured" });
     }
-    return res.json({ success: true });
+
+    // Find a final team that contains this user's id
+    let finalTeam = null;
+    if (process.env.DATABASE_URL) {
+      const { rows } = await dbQuery(
+        `SELECT * FROM public.spoc_final_teams WHERE $1 = ANY(member_ids) LIMIT 1`,
+        [userId]
+      );
+      finalTeam = rows[0] ?? null;
+    } else if (supabase) {
+      const { data, error } = await supabase
+        .from("spoc_final_teams")
+        .select("*")
+        .contains("member_ids", [userId])
+        .limit(1)
+        .maybeSingle();
+      if (error) return res.status(500).json({ error: error.message });
+      finalTeam = data ?? null;
+    }
+
+    if (!finalTeam) return res.json({ data: null });
+
+    // Resolve member profiles from the member_ids array
+    const memberIds = finalTeam.member_ids || [];
+    let members = [];
+    if (memberIds.length > 0) {
+      if (process.env.DATABASE_URL) {
+        const { rows: profiles } = await dbQuery(
+          `SELECT id, name, register_no, department, year, section, gender, email, phone, avatar_url, assigned_skill
+           FROM public.profiles WHERE id = ANY($1)`,
+          [memberIds]
+        );
+        // Keep order matching member_ids
+        const profileMap = new Map(profiles.map((p) => [p.id, p]));
+        members = memberIds.map((id) => profileMap.get(id)).filter(Boolean);
+      } else if (supabase) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, name, register_no, department, year, section, gender, email, phone, avatar_url, assigned_skill")
+          .in("id", memberIds);
+        const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
+        members = memberIds.map((id) => profileMap.get(id)).filter(Boolean);
+      }
+    }
+
+    return res.json({ data: { ...finalTeam, members } });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }

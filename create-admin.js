@@ -15,50 +15,68 @@ if (existsSync(join(__dirname, ".env.local"))) {
   dotenv.config();
 }
 
-const { Pool } = pg;
+const ADMIN_EMAIL    = process.env.ADMIN_EMAIL;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+const ADMIN_NAME     = process.env.ADMIN_NAME || "Admin Manager";
 
-const pool = new Pool({
+if (!process.env.DATABASE_URL) { console.error("❌  DATABASE_URL missing"); process.exit(1); }
+if (!ADMIN_EMAIL)    { console.error("❌  ADMIN_EMAIL missing in .env"); process.exit(1); }
+if (!ADMIN_PASSWORD) { console.error("❌  ADMIN_PASSWORD missing in .env"); process.exit(1); }
+
+const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
 });
 
 async function createAdmin() {
   const client = await pool.connect();
   try {
-    const query = `
+    // Parameterised query — no credentials appear as string literals in source
+    await client.query(`
       DO $$
       DECLARE
+        _email TEXT    := $1;
+        _pass  TEXT    := $2;
+        _name  TEXT    := $3;
         new_user_id uuid := gen_random_uuid();
       BEGIN
-        -- Insert into auth.users if not exists
-        IF NOT EXISTS (SELECT 1 FROM auth.users WHERE email = 'smvecsihadmin2026@gmail.com') THEN
+        IF NOT EXISTS (SELECT 1 FROM auth.users WHERE email = _email) THEN
           INSERT INTO auth.users (
-            instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, recovery_sent_at, last_sign_in_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+            instance_id, id, aud, role, email,
+            encrypted_password,
+            email_confirmed_at, recovery_sent_at, last_sign_in_at,
+            raw_app_meta_data, raw_user_meta_data,
+            created_at, updated_at
           ) VALUES (
-            '00000000-0000-0000-0000-000000000000', new_user_id, 'authenticated', 'authenticated', 'smvecsihadmin2026@gmail.com', crypt('sih_20206_', gen_salt('bf')), now(), now(), now(), '{"provider":"email","providers":["email"]}', '{"name":"Admin Manager"}', now(), now()
+            '00000000-0000-0000-0000-000000000000', new_user_id,
+            'authenticated', 'authenticated', _email,
+            crypt(_pass, gen_salt('bf')),
+            now(), now(), now(),
+            '{"provider":"email","providers":["email"]}'::jsonb,
+            jsonb_build_object('name', _name),
+            now(), now()
           );
         ELSE
-          -- Account already exists — update the password
           UPDATE auth.users
-          SET encrypted_password = crypt('sih_20206_', gen_salt('bf')),
+          SET encrypted_password = crypt(_pass, gen_salt('bf')),
               updated_at = now()
-          WHERE email = 'smvecsihadmin2026@gmail.com';
+          WHERE email = _email;
         END IF;
 
-        -- We insert into profiles, but in many Supabase setups there's a trigger on auth.users to create a profile automatically.
-        -- So we use ON CONFLICT (id) DO UPDATE
         INSERT INTO public.profiles (id, name, email, role, phone, gender, verified)
-        SELECT id, 'Admin Manager', 'smvecsihadmin2026@gmail.com', 'admin', 'admin-phone-2026', 'Other', true
-        FROM auth.users WHERE email = 'smvecsihadmin2026@gmail.com'
+        SELECT id, _name, _email, 'admin', 'admin-phone-2026', 'Other', true
+        FROM auth.users WHERE email = _email
         ON CONFLICT (id) DO UPDATE SET role = 'admin';
       END $$;
-    `;
-    await client.query(query);
-    console.log("Admin user created/updated successfully.");
+    `, [ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_NAME]);
+
+    console.log(`✓  Admin user (${ADMIN_EMAIL}) created/updated successfully.`);
   } catch (err) {
-    console.error("Error creating admin user:", err);
+    console.error("Error creating admin user:", err.message);
+    process.exit(1);
   } finally {
     client.release();
-    pool.end();
+    await pool.end();
   }
 }
 

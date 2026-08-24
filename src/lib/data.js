@@ -6,23 +6,14 @@ function getAuthHeader() {
 }
 
 /**
- * Converts a phone number to the internal Supabase auth email used for SPOC accounts.
- * Never exposed to the user — only used internally for auth calls.
+ * Log in as SPOC using email and password directly.
  */
-function phoneToEmail(phone) {
-  const digits = phone.replace(/\D/g, "");
-  return `${digits}@spoc.smvec.ac.in`;
-}
-
-// ─── Auth ────────────────────────────────────────────────────────────────────
-
-export async function loginSpoc(phone, password) {
+export async function loginSpoc(email, password) {
   try {
-    const email = phoneToEmail(phone);
     const res = await fetch(`${API_BASE}/api/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
     });
     const json = await res.json();
     if (!res.ok) return { data: null, error: json.error || "Login failed" };
@@ -94,10 +85,10 @@ export async function saveFinalTeam(payload) {
       body: JSON.stringify(payload),
     });
     const json = await res.json();
-    if (!res.ok) return { data: null, error: json.error };
-    return { data: json.data, error: null };
+    if (!res.ok) return { data: null, error: json.error, conflict: res.status === 409 };
+    return { data: json.data, error: null, conflict: false };
   } catch (err) {
-    return { data: null, error: err.message };
+    return { data: null, error: err.message, conflict: false };
   }
 }
 
@@ -116,16 +107,52 @@ export async function updateFinalTeam(id, payload) {
   }
 }
 
-export async function deleteFinalTeam(id) {
+// ─── Real-time: claimed members ───────────────────────────────────────────────
+// Returns the flat list of member IDs already assigned to any final team.
+export async function fetchClaimedMembers() {
   try {
-    const res = await fetch(`${API_BASE}/api/spoc/final-teams/${id}`, {
-      method: "DELETE",
+    const res = await fetch(`${API_BASE}/api/spoc/claimed-members`, {
       headers: { ...getAuthHeader() },
     });
     const json = await res.json();
-    if (!res.ok) return { data: null, error: json.error };
-    return { data: true, error: null };
+    if (!res.ok) return { data: [], error: json.error };
+    return { data: json.data ?? [], error: null };
   } catch (err) {
-    return { data: null, error: err.message };
+    return { data: [], error: err.message };
   }
+}
+
+// ─── SSE: subscribe to live final-team updates ────────────────────────────────
+// Calls `onUpdate` whenever the server broadcasts a final_teams_updated event.
+// Returns a cleanup function — call it on unmount.
+export function subscribeToTeamEvents(onUpdate) {
+  const url = `${API_BASE}/api/spoc/events`;
+  let es;
+  let retryTimer;
+  let active = true;
+
+  function connect() {
+    if (!active) return;
+    es = new EventSource(url);
+
+    es.addEventListener("final_teams_updated", () => {
+      onUpdate();
+    });
+
+    es.onerror = () => {
+      es.close();
+      if (active) {
+        // Reconnect after 3 s on error
+        retryTimer = setTimeout(connect, 3000);
+      }
+    };
+  }
+
+  connect();
+
+  return function cleanup() {
+    active = false;
+    clearTimeout(retryTimer);
+    if (es) es.close();
+  };
 }

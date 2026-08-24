@@ -2,11 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Shield, LogOut, Users, Building2, CheckCircle2, AlertTriangle,
-  ChevronDown, ChevronUp, Plus, X, Download, Search, RefreshCw, Sparkles, Trash2,
+  ChevronDown, ChevronUp, Plus, X, Download, Search, RefreshCw, Sparkles,
 } from "lucide-react";
 import {
   getCurrentProfile, logoutSpoc, fetchEnrichedTeams,
-  fetchFinalTeams, saveFinalTeam, updateFinalTeam, deleteFinalTeam,
+  fetchFinalTeams, saveFinalTeam, updateFinalTeam,
+  fetchClaimedMembers, subscribeToTeamEvents,
 } from "@/lib/data";
 import { useToast } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
@@ -79,49 +80,14 @@ function ValidationBar({ members }) {
   );
 }
 
-// ─── Inline delete confirm ───────────────────────────────────────────────────
-function DeleteConfirm({ teamName, onConfirm, onCancel, loading }) {
-  return (
-    <div className="rounded-2xl border border-red-500/30 bg-red-500/8 px-4 py-3 flex items-center justify-between gap-3 flex-wrap animate-fade-in">
-      <p className="text-xs text-red-300 font-semibold">
-        Delete <span className="font-black">"{teamName}"</span>? This cannot be undone.
-      </p>
-      <div className="flex items-center gap-2 shrink-0">
-        <Button variant="ghost" onClick={onCancel} className="text-[11px] px-3 py-1.5 text-[#94a3b8]" disabled={loading}>
-          Cancel
-        </Button>
-        <Button
-          variant="danger"
-          onClick={onConfirm}
-          loading={loading}
-          className="text-[11px] px-3 py-1.5"
-        >
-          <Trash2 className="size-3" />
-          Confirm Delete
-        </Button>
-      </div>
-    </div>
-  );
-}
-
 // ─── Final team card ─────────────────────────────────────────────────────────
-function FinalTeamCard({ ft, profileMap, onEdit, onDelete }) {
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-
+function FinalTeamCard({ ft, profileMap, onEdit }) {
   const members = useMemo(
     () => (ft.member_ids || []).map((id) => profileMap.get(id)).filter(Boolean),
     [ft.member_ids, profileMap]
   );
   const errors = validateFinalTeam(members);
   const isValid = errors.length === 0;
-
-  async function handleConfirmDelete() {
-    setDeleting(true);
-    await onDelete(ft.id, ft.name);
-    setDeleting(false);
-    setConfirmDelete(false);
-  }
 
   return (
     <div className={cn(
@@ -136,35 +102,16 @@ function FinalTeamCard({ ft, profileMap, onEdit, onDelete }) {
           }
           <span className="text-sm font-extrabold text-white">{ft.name}</span>
         </div>
-        {!confirmDelete && (
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              onClick={() => onEdit(ft)}
-              className="text-[11px] px-3 py-1.5 text-[#c9a227] hover:bg-[#c9a227]/10"
-            >
-              Edit
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={() => setConfirmDelete(true)}
-              className="text-[11px] px-3 py-1.5 text-red-400 hover:bg-red-500/10"
-            >
-              <Trash2 className="size-3" />
-              Delete
-            </Button>
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            onClick={() => onEdit(ft)}
+            className="text-[11px] px-3 py-1.5 text-[#c9a227] hover:bg-[#c9a227]/10"
+          >
+            Edit
+          </Button>
+        </div>
       </div>
-
-      {confirmDelete && (
-        <DeleteConfirm
-          teamName={ft.name}
-          loading={deleting}
-          onConfirm={handleConfirmDelete}
-          onCancel={() => setConfirmDelete(false)}
-        />
-      )}
 
       <ValidationBar members={members} />
 
@@ -174,7 +121,7 @@ function FinalTeamCard({ ft, profileMap, onEdit, onDelete }) {
         ))}
       </div>
 
-      {!isValid && !confirmDelete && (
+      {!isValid && (
         <div className="space-y-1">
           {errors.map((e) => (
             <p key={e} className="text-[10px] text-amber-400 flex items-center gap-1">
@@ -188,7 +135,7 @@ function FinalTeamCard({ ft, profileMap, onEdit, onDelete }) {
 }
 
 // ─── Ministry accordion row ──────────────────────────────────────────────────
-function MinistryRow({ ministry, pairTeams, finalTeams, onBuildTeam, onEditTeam, onDeleteTeam, profileMap }) {
+function MinistryRow({ ministry, pairTeams, finalTeams, onBuildTeam, onEditTeam, profileMap, claimedMemberIds }) {
   const [open, setOpen] = useState(false);
   const bodyRef = useRef(null);
   const isOutdated = OUTDATED_MINISTRIES.has(ministry);
@@ -309,16 +256,20 @@ function MinistryRow({ ministry, pairTeams, finalTeams, onBuildTeam, onEditTeam,
                       {t.members.length === 0 ? (
                         <p className="text-[10px] text-[#94a3b8]/60 italic">No members</p>
                       ) : (
-                        t.members.map((m) => (
-                          <div key={m.id} className="flex items-center gap-2">
-                            <Avatar name={m.name} className="size-5" />
-                            <span className="text-[11px] text-[#e8ecf7] truncate flex-1">{m.name}</span>
-                            {genderBadge(m.gender)}
-                            {m.assigned_skill && (
-                              <span className="text-[9px] text-[#94a3b8] shrink-0">{m.assigned_skill}</span>
-                            )}
-                          </div>
-                        ))
+                        t.members.map((m) => {
+                          const isClaimed = claimedMemberIds.has(m.id);
+                          return (
+                            <div key={m.id} className={cn("flex items-center gap-2", isClaimed && "opacity-40")}>
+                              <Avatar name={m.name} className="size-5" />
+                              <span className={cn("text-[11px] truncate flex-1", isClaimed ? "text-[#94a3b8]/60 line-through" : "text-[#e8ecf7]")}>{m.name}</span>
+                              {genderBadge(m.gender)}
+                              {isClaimed
+                                ? <span className="text-[9px] font-bold text-rose-400/70">taken</span>
+                                : m.assigned_skill && <span className="text-[9px] text-[#94a3b8] shrink-0">{m.assigned_skill}</span>
+                              }
+                            </div>
+                          );
+                        })
                       )}
                     </div>
                   </div>
@@ -339,7 +290,6 @@ function MinistryRow({ ministry, pairTeams, finalTeams, onBuildTeam, onEditTeam,
                       ft={ft}
                       profileMap={profileMap}
                       onEdit={onEditTeam}
-                      onDelete={onDeleteTeam}
                     />
                   ))}
                 </div>
@@ -407,6 +357,8 @@ export default function SpocDashboard() {
   const [spocName, setSpocName] = useState("SPOC");
   const [pairTeams, setPairTeams] = useState([]);
   const [finalTeams, setFinalTeams] = useState([]);
+  const [claimedMemberIds, setClaimedMemberIds] = useState(new Set());
+  const [liveConnected, setLiveConnected] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("active");
   const [refreshing, setRefreshing] = useState(false);
@@ -419,10 +371,11 @@ export default function SpocDashboard() {
 
   // ── Load data ──────────────────────────────────────────────────────────────
   const loadAll = useCallback(async () => {
-    const [profileRes, teamsRes, finalRes] = await Promise.all([
+    const [profileRes, teamsRes, finalRes, claimedRes] = await Promise.all([
       getCurrentProfile(),
       fetchEnrichedTeams(),
       fetchFinalTeams(),
+      fetchClaimedMembers(),
     ]);
 
     if (profileRes.error || !profileRes.data) {
@@ -438,16 +391,19 @@ export default function SpocDashboard() {
     setSpocName(profileRes.data.name ?? "SPOC");
     setPairTeams(teamsRes.data ?? []);
     setFinalTeams(finalRes.data ?? []);
+    setClaimedMemberIds(new Set(claimedRes.data ?? []));
   }, [navigate, toast]);
 
   const refreshData = useCallback(async (silent = true) => {
     if (!silent) setRefreshing(true);
-    const [teamsRes, finalRes] = await Promise.all([
+    const [teamsRes, finalRes, claimedRes] = await Promise.all([
       fetchEnrichedTeams(),
       fetchFinalTeams(),
+      fetchClaimedMembers(),
     ]);
     if (teamsRes.data) setPairTeams(teamsRes.data);
     if (finalRes.data) setFinalTeams(finalRes.data);
+    if (claimedRes.data) setClaimedMemberIds(new Set(claimedRes.data));
     setLastRefreshed(new Date());
     if (!silent) setRefreshing(false);
   }, []);
@@ -462,10 +418,15 @@ export default function SpocDashboard() {
     })();
   }, [loadAll]);
 
-  // Auto-poll every 30 seconds
+  // ── SSE: real-time updates from other SPOC sessions ───────────────────────
+  // Subscribes to server-sent events; refreshes data on any final-team change.
+  // Falls back to 30-second polling if SSE is unavailable.
   useEffect(() => {
-    const interval = setInterval(() => refreshData(true), 30_000);
-    return () => clearInterval(interval);
+    const cleanup = subscribeToTeamEvents(() => refreshData(true));
+    setLiveConnected(true);
+    // Polling fallback — fires only if SSE somehow misses an event
+    const poll = setInterval(() => refreshData(true), 30_000);
+    return () => { cleanup(); setLiveConnected(false); clearInterval(poll); };
   }, [refreshData]);
 
   // ── Derived state ──────────────────────────────────────────────────────────
@@ -529,33 +490,28 @@ export default function SpocDashboard() {
       const res = await updateFinalTeam(editingFinalTeam.id, { name, ministry, member_ids });
       if (res.error) {
         toast("error", res.error);
-        await refreshData(true); // rollback
+        await refreshData(true); // rollback + sync
         return;
       }
       toast("success", `Final team "${name}" updated!`);
     } else {
       const res = await saveFinalTeam({ name, ministry, member_ids });
-      if (res.error) { toast("error", res.error); return; }
-      // Optimistic add
+      if (res.error) {
+        // 409 conflict — another session already claimed these members
+        if (res.conflict) {
+          toast("error", "⚡ One or more members were just claimed by another session. The list has been refreshed.");
+        } else {
+          toast("error", res.error);
+        }
+        await refreshData(true); // always re-sync on error
+        return;
+      }
       if (res.data) setFinalTeams((prev) => [...prev, res.data]);
       toast("success", `Final team "${name}" saved!`);
     }
     setBuilderOpen(false);
     setEditingFinalTeam(null);
-    // Sync from DB in background
     refreshData(true);
-  }
-
-  async function handleDeleteFinalTeam(id, name) {
-    // Optimistic remove
-    setFinalTeams((prev) => prev.filter((ft) => ft.id !== id));
-    const res = await deleteFinalTeam(id);
-    if (res.error) {
-      toast("error", res.error);
-      await refreshData(true); // rollback
-      return;
-    }
-    toast("success", `Team "${name}" deleted.`);
   }
 
   async function exportFinalTeams() {
@@ -611,7 +567,15 @@ export default function SpocDashboard() {
             </div>
             <div className="hidden sm:block min-w-0">
               <p className="text-sm font-extrabold text-white truncate">SPOC Portal</p>
-              <p className="text-[10px] text-[#94a3b8]">SIH 2026 · {spocName}</p>
+              <p className="text-[10px] text-[#94a3b8] flex items-center gap-1.5">
+                SIH 2026 · {spocName}
+                {liveConnected && (
+                  <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
+                    <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    Live
+                  </span>
+                )}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -767,12 +731,12 @@ export default function SpocDashboard() {
             pairTeams={byMinistry.get(ministry) ?? []}
             finalTeams={finalTeams}
             profileMap={profileMap}
+            claimedMemberIds={claimedMemberIds}
             onBuildTeam={(min, srcTeams) => openBuilder(min, srcTeams)}
             onEditTeam={(ft) => {
               const srcTeams = byMinistry.get(ft.ministry) ?? [];
               openBuilder(ft.ministry, srcTeams, ft);
             }}
-            onDeleteTeam={handleDeleteFinalTeam}
           />
         ))}
       </div>
@@ -784,6 +748,7 @@ export default function SpocDashboard() {
           sourceTeams={builderSourceTeams}
           editingTeam={editingFinalTeam}
           profileMap={profileMap}
+          claimedMemberIds={claimedMemberIds}
           onSave={handleSaveFinalTeam}
           onClose={() => { setBuilderOpen(false); setEditingFinalTeam(null); }}
         />

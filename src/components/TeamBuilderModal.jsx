@@ -31,7 +31,7 @@ function genderBadge(gender) {
  *   - ≥2 female members
  *   - All assigned skills must be unique (no two members share a skill)
  */
-export function TeamBuilderModal({ ministry, sourceTeams, editingTeam, profileMap, onSave, onClose }) {
+export function TeamBuilderModal({ ministry, sourceTeams, editingTeam, profileMap, claimedMemberIds = new Set(), onSave, onClose }) {
   const modalRef = useRef(null);
 
   // Collect all available members from the source pair-teams
@@ -163,11 +163,15 @@ export function TeamBuilderModal({ ministry, sourceTeams, editingTeam, profileMa
             <p className="text-[10px] font-bold uppercase tracking-wider text-[#94a3b8] mb-1">
               Building Final Team · {ministry}
             </p>
-            <h2 className="text-lg font-black text-white">
+            <h2 className="text-lg font-black text-white flex items-center gap-2">
               {editingTeam ? "Edit Final Team" : "Build Final Team"}
+              <span className="inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
+                <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                Live
+              </span>
             </h2>
             <p className="text-xs text-[#94a3b8] mt-0.5">
-              Select exactly 6 members · ≥2 depts · ≥2 female · unique skills
+              Select exactly 6 members · ≥2 depts · ≥2 female · unique skills · faded = already taken
             </p>
           </div>
           <button
@@ -188,9 +192,16 @@ export function TeamBuilderModal({ ministry, sourceTeams, editingTeam, profileMa
                 <p className="text-xs font-bold uppercase tracking-wider text-[#94a3b8]">
                   Available Members ({filteredMemberCount}/{allMembers.length})
                 </p>
-                {(memberSearch || memberDeptFilter || memberGenderFilter) && (
-                  <button type="button" onClick={() => { setMemberSearch(""); setMemberDeptFilter(""); setMemberGenderFilter(""); }} className="text-[10px] text-red-400 hover:underline font-semibold">✕ Clear</button>
-                )}
+                <div className="flex items-center gap-2 shrink-0">
+                  {claimedMemberIds.size > 0 && (
+                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-full border border-rose-500/25 bg-rose-500/8 text-rose-400/80">
+                      {[...claimedMemberIds].filter(id => allMembers.some(m => m.id === id)).length} taken
+                    </span>
+                  )}
+                  {(memberSearch || memberDeptFilter || memberGenderFilter) && (
+                    <button type="button" onClick={() => { setMemberSearch(""); setMemberDeptFilter(""); setMemberGenderFilter(""); }} className="text-[10px] text-red-400 hover:underline font-semibold">✕ Clear</button>
+                  )}
+                </div>
               </div>
 
               {/* Member search + filters */}
@@ -253,36 +264,44 @@ export function TeamBuilderModal({ ministry, sourceTeams, editingTeam, profileMa
                           const isSelected = selectedIds.has(m.id);
                           const isFull = selected.length >= SPOC_TEAM_SIZE && !isSelected;
                           const hasConflict = skillConflictIds.has(m.id) && isSelected;
+                          // Claimed: already in another final team (not the one we're editing)
+                          const isClaimed = claimedMemberIds.has(m.id) && !isSelected;
 
                           return (
                             <button
                               key={m.id}
                               type="button"
-                              onClick={() => !isFull && toggleMember(m)}
-                              disabled={isFull}
+                              onClick={() => !isFull && !isClaimed && toggleMember(m)}
+                              disabled={isFull || isClaimed}
+                              title={isClaimed ? "Already assigned to another final team" : undefined}
                               className={cn(
-                                "w-full flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-all cursor-pointer",
+                                "w-full flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-all",
                                 isSelected
                                   ? hasConflict
-                                    ? "border-amber-500/50 bg-amber-500/10"
-                                    : "border-[#c9a227]/50 bg-[#c9a227]/8"
+                                    ? "border-amber-500/50 bg-amber-500/10 cursor-pointer"
+                                    : "border-[#c9a227]/50 bg-[#c9a227]/8 cursor-pointer"
+                                  : isClaimed
+                                  ? "border-[rgba(147,197,253,0.06)] bg-transparent opacity-35 cursor-not-allowed select-none"
                                   : isFull
                                   ? "border-[rgba(147,197,253,0.08)] bg-transparent opacity-40 cursor-not-allowed"
-                                  : "border-[rgba(147,197,253,0.12)] bg-[#050b18]/40 hover:border-[#c9a227]/30 hover:bg-[#c9a227]/5"
+                                  : "border-[rgba(147,197,253,0.12)] bg-[#050b18]/40 hover:border-[#c9a227]/30 hover:bg-[#c9a227]/5 cursor-pointer"
                               )}
                             >
-                              <Avatar name={m.name} className="size-7 shrink-0" />
+                              <Avatar name={m.name} className={cn("size-7 shrink-0", isClaimed && "opacity-40")} />
                               <div className="min-w-0 flex-1">
                                 <p className="text-xs font-semibold text-white truncate">{m.name}</p>
                                 <p className="text-[10px] text-[#94a3b8]">
                                   {getDeptCode(m.department)}
                                   {m.assigned_skill ? ` · ${m.assigned_skill}` : " · No skill"}
+                                  {isClaimed && <span className="ml-1 text-rose-400/70 font-bold">· taken</span>}
                                 </p>
                               </div>
                               <div className="flex items-center gap-1.5 shrink-0">
                                 {genderBadge(m.gender)}
                                 {hasConflict && <AlertTriangle className="size-3.5 text-amber-400" />}
-                                {isSelected
+                                {isClaimed
+                                  ? <span className="text-[9px] font-bold text-rose-400/60 px-1.5 py-0.5 rounded-full border border-rose-500/20 bg-rose-500/8">taken</span>
+                                  : isSelected
                                   ? <Minus className="size-4 text-[#c9a227]" />
                                   : <Plus className="size-4 text-[#94a3b8]" />
                                 }

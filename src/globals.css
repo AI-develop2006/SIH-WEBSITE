@@ -39,6 +39,7 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), sans-serif;
   min-height: 100vh;
+  overflow-y: auto;
   -webkit-font-smoothing: antialiased;
 }
 

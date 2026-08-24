@@ -202,9 +202,25 @@ function MinistryRow({ ministry, pairTeams, finalTeams, onBuildTeam, onEditTeam,
     const el = bodyRef.current;
     if (!el) return;
     if (open) {
+      // First pass: measure
+      el.style.overflow = "hidden";
       el.style.maxHeight = el.scrollHeight + "px";
       el.style.opacity = "1";
+      // After transition, allow overflow so inner scrollable areas work
+      const timer = setTimeout(() => {
+        if (el) {
+          el.style.maxHeight = "none";
+          el.style.overflow = "visible";
+        }
+      }, 300);
+      return () => clearTimeout(timer);
     } else {
+      // Snap back: first lock the current height, then animate to 0
+      el.style.overflow = "hidden";
+      el.style.maxHeight = el.scrollHeight + "px";
+      // Force reflow
+      // eslint-disable-next-line no-unused-expressions
+      el.offsetHeight;
       el.style.maxHeight = "0px";
       el.style.opacity = "0";
     }

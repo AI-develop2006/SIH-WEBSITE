@@ -64,6 +64,11 @@ export function TeamBuilderModal({ ministry, sourceTeams, editingTeam, profileMa
 
   useEffect(() => {
     modalRef.current?.focus();
+    // Lock body scroll while modal is open
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "";
+    };
   }, []);
 
   const selectedIds = useMemo(() => new Set(selected.map((m) => m.id)), [selected]);

@@ -1080,9 +1080,30 @@ app.put("/api/teams/:teamId/ministry", async (req, res) => {
 
         // Count how many from this team belong to this dept
         const teamDeptCount = currentTeamMembers.filter((m) => m.department === dept).length;
-        if (existingCount + teamDeptCount > 6) {
+
+        // Read the admin-configured cap from system_settings (falls back to 6)
+        let deptCap = 6;
+        try {
+          if (process.env.DATABASE_URL) {
+            const { rows: sr } = await dbQuery(
+              `SELECT value FROM public.system_settings WHERE key = 'ministry_seats' LIMIT 1`
+            );
+            const seats = sr[0]?.value ?? {};
+            deptCap = seats[`${ministry}|||${dept}`] ?? 6;
+          } else if (supabase) {
+            const { data: sd } = await supabase
+              .from("system_settings")
+              .select("value")
+              .eq("key", "ministry_seats")
+              .maybeSingle();
+            const seats = sd?.value ?? {};
+            deptCap = seats[`${ministry}|||${dept}`] ?? 6;
+          }
+        } catch (_) { /* fall back to 6 */ }
+
+        if (existingCount + teamDeptCount > deptCap) {
           return res.status(400).json({
-            error: `Ministry cap exceeded: "${dept}" already has ${existingCount} member(s) under "${ministry}". Adding ${teamDeptCount} more would exceed the maximum of 6 per department per ministry.`,
+            error: `Ministry cap exceeded: "${dept}" already has ${existingCount} member(s) under "${ministry}". Adding ${teamDeptCount} more would exceed the cap of ${deptCap} per department per ministry.`,
           });
         }
       }
@@ -1434,6 +1455,87 @@ app.get("/api/settings/ministry-seats", async (_req, res) => {
       seats = data?.value ?? {};
     }
     return res.json({ data: seats });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/settings/ministry-seats-for-dept?dept=<department>
+// Returns per-ministry seat cap + current usage for ONE department.
+// This is what the mentor dashboard polls — it only returns data relevant
+// to the requesting mentor's department so they can see extra capacity.
+app.get("/api/settings/ministry-seats-for-dept", async (req, res) => {
+  const { dept } = req.query;
+  if (!dept) return res.status(400).json({ error: "dept query param required" });
+
+  try {
+    // 1. Read seat caps
+    let seats = {};
+    if (process.env.DATABASE_URL) {
+      const { rows } = await dbQuery(
+        `SELECT value FROM public.system_settings WHERE key = 'ministry_seats' LIMIT 1`
+      );
+      seats = rows[0]?.value ?? {};
+    } else if (supabase) {
+      const { data } = await supabase
+        .from("system_settings").select("value")
+        .eq("key", "ministry_seats").maybeSingle();
+      seats = data?.value ?? {};
+    }
+
+    // 2. Count current members per ministry for this department
+    let usageRows = [];
+    if (process.env.DATABASE_URL) {
+      const { rows } = await dbQuery(
+        `SELECT t.ministry, COUNT(*)::int AS cnt
+         FROM public.team_members tm
+         JOIN public.teams t ON t.id = tm.team_id
+         JOIN public.profiles p ON p.id = tm.member_id
+         WHERE p.department = $1 AND t.ministry IS NOT NULL
+         GROUP BY t.ministry;`,
+        [dept]
+      );
+      usageRows = rows;
+    } else if (supabase) {
+      // Get teams with a ministry, then count members from this dept
+      const { data: allTeams } = await supabase
+        .from("teams").select("id, ministry").not("ministry", "is", null);
+      if (allTeams?.length) {
+        const teamIds = allTeams.map((t) => t.id);
+        const { data: members } = await supabase
+          .from("team_members")
+          .select("team_id, profiles(department)")
+          .in("team_id", teamIds);
+        const ministryCounts = {};
+        for (const tm of members ?? []) {
+          if (tm.profiles?.department !== dept) continue;
+          const ministry = allTeams.find((t) => t.id === tm.team_id)?.ministry;
+          if (ministry) ministryCounts[ministry] = (ministryCounts[ministry] ?? 0) + 1;
+        }
+        usageRows = Object.entries(ministryCounts).map(([ministry, cnt]) => ({ ministry, cnt }));
+      }
+    }
+
+    // 3. Build result: only ministries where this dept has a cap override OR usage > 0
+    const usageMap = {};
+    for (const r of usageRows) usageMap[r.ministry] = r.cnt;
+
+    // Include every ministry that has a custom cap for this dept
+    const relevantKeys = Object.keys(seats).filter((k) => k.endsWith(`|||${dept}`));
+    const ministriesWithCustomCap = relevantKeys.map((k) => k.split("|||")[0]);
+
+    // Also include ministries where this dept already has members
+    const ministriesWithUsage = Object.keys(usageMap);
+
+    const allRelevantMinistries = [...new Set([...ministriesWithCustomCap, ...ministriesWithUsage])];
+
+    const result = allRelevantMinistries.map((ministry) => ({
+      ministry,
+      cap: seats[`${ministry}|||${dept}`] ?? 6,
+      usage: usageMap[ministry] ?? 0,
+    }));
+
+    return res.json({ data: result, seats });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }

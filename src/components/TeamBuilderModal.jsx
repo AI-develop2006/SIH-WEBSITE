@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  X, CheckCircle2, AlertTriangle, Plus, Minus, Users, User,
+  X, CheckCircle2, AlertTriangle, Plus, Minus,
 } from "lucide-react";
 import { cn, validateFinalTeam } from "@/lib/utils";
 import { SPOC_TEAM_SIZE, DEPT_CODE } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
+import { fetchClaimedMembers, subscribeToTeamEvents } from "@/lib/data";
 
 function getDeptCode(dept) {
   return DEPT_CODE[dept] ?? (dept ?? "?").replace(/\s+/g, "").toUpperCase().slice(0, 6);
@@ -31,8 +32,35 @@ function genderBadge(gender) {
  *   - ≥2 female members
  *   - All assigned skills must be unique (no two members share a skill)
  */
-export function TeamBuilderModal({ ministry, sourceTeams, editingTeam, profileMap, claimedMemberIds = new Set(), onSave, onClose }) {
+export function TeamBuilderModal({ ministry, sourceTeams, editingTeam, profileMap, claimedMemberIds: initialClaimedIds = new Set(), onSave, onClose }) {
   const modalRef = useRef(null);
+
+  // ── Live claimed-member state ───────────────────────────────────────────────
+  // Maintain our own live claimed set inside the modal so that when another
+  // session saves a team while this modal is open, we instantly see who's taken.
+  // When editing, exclude this team's own members from the claimed set.
+  const [liveClaimed, setLiveClaimed] = useState(initialClaimedIds);
+  const [liveRefreshing, setLiveRefreshing] = useState(false);
+
+  const refreshClaimed = useCallback(async () => {
+    setLiveRefreshing(true);
+    const { data } = await fetchClaimedMembers(editingTeam?.id ?? null);
+    setLiveClaimed(new Set(data ?? []));
+    setLiveRefreshing(false);
+  }, [editingTeam?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Subscribe to SSE while modal is open — re-fetch claimed on any team event
+  useEffect(() => {
+    const cleanup = subscribeToTeamEvents(() => {
+      refreshClaimed();
+    });
+    return cleanup;
+  }, [refreshClaimed]);
+
+  // Also sync when the parent's claimedMemberIds prop changes
+  useEffect(() => {
+    setLiveClaimed(initialClaimedIds);
+  }, [initialClaimedIds]);
 
   // Collect all available members from the source pair-teams
   const allMembers = useMemo(() => {
@@ -103,16 +131,19 @@ export function TeamBuilderModal({ ministry, sourceTeams, editingTeam, profileMa
 
   async function handleSave() {
     if (!teamName.trim()) return;
-    if (errors.length > 0) {
-      // Allow saving with errors so SPOC can save work-in-progress
-    }
     setSaving(true);
     try {
-      await onSave({
+      const result = await onSave({
         name: teamName.trim(),
         ministry,
         member_ids: selected.map((m) => m.id),
       });
+      // If the parent returns a conflict signal, refresh claimed and stay open
+      if (result?.conflict) {
+        await refreshClaimed();
+        // Remove any selected members that are now claimed by another session
+        setSelected((prev) => prev.filter((m) => !liveClaimed.has(m.id)));
+      }
     } finally {
       setSaving(false);
     }
@@ -193,9 +224,13 @@ export function TeamBuilderModal({ ministry, sourceTeams, editingTeam, profileMa
                   Available Members ({filteredMemberCount}/{allMembers.length})
                 </p>
                 <div className="flex items-center gap-2 shrink-0">
-                  {claimedMemberIds.size > 0 && (
-                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-full border border-rose-500/25 bg-rose-500/8 text-rose-400/80">
-                      {[...claimedMemberIds].filter(id => allMembers.some(m => m.id === id)).length} taken
+                  {liveClaimed.size > 0 && (
+                    <span className={cn(
+                      "text-[9px] font-bold px-2 py-0.5 rounded-full border border-rose-500/25 bg-rose-500/8 text-rose-400/80",
+                      liveRefreshing && "opacity-50"
+                    )}>
+                      {[...liveClaimed].filter(id => allMembers.some(m => m.id === id)).length} taken
+                      {liveRefreshing && " …"}
                     </span>
                   )}
                   {(memberSearch || memberDeptFilter || memberGenderFilter) && (
@@ -264,8 +299,8 @@ export function TeamBuilderModal({ ministry, sourceTeams, editingTeam, profileMa
                           const isSelected = selectedIds.has(m.id);
                           const isFull = selected.length >= SPOC_TEAM_SIZE && !isSelected;
                           const hasConflict = skillConflictIds.has(m.id) && isSelected;
-                          // Claimed: already in another final team (not the one we're editing)
-                          const isClaimed = claimedMemberIds.has(m.id) && !isSelected;
+                          // Claimed: already in another final team (uses live state)
+                          const isClaimed = liveClaimed.has(m.id) && !isSelected;
 
                           return (
                             <button
@@ -463,16 +498,18 @@ export function TeamBuilderModal({ ministry, sourceTeams, editingTeam, profileMa
             Cancel
           </Button>
           <div className="flex items-center gap-3">
-            {errors.length > 0 && selected.length > 0 && (
-              <p className="text-[11px] text-amber-400 hidden sm:block">Team has issues but can still be saved</p>
+            {!isValid && selected.length > 0 && errors.length > 0 && (
+              <p className="text-[11px] text-amber-400 hidden sm:block max-w-[260px] text-right leading-snug">
+                {errors[0]}
+              </p>
             )}
             <Button
               onClick={handleSave}
               loading={busy}
-              disabled={!teamName.trim() || selected.length === 0}
+              disabled={!isValid}
               className={cn(
                 "px-6 text-sm",
-                isValid ? "bg-emerald-500 text-white hover:bg-emerald-400" : ""
+                isValid ? "bg-emerald-500 text-white hover:bg-emerald-400" : "opacity-60 cursor-not-allowed"
               )}
             >
               {isValid ? <CheckCircle2 className="size-4" /> : null}

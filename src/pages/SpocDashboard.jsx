@@ -558,20 +558,19 @@ export default function SpocDashboard() {
       if (res.error) {
         toast("error", res.error);
         await refreshData(true); // rollback + sync
-        return;
+        return { conflict: res.error?.includes("already assigned") };
       }
       toast("success", `Final team "${name}" updated!`);
     } else {
       const res = await saveFinalTeam({ name, ministry, member_ids });
       if (res.error) {
-        // 409 conflict — another session already claimed these members
         if (res.conflict) {
-          toast("error", "⚡ One or more members were just claimed by another session. The list has been refreshed.");
+          toast("error", "⚡ One or more members were just claimed by another session. The list has been refreshed — please reselect.");
         } else {
           toast("error", res.error);
         }
-        await refreshData(true); // always re-sync on error
-        return;
+        await refreshData(true);
+        return { conflict: res.conflict };
       }
       if (res.data) setFinalTeams((prev) => [...prev, res.data]);
       toast("success", `Final team "${name}" saved!`);
@@ -579,6 +578,7 @@ export default function SpocDashboard() {
     setBuilderOpen(false);
     setEditingFinalTeam(null);
     refreshData(true);
+    return { conflict: false };
   }
 
   async function exportFinalTeams() {

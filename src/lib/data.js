@@ -101,10 +101,10 @@ export async function updateFinalTeam(id, payload) {
       body: JSON.stringify(payload),
     });
     const json = await res.json();
-    if (!res.ok) return { data: null, error: json.error };
-    return { data: json.data, error: null };
+    if (!res.ok) return { data: null, error: json.error, conflict: res.status === 409 };
+    return { data: json.data, error: null, conflict: false };
   } catch (err) {
-    return { data: null, error: err.message };
+    return { data: null, error: err.message, conflict: false };
   }
 }
 
@@ -124,11 +124,13 @@ export async function deleteFinalTeam(id) {
 
 // ─── Real-time: claimed members ───────────────────────────────────────────────
 // Returns the flat list of member IDs already assigned to any final team.
-export async function fetchClaimedMembers() {
+// Pass excludeTeamId when editing a team so its own members aren't marked taken.
+export async function fetchClaimedMembers(excludeTeamId = null) {
   try {
-    const res = await fetch(`${API_BASE}/api/spoc/claimed-members`, {
-      headers: { ...getAuthHeader() },
-    });
+    const url = excludeTeamId
+      ? `${API_BASE}/api/spoc/claimed-members?excludeTeamId=${encodeURIComponent(excludeTeamId)}`
+      : `${API_BASE}/api/spoc/claimed-members`;
+    const res = await fetch(url, { headers: { ...getAuthHeader() } });
     const json = await res.json();
     if (!res.ok) return { data: [], error: json.error };
     return { data: json.data ?? [], error: null };

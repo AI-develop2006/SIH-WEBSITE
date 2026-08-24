@@ -145,6 +145,27 @@ export default function AdminPage() {
     })();
   }, [navigate, toast, load]);
 
+  // ── SSE: auto-refresh teams when mentor makes changes ─────────────────────
+  // Subscribes to pair_teams_updated events from the mentor backend.
+  // Debounced 500 ms so rapid mentor edits don't flood the admin backend.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    let debounceTimer = null;
+
+    const cleanup = data.subscribeToPairTeamEvents(async () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(async () => {
+        const teamsRes = await data.fetchEnrichedTeams();
+        if (teamsRes.data) setTeams(teamsRes.data);
+      }, 500);
+    });
+
+    return () => {
+      cleanup();
+      clearTimeout(debounceTimer);
+    };
+  }, [isAuthenticated]);
+
   const students = useMemo(() => {
     const list = profiles.filter((p) => p.role === "student");
     const needle = q.trim().toLowerCase();

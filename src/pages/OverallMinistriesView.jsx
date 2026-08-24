@@ -62,7 +62,7 @@ export function OverallMinistriesView({ teams, onReload }) {
     });
   }, [ministryMap]);
 
-  const activeCount = useMemo(() => ministrySummary.filter((s) => s.active).length, [ministrySummary]);
+  const activeCount = useMemo(() => ministrySummary.filter((s) => s.active && !OUTDATED_MINISTRIES.has(s.ministry)).length, [ministrySummary]);
   const inactiveCount = ACTIVE_MINISTRIES_COUNT - activeCount;
 
   const filteredMinistrySummary = useMemo(() => {

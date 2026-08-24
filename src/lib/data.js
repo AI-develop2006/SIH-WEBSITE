@@ -440,3 +440,44 @@ export async function saveMinistrySeats(seats) {
     return { success: false, error: e.message };
   }
 }
+
+// ─── SSE: subscribe to pair-team changes from the mentor backend ──────────────
+// Admin portal subscribes to the mentor backend's /api/events stream so the
+// teams list auto-refreshes when a mentor assigns/changes a ministry or skill,
+// adds/removes a member, or renames a team.
+//
+// PM_API_BASE: defaults to the admin backend if VITE_PM_BACKEND_URL is not set.
+// In most deployments both the admin and mentor backends are separate — set the
+// env var in Vercel/Netlify to the mentor backend's public URL.
+const PM_API_BASE = import.meta.env.VITE_PM_BACKEND_URL || API_BASE;
+
+export function subscribeToPairTeamEvents(onUpdate) {
+  const url = `${PM_API_BASE}/api/events`;
+  let es;
+  let retryTimer;
+  let active = true;
+
+  function connect() {
+    if (!active) return;
+    es = new EventSource(url);
+
+    es.addEventListener("pair_teams_updated", () => {
+      onUpdate();
+    });
+
+    es.onerror = () => {
+      es.close();
+      if (active) {
+        retryTimer = setTimeout(connect, 3000);
+      }
+    };
+  }
+
+  connect();
+
+  return function cleanup() {
+    active = false;
+    clearTimeout(retryTimer);
+    if (es) es.close();
+  };
+}

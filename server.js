@@ -30,6 +30,18 @@ const PORT = process.env.PORT || 3004;
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
+// ─── SSE broadcast registry ───────────────────────────────────────────────────
+// Keeps a set of active SSE response objects. When final teams change,
+// all connected SPOC clients are notified to re-fetch.
+const sseClients = new Set();
+
+function broadcastUpdate(event, data = {}) {
+  const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+  for (const res of sseClients) {
+    try { res.write(payload); } catch (_) { sseClients.delete(res); }
+  }
+}
+
 // ─── CORS ────────────────────────────────────────────────────────────────────
 const ALLOWED = new Set([
   "http://localhost:5173",
@@ -105,6 +117,57 @@ function computeStats(members = [], category = "Pairs") {
 // ─── Health ───────────────────────────────────────────────────────────────────
 app.get(["/health", "/api/health"], (_req, res) => {
   res.json({ status: "ok", service: "spoc-backend", port: PORT });
+});
+
+// ─── SSE: real-time push to all SPOC clients ──────────────────────────────────
+// Clients connect once and receive "final_teams_updated" events whenever
+// any final team is created or patched. No auth required for SSE — the
+// data sent is just a signal to re-fetch, not actual team content.
+app.get("/api/spoc/events", (req, res) => {
+  const origin = req.headers.origin;
+  if (origin && ALLOWED.has(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+  }
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no"); // disable nginx buffering
+  res.flushHeaders();
+
+  // Send a heartbeat immediately so the client knows it's connected
+  res.write("event: connected\ndata: {}\n\n");
+
+  // Keep-alive ping every 25 s to prevent proxy timeouts
+  const keepAlive = setInterval(() => {
+    try { res.write(": ping\n\n"); } catch (_) { clearInterval(keepAlive); }
+  }, 25_000);
+
+  sseClients.add(res);
+
+  req.on("close", () => {
+    clearInterval(keepAlive);
+    sseClients.delete(res);
+  });
+});
+
+// ─── Claimed members: which member IDs are already in a final team ────────────
+// Used by the TeamBuilder modal to grey-out taken members in real-time.
+app.get("/api/spoc/claimed-members", async (_req, res) => {
+  try {
+    let ids = [];
+    if (DATABASE_URL) {
+      const { rows } = await dbQuery(
+        `SELECT member_ids FROM public.spoc_final_teams;`
+      );
+      ids = rows.flatMap((r) => r.member_ids || []);
+    } else if (supabase) {
+      const { data } = await supabase.from("spoc_final_teams").select("member_ids");
+      ids = (data ?? []).flatMap((r) => r.member_ids || []);
+    }
+    return res.json({ data: [...new Set(ids)] });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
 });
 
 // ─── Auth: Login ─────────────────────────────────────────────────────────────
@@ -271,19 +334,39 @@ app.post("/api/spoc/final-teams", async (req, res) => {
   }
 
   try {
+    // ── Race-condition guard: check no member is already claimed ────────────
+    let alreadyClaimedIds = [];
+    if (DATABASE_URL) {
+      const { rows: existing } = await dbQuery(
+        `SELECT member_ids FROM public.spoc_final_teams;`
+      );
+      const allClaimed = new Set(existing.flatMap((r) => r.member_ids || []));
+      alreadyClaimedIds = member_ids.filter((id) => allClaimed.has(id));
+    } else if (supabase) {
+      const { data: existing } = await supabase.from("spoc_final_teams").select("member_ids");
+      const allClaimed = new Set((existing ?? []).flatMap((r) => r.member_ids || []));
+      alreadyClaimedIds = member_ids.filter((id) => allClaimed.has(id));
+    }
+    if (alreadyClaimedIds.length > 0) {
+      return res.status(409).json({
+        error: "One or more members are already assigned to another final team.",
+        claimed_ids: alreadyClaimedIds,
+      });
+    }
+
     if (DATABASE_URL) {
       const { rows } = await dbQuery(
         `INSERT INTO public.spoc_final_teams (name, ministry, member_ids, created_by)
          VALUES ($1, $2, $3, $4) RETURNING *;`,
         [name.trim(), ministry || null, member_ids, createdBy]
       );
-      // Notify all members they've been added to a final team
       sendNotifications(member_ids, {
         type: "spoc_team_added",
         title: "🎉 You're in the Final Team!",
         message: `You have been selected for the final SIH 2026 team "${name.trim()}"${ministry ? ` under ${ministry}` : ""}. Congratulations!`,
         metadata: { team_name: name.trim(), ministry: ministry || null, team_id: rows[0]?.id },
       });
+      broadcastUpdate("final_teams_updated", { action: "created", team_id: rows[0]?.id });
       return res.json({ data: rows[0] });
     } else if (supabase) {
       const { data, error } = await supabase
@@ -291,13 +374,13 @@ app.post("/api/spoc/final-teams", async (req, res) => {
         .insert([{ name: name.trim(), ministry: ministry || null, member_ids, created_by: createdBy }])
         .select().single();
       if (error) return res.status(500).json({ error: error.message });
-      // Notify all members
       sendNotifications(member_ids, {
         type: "spoc_team_added",
         title: "🎉 You're in the Final Team!",
         message: `You have been selected for the final SIH 2026 team "${name.trim()}"${ministry ? ` under ${ministry}` : ""}. Congratulations!`,
         metadata: { team_name: name.trim(), ministry: ministry || null, team_id: data?.id },
       });
+      broadcastUpdate("final_teams_updated", { action: "created", team_id: data?.id });
       return res.json({ data });
     }
     return res.status(500).json({ error: "No database configured" });
@@ -312,6 +395,45 @@ app.patch("/api/spoc/final-teams/:id", async (req, res) => {
   const { name, ministry, member_ids } = req.body;
 
   try {
+    // Fetch current team to detect member changes for notifications
+    let prevMemberIds = [];
+    let prevName = "";
+    if (DATABASE_URL) {
+      const { rows: prev } = await dbQuery(
+        `SELECT name, member_ids FROM public.spoc_final_teams WHERE id = $1`,
+        [id]
+      );
+      if (prev[0]) { prevMemberIds = prev[0].member_ids || []; prevName = prev[0].name; }
+    } else if (supabase) {
+      const { data: prev } = await supabase
+        .from("spoc_final_teams").select("name, member_ids").eq("id", id).maybeSingle();
+      if (prev) { prevMemberIds = prev.member_ids || []; prevName = prev.name; }
+    }
+
+    // ── Race-condition guard: new members must not be claimed elsewhere ────────
+    if (member_ids !== undefined) {
+      let existingClaimed = [];
+      if (DATABASE_URL) {
+        const { rows: others } = await dbQuery(
+          `SELECT member_ids FROM public.spoc_final_teams WHERE id <> $1;`, [id]
+        );
+        const claimedElsewhere = new Set(others.flatMap((r) => r.member_ids || []));
+        existingClaimed = member_ids.filter((mid) => claimedElsewhere.has(mid));
+      } else if (supabase) {
+        const { data: others } = await supabase
+          .from("spoc_final_teams").select("member_ids").neq("id", id);
+        const claimedElsewhere = new Set((others ?? []).flatMap((r) => r.member_ids || []));
+        existingClaimed = member_ids.filter((mid) => claimedElsewhere.has(mid));
+      }
+      if (existingClaimed.length > 0) {
+        return res.status(409).json({
+          error: "One or more members are already assigned to another final team.",
+          claimed_ids: existingClaimed,
+        });
+      }
+    }
+
+    let updated = null;
     if (DATABASE_URL) {
       const { rows } = await dbQuery(
         `UPDATE public.spoc_final_teams
@@ -323,7 +445,7 @@ app.patch("/api/spoc/final-teams/:id", async (req, res) => {
         [name?.trim() ?? null, ministry ?? null, member_ids ?? null, id]
       );
       if (!rows.length) return res.status(404).json({ error: "Team not found" });
-      return res.json({ data: rows[0] });
+      updated = rows[0];
     } else if (supabase) {
       const patch = { updated_at: new Date().toISOString() };
       if (name !== undefined) patch.name = name.trim();
@@ -332,60 +454,60 @@ app.patch("/api/spoc/final-teams/:id", async (req, res) => {
       const { data, error } = await supabase
         .from("spoc_final_teams").update(patch).eq("id", id).select().single();
       if (error) return res.status(500).json({ error: error.message });
-      return res.json({ data });
+      updated = data;
+    } else {
+      return res.status(500).json({ error: "No database configured" });
     }
-    return res.status(500).json({ error: "No database configured" });
+
+    // Notify members about the update
+    const finalName = updated?.name ?? name?.trim() ?? prevName;
+    const finalMinistry = updated?.ministry ?? ministry ?? null;
+    const finalIds = updated?.member_ids ?? member_ids ?? prevMemberIds;
+
+    // Newly added members: in finalIds but not in prevMemberIds
+    const prevSet = new Set(prevMemberIds);
+    const newSet = new Set(finalIds);
+    const addedIds = finalIds.filter((id) => !prevSet.has(id));
+    const removedIds = prevMemberIds.filter((id) => !newSet.has(id));
+    const keptIds = finalIds.filter((id) => prevSet.has(id));
+
+    if (addedIds.length > 0) {
+      sendNotifications(addedIds, {
+        type: "spoc_team_added",
+        title: "🎉 You're in the Final Team!",
+        message: `You have been selected for the final SIH 2026 team "${finalName}"${finalMinistry ? ` under ${finalMinistry}` : ""}. Congratulations!`,
+        metadata: { team_name: finalName, ministry: finalMinistry, team_id: id },
+      });
+    }
+    if (removedIds.length > 0) {
+      sendNotifications(removedIds, {
+        type: "spoc_team_removed",
+        title: "⚠ Removed from Final Team",
+        message: `You have been removed from the final SIH 2026 team "${finalName}"${finalMinistry ? ` (${finalMinistry})` : ""}. Please await further instructions from your SPOC.`,
+        metadata: { team_name: finalName, ministry: finalMinistry, team_id: id },
+      });
+    }
+    if (keptIds.length > 0 && (name !== undefined || ministry !== undefined)) {
+      sendNotifications(keptIds, {
+        type: "spoc_team_added",
+        title: "📋 Your Final Team Was Updated",
+        message: `Your SIH 2026 final team has been updated to "${finalName}"${finalMinistry ? ` under ${finalMinistry}` : ""}. Your membership continues.`,
+        metadata: { team_name: finalName, ministry: finalMinistry, team_id: id },
+      });
+    }
+
+    broadcastUpdate("final_teams_updated", { action: "updated", team_id: id });
+    return res.json({ data: updated });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
 });
 
-// DELETE — remove a final team
-app.delete("/api/spoc/final-teams/:id", async (req, res) => {
-  const { id } = req.params;
-  try {
-    // Fetch the team first so we know who to notify
-    let memberIds = [];
-    let teamName = "";
-    let ministry = "";
-
-    if (DATABASE_URL) {
-      const { rows } = await dbQuery(
-        `SELECT name, ministry, member_ids FROM public.spoc_final_teams WHERE id = $1`,
-        [id]
-      );
-      if (rows[0]) {
-        memberIds = rows[0].member_ids || [];
-        teamName  = rows[0].name;
-        ministry  = rows[0].ministry || "";
-      }
-      await dbQuery(`DELETE FROM public.spoc_final_teams WHERE id = $1;`, [id]);
-    } else if (supabase) {
-      const { data: ft } = await supabase
-        .from("spoc_final_teams").select("name, ministry, member_ids").eq("id", id).single();
-      if (ft) {
-        memberIds = ft.member_ids || [];
-        teamName  = ft.name;
-        ministry  = ft.ministry || "";
-      }
-      const { error } = await supabase.from("spoc_final_teams").delete().eq("id", id);
-      if (error) return res.status(500).json({ error: error.message });
-    }
-
-    // Notify all affected members
-    if (memberIds.length > 0) {
-      sendNotifications(memberIds, {
-        type: "spoc_team_removed",
-        title: "⚠ Final Team Disbanded",
-        message: `The final SIH 2026 team "${teamName}"${ministry ? ` (${ministry})` : ""} that you were part of has been removed by the SPOC. Please await further instructions.`,
-        metadata: { team_name: teamName, ministry, team_id: id },
-      });
-    }
-
-    return res.json({ success: true });
-  } catch (err) {
-    return res.status(500).json({ error: err.message });
-  }
+// DELETE — disabled to prevent accidental removal of finalized teams
+app.delete("/api/spoc/final-teams/:id", async (_req, res) => {
+  return res.status(403).json({
+    error: "Final teams cannot be deleted once formed. Use the PATCH endpoint to update membership.",
+  });
 });
 
 // ─── Fallback / Root health page ─────────────────────────────────────────────

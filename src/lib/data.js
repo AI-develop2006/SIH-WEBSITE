@@ -637,3 +637,44 @@ export async function markAllNotificationsRead() {
     return { success: false, error: err.message };
   }
 }
+
+// ─── SSE: subscribe to pair-team change events ────────────────────────────────
+// Connects to the mentor backend's /api/events SSE stream.
+// Calls `onUpdate` whenever the server broadcasts a `pair_teams_updated` event
+// (ministry assigned/changed, skill updated, member added/removed, team renamed).
+// Returns a cleanup function — call it on unmount.
+//
+// Used by:
+//   • Participant Dashboard  — to refresh myTeam when mentor edits the team
+//   • Any component that needs live pair-team sync
+export function subscribeToPairTeamEvents(onUpdate) {
+  const url = `${API_BASE}/api/events`;
+  let es;
+  let retryTimer;
+  let active = true;
+
+  function connect() {
+    if (!active) return;
+    es = new EventSource(url);
+
+    es.addEventListener("pair_teams_updated", () => {
+      onUpdate();
+    });
+
+    es.onerror = () => {
+      es.close();
+      if (active) {
+        // Back off 3 s before reconnecting to avoid hammering the server
+        retryTimer = setTimeout(connect, 3000);
+      }
+    };
+  }
+
+  connect();
+
+  return function cleanup() {
+    active = false;
+    clearTimeout(retryTimer);
+    if (es) es.close();
+  };
+}

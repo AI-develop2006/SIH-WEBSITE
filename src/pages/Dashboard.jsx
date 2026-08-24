@@ -27,7 +27,7 @@ import { useToast } from "@/components/unlumen-ui/toast";
 import { Input, Select } from "@/components/unlumen-ui/input";
 import { DEPARTMENTS, YEARS } from "@/lib/constants";
 import { OutdatedMinistryBadge } from "@/components/common/OutdatedMinistryBadge";
-import { fetchNotifications, markNotificationRead, markAllNotificationsRead, fetchMyFinalTeam } from "@/lib/data";
+import { fetchNotifications, markNotificationRead, markAllNotificationsRead, fetchMyFinalTeam, subscribeToPairTeamEvents } from "@/lib/data";
 import { NewMinistryBadge } from "@/components/common/NewMinistryBadge";
 
 function ensureHttp(url) {
@@ -255,6 +255,33 @@ export default function DashboardPage() {
       refresh().finally(() => setLoading(false));
     }
   }, [profile, refresh]);
+
+  // ── SSE: stay in sync when mentor edits the pair-team ─────────────────────
+  // Subscribes to `pair_teams_updated` events from the mentor backend.
+  // Re-fetches only the teams list and updates myTeam + myFinalTeam so the
+  // participant sees ministry/skill/member changes instantly without reloading.
+  // Only active once the profile is loaded (we need profile.id to find myTeam).
+  useEffect(() => {
+    if (!profile) return;
+
+    const cleanup = subscribeToPairTeamEvents(async () => {
+      const [teamsRes, finalTeamRes] = await Promise.all([
+        data.fetchEnrichedTeams(),
+        data.fetchMyFinalTeam(),
+      ]);
+      if (teamsRes.data) {
+        const userTeam = teamsRes.data.find(
+          (t) => t.team.leader_id === profile.id || t.members.some((m) => m.id === profile.id)
+        );
+        setMyTeam(userTeam ?? null);
+      }
+      if (finalTeamRes.data !== undefined) {
+        setMyFinalTeam(finalTeamRes.data ?? null);
+      }
+    });
+
+    return cleanup;
+  }, [profile]);
 
   async function logout() {
     await data.logoutUser();

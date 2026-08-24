@@ -175,6 +175,30 @@ export default function MentorDashboardPage() {
     refreshTeams();
   }, [refreshCount, refreshTeams]);
 
+  // ── SSE: real-time sync for changes made outside this browser tab ──────────
+  // Subscribes to `pair_teams_updated` from the mentor backend.
+  // Handles changes made by: the admin portal, another mentor in a different tab,
+  // or any server-side operation that calls broadcastPairTeamUpdate().
+  // The mentor's own mutations are handled by optimistic updates, so we debounce
+  // the SSE-triggered refresh by 500 ms to avoid a redundant network round-trip
+  // right after a self-mutation.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    let debounceTimer = null;
+
+    const cleanup = data.subscribeToPairTeamEvents(() => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        refreshTeams();
+      }, 500);
+    });
+
+    return () => {
+      cleanup();
+      clearTimeout(debounceTimer);
+    };
+  }, [isAuthenticated, refreshTeams]);
+
   // ── Ministry seat polling: detect changes and alert mentor ───────────────────
   // Polls every 20s. If a cap for this mentor's dept was RAISED, shows a toast
   // and adds it to seatAlerts so the OverviewTab can display it prominently.

@@ -560,11 +560,55 @@ app.patch("/api/spoc/final-teams/:id", async (req, res) => {
   }
 });
 
-// DELETE — disabled to prevent accidental removal of finalized teams
-app.delete("/api/spoc/final-teams/:id", async (_req, res) => {
-  return res.status(403).json({
-    error: "Final teams cannot be deleted once formed. Use the PATCH endpoint to update membership.",
-  });
+// DELETE — remove a final team (with member notifications + broadcast)
+app.delete("/api/spoc/final-teams/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+    let memberIds = [];
+    let teamName  = "";
+    let ministry  = "";
+
+    // Fetch team details before deleting so we can notify members
+    if (DATABASE_URL) {
+      const { rows } = await dbQuery(
+        `SELECT name, ministry, member_ids FROM public.spoc_final_teams WHERE id = $1`,
+        [id]
+      );
+      if (rows[0]) {
+        memberIds = rows[0].member_ids || [];
+        teamName  = rows[0].name;
+        ministry  = rows[0].ministry || "";
+      }
+      await dbQuery(`DELETE FROM public.spoc_final_teams WHERE id = $1;`, [id]);
+    } else if (supabase) {
+      const { data: ft } = await supabase
+        .from("spoc_final_teams").select("name, ministry, member_ids").eq("id", id).single();
+      if (ft) {
+        memberIds = ft.member_ids || [];
+        teamName  = ft.name;
+        ministry  = ft.ministry || "";
+      }
+      const { error } = await supabase.from("spoc_final_teams").delete().eq("id", id);
+      if (error) return res.status(500).json({ error: error.message });
+    } else {
+      return res.status(500).json({ error: "No database configured" });
+    }
+
+    // Notify all affected members
+    if (memberIds.length > 0) {
+      sendNotifications(memberIds, {
+        type: "spoc_team_removed",
+        title: "⚠ Final Team Disbanded",
+        message: `The final SIH 2026 team "${teamName}"${ministry ? ` (${ministry})` : ""} that you were part of has been removed by the SPOC. Please await further instructions.`,
+        metadata: { team_name: teamName, ministry, team_id: id },
+      });
+    }
+
+    broadcastUpdate("final_teams_updated", { action: "deleted", team_id: id });
+    return res.json({ success: true });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
 });
 
 // ─── Fallback / Root health page ─────────────────────────────────────────────

@@ -6,14 +6,15 @@ function getAuthHeader() {
 }
 
 /**
- * Log in as SPOC using email and password directly.
+ * Log in as SPOC using name and password.
+ * The internal email derivation happens server-side — never exposed here.
  */
-export async function loginSpoc(email, password) {
+export async function loginSpoc(name, password) {
   try {
-    const res = await fetch(`${API_BASE}/api/auth/login`, {
+    const res = await fetch(`${API_BASE}/api/auth/login-by-name`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
+      body: JSON.stringify({ name: name.trim(), password }),
     });
     const json = await res.json();
     if (!res.ok) return { data: null, error: json.error || "Login failed" };

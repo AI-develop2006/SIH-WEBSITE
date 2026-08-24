@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Shield, Mail, Lock, Eye, EyeOff } from "lucide-react";
+import { Shield, User, Lock, Eye, EyeOff } from "lucide-react";
 import { loginSpoc, getCurrentProfile } from "@/lib/data";
 import { useToast } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 export default function LoginPage() {
   const navigate = useNavigate();
   const toast = useToast();
-  const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -22,12 +22,12 @@ export default function LoginPage() {
 
   async function handleLogin(e) {
     e.preventDefault();
-    if (!email.trim()) return toast("error", "Email is required");
+    if (!name.trim()) return toast("error", "Name is required");
     if (!password.trim()) return toast("error", "Password is required");
 
     setBusy(true);
     try {
-      const res = await loginSpoc(email.trim(), password.trim());
+      const res = await loginSpoc(name.trim(), password.trim());
       if (res.error) throw new Error(res.error);
       const profile = res.data?.profile;
       if (!profile || profile.role !== "spoc") {
@@ -68,20 +68,21 @@ export default function LoginPage() {
           </div>
 
           <form onSubmit={handleLogin} className="space-y-5">
-            {/* Email field */}
+            {/* Name field */}
             <div>
               <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-[#94a3b8]">
-                Email Address
+                Name
               </label>
               <div className="relative">
-                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-[#94a3b8]/60 pointer-events-none" />
+                <User className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-[#94a3b8]/60 pointer-events-none" />
                 <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Enter your email address"
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Enter your name"
                   required
-                  autoComplete="email"
+                  autoComplete="username"
+                  autoFocus
                   className="w-full rounded-xl border border-[rgba(147,197,253,0.18)] bg-[#050b18]/60 pl-10 pr-4 py-3 text-sm text-white outline-none placeholder:text-[#94a3b8]/60 focus:border-[#c9a227]/60 focus:shadow-[0_0_0_3px_rgba(201,162,39,0.12)] transition-all"
                 />
               </div>
@@ -121,7 +122,7 @@ export default function LoginPage() {
           </form>
 
           <p className="mt-6 text-center text-[10px] text-[#94a3b8]/50">
-            Use your SPOC email and password to sign in.
+            Use your SPOC name and password to sign in.
             <br />Contact admin if you need access.
           </p>
         </div>

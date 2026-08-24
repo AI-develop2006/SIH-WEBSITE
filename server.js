@@ -832,6 +832,87 @@ app.post("/api/teams/:teamId/members", async (req, res) => {
   const { teamId } = req.params;
   const { memberId } = req.body;
   try {
+    // ── Fetch team info (ministry + category) ──────────────────────────────
+    let team = null;
+    if (process.env.DATABASE_URL) {
+      const { rows } = await dbQuery(
+        `SELECT t.ministry, t.category, p.department
+         FROM public.teams t
+         LEFT JOIN public.profiles p ON p.id = $2
+         WHERE t.id = $1;`,
+        [teamId, memberId]
+      );
+      team = rows[0] ?? null;
+    } else if (supabase) {
+      const [{ data: tData }, { data: pData }] = await Promise.all([
+        supabase.from("teams").select("ministry, category").eq("id", teamId).maybeSingle(),
+        supabase.from("profiles").select("department").eq("id", memberId).maybeSingle(),
+      ]);
+      if (tData) team = { ...tData, department: pData?.department ?? null };
+    }
+
+    // ── Enforce seat cap if team has a ministry and the member has a dept ──
+    if (team?.ministry && team?.department) {
+      const { ministry, department } = team;
+
+      // Fetch admin-configured cap from system_settings
+      let cap = 6; // default
+      try {
+        if (process.env.DATABASE_URL) {
+          const { rows: sr } = await dbQuery(
+            `SELECT value FROM public.system_settings WHERE key = 'ministry_seats' LIMIT 1`
+          );
+          const seats = sr[0]?.value ?? {};
+          cap = seats[`${ministry}|||${department}`] ?? 6;
+        } else if (supabase) {
+          const { data: sd } = await supabase
+            .from("system_settings")
+            .select("value")
+            .eq("key", "ministry_seats")
+            .maybeSingle();
+          const seats = sd?.value ?? {};
+          cap = seats[`${ministry}|||${department}`] ?? 6;
+        }
+      } catch (_) { /* ignore — fall back to cap=6 */ }
+
+      // Count how many members from this dept are already in teams under this ministry
+      let currentCount = 0;
+      if (process.env.DATABASE_URL) {
+        const { rows: cr } = await dbQuery(
+          `SELECT COUNT(*) AS cnt
+           FROM public.team_members tm
+           JOIN public.teams t ON t.id = tm.team_id
+           JOIN public.profiles p ON p.id = tm.member_id
+           WHERE t.ministry = $1 AND p.department = $2;`,
+          [ministry, department]
+        );
+        currentCount = parseInt(cr[0]?.cnt ?? 0, 10);
+      } else if (supabase) {
+        // Pull all team_members for teams under this ministry, then filter by dept
+        const { data: allTeams } = await supabase
+          .from("teams")
+          .select("id")
+          .eq("ministry", ministry);
+        const teamIds = (allTeams ?? []).map((t) => t.id);
+        if (teamIds.length > 0) {
+          const { data: members } = await supabase
+            .from("team_members")
+            .select("member_id, profiles(department)")
+            .in("team_id", teamIds);
+          currentCount = (members ?? []).filter(
+            (m) => m.profiles?.department === department
+          ).length;
+        }
+      }
+
+      if (currentCount >= cap) {
+        return res.status(400).json({
+          error: `Seat limit reached: ${department} already has ${currentCount}/${cap} members assigned to teams under "${ministry}". ${cap === 6 ? "Contact admin to increase the seat cap." : `The admin has set a cap of ${cap} for this combination.`}`,
+        });
+      }
+    }
+
+    // ── Insert member ──────────────────────────────────────────────────────
     if (process.env.DATABASE_URL) {
       await dbQuery(
         `INSERT INTO public.team_members (team_id, member_id) VALUES ($1, $2) ON CONFLICT DO NOTHING;`,

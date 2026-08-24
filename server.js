@@ -152,16 +152,21 @@ app.get("/api/spoc/events", (req, res) => {
 
 // ─── Claimed members: which member IDs are already in a final team ────────────
 // Used by the TeamBuilder modal to grey-out taken members in real-time.
-app.get("/api/spoc/claimed-members", async (_req, res) => {
+// Optional query param: excludeTeamId — omits that team's members from the result
+// (used when editing an existing team so its own members aren't shown as "taken").
+app.get("/api/spoc/claimed-members", async (req, res) => {
+  const { excludeTeamId } = req.query;
   try {
     let ids = [];
     if (DATABASE_URL) {
-      const { rows } = await dbQuery(
-        `SELECT member_ids FROM public.spoc_final_teams;`
-      );
+      const { rows } = excludeTeamId
+        ? await dbQuery(`SELECT member_ids FROM public.spoc_final_teams WHERE id <> $1;`, [excludeTeamId])
+        : await dbQuery(`SELECT member_ids FROM public.spoc_final_teams;`);
       ids = rows.flatMap((r) => r.member_ids || []);
     } else if (supabase) {
-      const { data } = await supabase.from("spoc_final_teams").select("member_ids");
+      let q = supabase.from("spoc_final_teams").select("member_ids");
+      if (excludeTeamId) q = q.neq("id", excludeTeamId);
+      const { data } = await q;
       ids = (data ?? []).flatMap((r) => r.member_ids || []);
     }
     return res.json({ data: [...new Set(ids)] });
@@ -354,7 +359,34 @@ async function sendNotifications(profileIds, { type, title, message, metadata = 
   }
 }
 
-// GET — list all final teams
+// ── Team composition validator ────────────────────────────────────────────────
+// Resolves member profiles from IDs and checks the hard rules:
+//   • Exactly 6 members
+//   • ≥ 2 female members
+// Returns null if valid, or an error string if not.
+async function validateTeamComposition(memberIds, excludeTeamId = null) {
+  if (!memberIds || memberIds.length === 0) return null; // no members to check yet
+  if (memberIds.length !== 6) return `Team must have exactly 6 members (got ${memberIds.length})`;
+
+  // Resolve genders
+  let profiles = [];
+  if (DATABASE_URL) {
+    const { rows } = await dbQuery(
+      `SELECT gender FROM public.profiles WHERE id = ANY($1)`, [memberIds]
+    );
+    profiles = rows;
+  } else if (supabase) {
+    const { data } = await supabase
+      .from("profiles").select("gender").in("id", memberIds);
+    profiles = data ?? [];
+  }
+
+  const femaleCount = profiles.filter((p) => p.gender === "Female").length;
+  if (femaleCount < 2) {
+    return `Team must include at least 2 female members (currently ${femaleCount}). Please add more female members before saving.`;
+  }
+  return null;
+}
 app.get("/api/spoc/final-teams", async (_req, res) => {
   try {
     if (DATABASE_URL) {
@@ -409,6 +441,12 @@ app.post("/api/spoc/final-teams", async (req, res) => {
         error: "One or more members are already assigned to another final team.",
         claimed_ids: alreadyClaimedIds,
       });
+    }
+
+    // ── Female-count rule ─────────────────────────────────────────────────────
+    const compositionError = await validateTeamComposition(member_ids);
+    if (compositionError) {
+      return res.status(422).json({ error: compositionError });
     }
 
     if (DATABASE_URL) {
@@ -487,6 +525,12 @@ app.patch("/api/spoc/final-teams/:id", async (req, res) => {
           error: "One or more members are already assigned to another final team.",
           claimed_ids: existingClaimed,
         });
+      }
+
+      // ── Female-count rule ───────────────────────────────────────────────────
+      const compositionError = await validateTeamComposition(member_ids);
+      if (compositionError) {
+        return res.status(422).json({ error: compositionError });
       }
     }
 

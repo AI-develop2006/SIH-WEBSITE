@@ -2,11 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Shield, LogOut, Users, Building2, CheckCircle2, AlertTriangle,
-  ChevronDown, ChevronUp, Plus, X, Download, Search, RefreshCw, Sparkles,
+  ChevronDown, ChevronUp, Plus, X, Download, Search, RefreshCw, Sparkles, Trash2,
 } from "lucide-react";
 import {
   getCurrentProfile, logoutSpoc, fetchEnrichedTeams,
-  fetchFinalTeams, saveFinalTeam, updateFinalTeam,
+  fetchFinalTeams, saveFinalTeam, updateFinalTeam, deleteFinalTeam,
   fetchClaimedMembers, subscribeToTeamEvents,
 } from "@/lib/data";
 import { useToast } from "@/components/ui/toast";
@@ -81,7 +81,10 @@ function ValidationBar({ members }) {
 }
 
 // ─── Final team card ─────────────────────────────────────────────────────────
-function FinalTeamCard({ ft, profileMap, onEdit }) {
+function FinalTeamCard({ ft, profileMap, onEdit, onDelete }) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
   const members = useMemo(
     () => (ft.member_ids || []).map((id) => profileMap.get(id)).filter(Boolean),
     [ft.member_ids, profileMap]
@@ -89,29 +92,74 @@ function FinalTeamCard({ ft, profileMap, onEdit }) {
   const errors = validateFinalTeam(members);
   const isValid = errors.length === 0;
 
+  async function handleConfirmDelete() {
+    setDeleting(true);
+    await onDelete(ft.id, ft.name);
+    setDeleting(false);
+    setConfirmDelete(false);
+  }
+
   return (
     <div className={cn(
       "rounded-2xl border p-4 space-y-3 transition-all duration-200",
       isValid ? "border-emerald-500/25 bg-emerald-500/5" : "border-amber-500/20 bg-amber-500/5"
     )}>
+      {/* Header row */}
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           {isValid
             ? <CheckCircle2 className="size-4 text-emerald-400 shrink-0" />
             : <AlertTriangle className="size-4 text-amber-400 shrink-0" />
           }
-          <span className="text-sm font-extrabold text-white">{ft.name}</span>
+          <span className="text-sm font-extrabold text-white truncate">{ft.name}</span>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            onClick={() => onEdit(ft)}
-            className="text-[11px] px-3 py-1.5 text-[#c9a227] hover:bg-[#c9a227]/10"
-          >
-            Edit
-          </Button>
-        </div>
+        {!confirmDelete && (
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              variant="ghost"
+              onClick={() => onEdit(ft)}
+              className="text-[11px] px-3 py-1.5 text-[#c9a227] hover:bg-[#c9a227]/10"
+            >
+              Edit Members
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => setConfirmDelete(true)}
+              className="text-[11px] px-3 py-1.5 text-red-400 hover:bg-red-500/10 hover:text-red-300"
+            >
+              <Trash2 className="size-3 shrink-0" />
+              Delete
+            </Button>
+          </div>
+        )}
       </div>
+
+      {/* Inline delete confirmation */}
+      {confirmDelete && (
+        <div className="rounded-xl border border-red-500/30 bg-red-500/8 px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+          <p className="text-xs text-red-300 font-semibold">
+            Delete <span className="font-black">"{ft.name}"</span>? Members will be notified.
+          </p>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              variant="ghost"
+              onClick={() => setConfirmDelete(false)}
+              disabled={deleting}
+              className="text-[11px] px-3 py-1.5 text-[#94a3b8]"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmDelete}
+              loading={deleting}
+              className="text-[11px] px-3 py-1.5 bg-red-500 hover:bg-red-400 text-white"
+            >
+              <Trash2 className="size-3 shrink-0" />
+              Confirm Delete
+            </Button>
+          </div>
+        </div>
+      )}
 
       <ValidationBar members={members} />
 
@@ -121,7 +169,7 @@ function FinalTeamCard({ ft, profileMap, onEdit }) {
         ))}
       </div>
 
-      {!isValid && (
+      {!isValid && !confirmDelete && (
         <div className="space-y-1">
           {errors.map((e) => (
             <p key={e} className="text-[10px] text-amber-400 flex items-center gap-1">
@@ -135,7 +183,7 @@ function FinalTeamCard({ ft, profileMap, onEdit }) {
 }
 
 // ─── Ministry accordion row ──────────────────────────────────────────────────
-function MinistryRow({ ministry, pairTeams, finalTeams, onBuildTeam, onEditTeam, profileMap, claimedMemberIds }) {
+function MinistryRow({ ministry, pairTeams, finalTeams, onBuildTeam, onEditTeam, onDeleteTeam, profileMap, claimedMemberIds }) {
   const [open, setOpen] = useState(false);
   const bodyRef = useRef(null);
   const isOutdated = OUTDATED_MINISTRIES.has(ministry);
@@ -290,6 +338,7 @@ function MinistryRow({ ministry, pairTeams, finalTeams, onBuildTeam, onEditTeam,
                       ft={ft}
                       profileMap={profileMap}
                       onEdit={onEditTeam}
+                      onDelete={onDeleteTeam}
                     />
                   ))}
                 </div>
@@ -479,6 +528,24 @@ export default function SpocDashboard() {
     setBuilderSourceTeams(sourceTeams);
     setEditingFinalTeam(existingFinalTeam);
     setBuilderOpen(true);
+  }
+
+  async function handleDeleteFinalTeam(id, name) {
+    // Optimistic remove
+    setFinalTeams((prev) => prev.filter((ft) => ft.id !== id));
+    setClaimedMemberIds((prev) => {
+      // Remove claimed IDs that belonged to the deleted team
+      // We don't know exactly which IDs — refresh will handle it
+      return prev;
+    });
+    const res = await deleteFinalTeam(id);
+    if (res.error) {
+      toast("error", res.error);
+      await refreshData(true); // rollback on failure
+      return;
+    }
+    toast("success", `Team "${name}" deleted.`);
+    refreshData(true); // sync claimed members
   }
 
   async function handleSaveFinalTeam({ name, ministry, member_ids }) {
@@ -737,6 +804,7 @@ export default function SpocDashboard() {
               const srcTeams = byMinistry.get(ft.ministry) ?? [];
               openBuilder(ft.ministry, srcTeams, ft);
             }}
+            onDeleteTeam={handleDeleteFinalTeam}
           />
         ))}
       </div>

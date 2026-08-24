@@ -108,6 +108,20 @@ export async function updateFinalTeam(id, payload) {
   }
 }
 
+export async function deleteFinalTeam(id) {
+  try {
+    const res = await fetch(`${API_BASE}/api/spoc/final-teams/${id}`, {
+      method: "DELETE",
+      headers: { ...getAuthHeader() },
+    });
+    const json = await res.json();
+    if (!res.ok) return { success: false, error: json.error };
+    return { success: true, error: null };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
 // ─── Real-time: claimed members ───────────────────────────────────────────────
 // Returns the flat list of member IDs already assigned to any final team.
 export async function fetchClaimedMembers() {

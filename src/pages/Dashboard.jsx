@@ -27,7 +27,7 @@ import { useToast } from "@/components/unlumen-ui/toast";
 import { Input, Select } from "@/components/unlumen-ui/input";
 import { DEPARTMENTS, YEARS } from "@/lib/constants";
 import { OutdatedMinistryBadge } from "@/components/common/OutdatedMinistryBadge";
-import { fetchNotifications, markNotificationRead, markAllNotificationsRead } from "@/lib/data";
+import { fetchNotifications, markNotificationRead, markAllNotificationsRead, fetchMyFinalTeam } from "@/lib/data";
 import { NewMinistryBadge } from "@/components/common/NewMinistryBadge";
 
 function ensureHttp(url) {
@@ -184,15 +184,17 @@ export default function DashboardPage() {
   };
 
   const [myTeam, setMyTeam] = useState(null);
+  const [myFinalTeam, setMyFinalTeam] = useState(null);
   const [notifications, setNotifications] = useState([]);
 
   const refresh = useCallback(async () => {
     if (!profile) return;
-    const [announcementsRes, timelineRes, teamsRes, notifRes] = await Promise.all([
+    const [announcementsRes, timelineRes, teamsRes, notifRes, finalTeamRes] = await Promise.all([
       data.fetchAnnouncements(),
       data.fetchTimelineEvents(),
       data.fetchEnrichedTeams(),
       fetchNotifications(),
+      data.fetchMyFinalTeam(),
     ]);
 
     setTimeline(timelineRes.data && timelineRes.data.length > 0 ? timelineRes.data : TIMELINE_FALLBACK);
@@ -212,6 +214,8 @@ export default function DashboardPage() {
     if (notifRes.data) {
       setNotifications(notifRes.data);
     }
+
+    setMyFinalTeam(finalTeamRes.data ?? null);
   }, [profile]);
 
   useEffect(() => {
@@ -698,9 +702,14 @@ export default function DashboardPage() {
         <div className="grid gap-6 lg:grid-cols-12 items-start">
           {/* Left Column: Instructions and Profile Details */}
           <div className="lg:col-span-7 flex flex-col gap-6">
+            {/* Final SIH 6-member team — shown prominently when SPOC has confirmed the team */}
+            {myFinalTeam && (
+              <FinalSixTeamCard finalTeam={myFinalTeam} currentUserId={profile?.id} />
+            )}
+
             {myTeam ? (
               <StudentTeamCard myTeam={myTeam} currentUserId={profile?.id} />
-            ) : (
+            ) : !myFinalTeam ? (
               <Card className="p-6 border-[#dba328]/20 bg-[#dba328]/5 relative overflow-hidden">
                 <div className="absolute top-0 right-0 -mt-6 -mr-6 size-24 rounded-full bg-[#dba328]/10 blur-xl pointer-events-none" />
                 <h3 className="text-lg font-black text-foreground flex items-center gap-2">
@@ -717,7 +726,7 @@ export default function DashboardPage() {
                   </p>
                 </div>
               </Card>
-            )}
+            ) : null}
 
             {profileCard}
           </div>
@@ -814,10 +823,15 @@ export default function DashboardPage() {
               </div>
             )}
 
+            {/* Final SIH 6-member team — shown prominently when SPOC has confirmed the team */}
+            {myFinalTeam && (
+              <FinalSixTeamCard finalTeam={myFinalTeam} currentUserId={profile?.id} />
+            )}
+
             {/* Team or Completed Status Card */}
             {myTeam ? (
               <StudentTeamCard myTeam={myTeam} currentUserId={profile?.id} />
-            ) : (
+            ) : !myFinalTeam ? (
               <Card className="p-5 border-[#dba328]/20 bg-[#dba328]/5 relative overflow-hidden">
                 <div className="absolute top-0 right-0 -mt-6 -mr-6 size-20 rounded-full bg-[#dba328]/10 blur-xl pointer-events-none" />
                 <h3 className="text-base font-black text-foreground flex items-center gap-2">
@@ -834,7 +848,7 @@ export default function DashboardPage() {
                   </p>
                 </div>
               </Card>
-            )}
+            ) : null}
 
             {/* Profile Summary Mini Card */}
             {profile && (
@@ -1342,6 +1356,248 @@ export default function DashboardPage() {
         </div>
       )}
     </main>
+  );
+}
+
+// ─── SPOC Final Team Card ────────────────────────────────────────────────────
+function FinalTeamCard({ finalTeam, currentUserId }) {
+  if (!finalTeam) return null;
+  const members = finalTeam.members || [];
+
+  return (
+    <Card className="p-6 border border-emerald-500/40 bg-emerald-500/5 relative overflow-hidden space-y-5 shadow-xl">
+      {/* Glow accent */}
+      <div className="absolute top-0 left-0 right-0 h-1 rounded-t-2xl bg-gradient-to-r from-transparent via-emerald-400 to-transparent opacity-60" />
+
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-emerald-500/20 pb-4">
+        <div>
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <span className="flex size-3 rounded-full bg-emerald-400 animate-pulse" />
+            <h3 className="text-xl font-extrabold tracking-tight text-white">
+              {finalTeam.name}
+            </h3>
+            <span className="rounded-full border border-emerald-500/40 bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-bold text-emerald-300">
+              🎉 SIH Final Team
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1 font-medium">
+            Selected for SIH 2026 · {members.length} Member{members.length !== 1 ? "s" : ""}
+          </p>
+        </div>
+      </div>
+
+      {/* Ministry */}
+      {finalTeam.ministry && (
+        <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/8 px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-1.5">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 shrink-0">Ministry / Organisation</span>
+          <span className="text-sm font-semibold text-white sm:ml-2">{finalTeam.ministry}</span>
+        </div>
+      )}
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 gap-2 sm:gap-3 text-center">
+        <div className="rounded-xl border border-border/40 bg-muted/20 p-2.5">
+          <div className="text-[10px] uppercase font-bold text-muted-foreground">Team Size</div>
+          <div className="text-sm font-extrabold text-emerald-400 mt-0.5">{members.length} / 6</div>
+        </div>
+        <div className="rounded-xl border border-border/40 bg-muted/20 p-2.5">
+          <div className="text-[10px] uppercase font-bold text-muted-foreground">Departments</div>
+          <div className="text-sm font-extrabold text-emerald-400 mt-0.5">
+            {[...new Set(members.map((m) => m.department).filter(Boolean))].length} represented
+          </div>
+        </div>
+      </div>
+
+      {/* Team members */}
+      <div className="space-y-3">
+        <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-400">
+          Final Team Members ({members.length})
+        </h4>
+        <div className="grid gap-3">
+          {members.map((member) => {
+            const isMe = member.id === currentUserId;
+            return (
+              <div
+                key={member.id}
+                className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3.5 rounded-xl border transition-all ${
+                  isMe
+                    ? "border-emerald-500/50 bg-emerald-500/10"
+                    : "border-border/40 bg-card/40 hover:bg-card/70"
+                }`}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <Avatar name={member.name} src={member.avatar_url ?? undefined} className="size-10 text-xs ring-1 ring-emerald-500/30 shrink-0" />
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-bold text-white truncate">{member.name}</span>
+                      {isMe && (
+                        <span className="rounded bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-bold text-emerald-300 shrink-0">
+                          YOU
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                      {member.register_no} · {member.department} {member.year ? `(${member.year} Yr)` : ""} · {member.gender}
+                    </p>
+                  </div>
+                </div>
+                <div className="sm:text-right text-xs space-y-0.5 shrink-0">
+                  <p className="text-slate-300 font-mono text-[11px] truncate max-w-[200px] sm:max-w-none">{member.email}</p>
+                  {member.phone && (
+                    <p className="text-muted-foreground text-[11px]">{member.phone}</p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+// ─── Final Six-Member Team Card (SPOC-built) ──────────────────────────────────
+function FinalSixTeamCard({ finalTeam, currentUserId }) {
+  if (!finalTeam) return null;
+
+  const members = finalTeam.members || [];
+  const teamName = finalTeam.name ?? "Final SIH Team";
+  const ministry = finalTeam.ministry ?? null;
+
+  // Dept abbreviation helper
+  function deptCode(dept) {
+    if (!dept) return "—";
+    const MAP = {
+      "Computer Science and Engineering": "CSE",
+      "Electronics and Communication Engineering": "ECE",
+      "Electrical and Electronics Engineering": "EEE",
+      "Mechanical Engineering": "MECH",
+      "Civil Engineering": "CIVIL",
+      "Information Technology": "IT",
+      "Artificial Intelligence and Data Science": "AI&DS",
+      "AIDS": "AI&DS",
+      "Cyber Security": "CYS",
+      "Robotics and Automation": "R&A",
+      "Agricultural Engineering": "AGE",
+      "Bio Medical Engineering": "BME",
+    };
+    return MAP[dept] ?? dept.replace(/\s+/g, "").toUpperCase().slice(0, 6);
+  }
+
+  return (
+    <Card className="p-6 border border-emerald-500/40 bg-emerald-500/5 relative overflow-hidden space-y-5 shadow-xl">
+      {/* Gold shimmer accent */}
+      <div className="absolute top-0 left-0 right-0 h-1 rounded-t-xl bg-gradient-to-r from-transparent via-emerald-400 to-transparent opacity-60" />
+
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-emerald-500/20 pb-4">
+        <div>
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <span className="flex size-2.5 rounded-full bg-emerald-400 animate-pulse" />
+            <h3 className="text-xl font-extrabold tracking-tight text-white">
+              {teamName}
+            </h3>
+            <span className="rounded-full border border-emerald-500/40 bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-bold text-emerald-300">
+              🏆 Final SIH Team
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1 font-medium">
+            SPOC-selected final team · {members.length} of 6 members
+          </p>
+        </div>
+        <span className="inline-flex items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-300 shrink-0">
+          ✓ Confirmed Selection
+        </span>
+      </div>
+
+      {/* Ministry Banner */}
+      {ministry && (
+        <div className="rounded-xl border border-[#c9a227]/30 bg-[#c9a227]/5 px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-1.5">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-[#c9a227] shrink-0">Ministry / Organisation</span>
+          <span className="text-sm font-semibold text-white sm:ml-2">{ministry}</span>
+        </div>
+      )}
+
+      {/* Team composition pills */}
+      <div className="grid grid-cols-3 gap-2 sm:gap-3 text-center">
+        <div className="rounded-xl border border-border/40 bg-muted/20 p-2.5">
+          <div className="text-[10px] uppercase font-bold text-muted-foreground">Members</div>
+          <div className="text-sm font-extrabold text-white mt-0.5">{members.length} / 6</div>
+        </div>
+        <div className="rounded-xl border border-border/40 bg-muted/20 p-2.5">
+          <div className="text-[10px] uppercase font-bold text-muted-foreground">Departments</div>
+          <div className="text-sm font-extrabold text-emerald-400 mt-0.5">
+            {new Set(members.map((m) => m.department).filter(Boolean)).size}
+          </div>
+        </div>
+        <div className="rounded-xl border border-border/40 bg-muted/20 p-2.5">
+          <div className="text-[10px] uppercase font-bold text-muted-foreground">Female</div>
+          <div className="text-sm font-extrabold text-pink-400 mt-0.5">
+            {members.filter((m) => m.gender === "Female").length}
+          </div>
+        </div>
+      </div>
+
+      {/* Teammates */}
+      <div className="space-y-3">
+        <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-400">
+          Your Final Team Members ({members.length})
+        </h4>
+
+        <div className="grid gap-2.5">
+          {members.map((member) => {
+            const isMe = member.id === currentUserId;
+            return (
+              <div
+                key={member.id}
+                className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3.5 rounded-xl border transition-all ${
+                  isMe
+                    ? "border-emerald-500/50 bg-emerald-500/10"
+                    : "border-border/40 bg-card/40 hover:bg-card/70"
+                }`}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <Avatar
+                    name={member.name}
+                    src={member.avatar_url ?? undefined}
+                    className="size-10 text-xs ring-1 ring-emerald-500/30 shrink-0"
+                  />
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-bold text-white truncate">{member.name}</span>
+                      {isMe && (
+                        <span className="rounded bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-bold text-emerald-300 shrink-0">
+                          YOU
+                        </span>
+                      )}
+                      {member.gender === "Female" && (
+                        <span className="rounded-full bg-pink-500/15 border border-pink-500/30 px-1.5 py-0.5 text-[9px] font-bold text-pink-300">F</span>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                      {member.register_no} · {deptCode(member.department)}
+                      {member.year ? ` · Yr ${member.year}` : ""}
+                      {member.assigned_skill ? ` · ${member.assigned_skill}` : ""}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Contact details */}
+                <div className="sm:text-right text-xs space-y-0.5 shrink-0">
+                  {member.email && (
+                    <p className="text-slate-300 font-mono text-[11px] truncate max-w-[200px] sm:max-w-none">{member.email}</p>
+                  )}
+                  {member.phone && (
+                    <p className="text-muted-foreground text-[11px]">{member.phone}</p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </Card>
   );
 }
 

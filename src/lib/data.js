@@ -565,6 +565,22 @@ export async function fetchMinistrySeats() {
   }
 }
 
+// ─── SPOC Final Team ─────────────────────────────────────────────────────────
+// Returns the SPOC final team the logged-in participant belongs to,
+// with all member profiles resolved. Returns { data: null } if not in a team.
+export async function fetchMyFinalTeam() {
+  try {
+    const res = await fetch(`${API_BASE}/api/spoc/my-final-team`, {
+      headers: { ...getAuthHeader() },
+    });
+    const json = await res.json();
+    if (!res.ok) return { data: null, error: json.error };
+    return { data: json.data ?? null, error: null };
+  } catch (err) {
+    return { data: null, error: err.message };
+  }
+}
+
 // ─── Personal Notifications ───────────────────────────────────────────────────
 
 export async function fetchNotifications() {

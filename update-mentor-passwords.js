@@ -24,7 +24,10 @@ if (existsSync(join(__dirname, ".env.local"))) {
   dotenv.config();
 }
 
-const NEW_PASSWORD = "sih_mentor_2o26";
+const NEW_PASSWORD = process.env.MENTOR_PASSWORD;
+
+if (!process.env.DATABASE_URL) { console.error("❌  DATABASE_URL missing"); process.exit(1); }
+if (!NEW_PASSWORD) { console.error("❌  MENTOR_PASSWORD missing in .env"); process.exit(1); }
 
 const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,

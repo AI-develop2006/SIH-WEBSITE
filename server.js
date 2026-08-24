@@ -170,8 +170,65 @@ app.get("/api/spoc/claimed-members", async (_req, res) => {
   }
 });
 
-// ─── Auth: Login ─────────────────────────────────────────────────────────────
-// Accepts { email, password } — frontend sends phone-derived email internally
+// ─── Auth: Login by name ──────────────────────────────────────────────────────
+// Accepts { name, password } — looks up the SPOC profile by name to resolve
+// the internal email, then signs in via Supabase. Never exposes the email.
+app.post("/api/auth/login-by-name", async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: "Supabase not configured" });
+  const { name, password } = req.body;
+  if (!name?.trim()) return res.status(400).json({ error: "Name is required" });
+  if (!password) return res.status(400).json({ error: "Password is required" });
+
+  try {
+    // Resolve the internal email from the profile row by matching name + role
+    let email = null;
+    if (DATABASE_URL) {
+      const { rows } = await dbQuery(
+        `SELECT email FROM public.profiles
+         WHERE role = 'spoc' AND LOWER(name) = LOWER($1) LIMIT 1`,
+        [name.trim()]
+      );
+      email = rows[0]?.email ?? null;
+    } else {
+      const { data } = await supabase
+        .from("profiles")
+        .select("email")
+        .eq("role", "spoc")
+        .ilike("name", name.trim())
+        .limit(1)
+        .maybeSingle();
+      email = data?.email ?? null;
+    }
+
+    if (!email) {
+      return res.status(401).json({ error: "Invalid name or password" });
+    }
+
+    const { data: authData, error: signInError } =
+      await supabase.auth.signInWithPassword({ email, password });
+    if (signInError) return res.status(401).json({ error: "Invalid name or password" });
+
+    const user = authData.user;
+    let profile = null;
+    if (DATABASE_URL) {
+      const { rows } = await dbQuery(
+        `SELECT * FROM public.profiles WHERE id = $1 LIMIT 1`, [user.id]
+      );
+      profile = rows[0] ?? null;
+    } else {
+      const { data } = await supabase
+        .from("profiles").select("*").eq("id", user.id).maybeSingle();
+      profile = data;
+    }
+
+    return res.json({ session: authData.session, user, profile });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Auth: Login (email + password — kept for backward compat) ───────────────
+// Accepts { email, password }
 app.post("/api/auth/login", async (req, res) => {
   if (!supabase) return res.status(500).json({ error: "Supabase not configured" });
   const { email, password } = req.body;

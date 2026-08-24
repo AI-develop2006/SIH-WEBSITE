@@ -169,6 +169,15 @@ export default function MentorDashboardPage() {
     refreshTeams();
   }, [refreshCount, refreshTeams]);
 
+  // Auto-refresh ministry seat caps every 60 seconds so admin changes appear live
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const { data: seats } = await data.fetchMinistrySeats();
+      if (seats) setMinistrySeats(seats);
+    }, 60_000);
+    return () => clearInterval(interval);
+  }, []);
+
   // ─── Derived State ───────────────────────────────────────────────────────────
 
   const problemMap = useMemo(

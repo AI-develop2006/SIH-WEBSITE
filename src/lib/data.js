@@ -585,6 +585,7 @@ export async function fetchMinistrySeatsForDept(dept) {
 // Returns the SPOC final team the logged-in participant belongs to,
 // with all member profiles resolved. Returns { data: null } if not in a team.
 export async function fetchMyFinalTeam() {
+  await ensureFreshToken();
   try {
     const res = await fetch(`${API_BASE}/api/spoc/my-final-team`, {
       headers: { ...getAuthHeader() },

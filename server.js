@@ -1881,7 +1881,14 @@ app.get("/api/spoc/my-final-team", async (req, res) => {
     if (memberIds.length > 0) {
       if (process.env.DATABASE_URL) {
         const { rows: profiles } = await dbQuery(
-          `SELECT id, name, register_no, department, year, section, gender, email, phone, avatar_url, assigned_skill
+          `SELECT id, name, register_no, department, year, section, gender, email, phone,
+                  avatar_url, assigned_skill, linkedin, github, github_repo, resume_link,
+                  software_domain, hardware_domain, domain, domain_interests,
+                  project_type, project_title, project_description,
+                  youtube_link, google_drive_ppt, languages,
+                  sih_participant, sih_num_participations, sih_participation_year,
+                  sih_problem_statement, sih_project_domain, sih_project_role,
+                  sih_position_reached, sih_nodal_center, sih_history
            FROM public.profiles WHERE id = ANY($1)`,
           [memberIds]
         );
@@ -1891,7 +1898,14 @@ app.get("/api/spoc/my-final-team", async (req, res) => {
       } else if (supabase) {
         const { data: profiles } = await supabase
           .from("profiles")
-          .select("id, name, register_no, department, year, section, gender, email, phone, avatar_url, assigned_skill")
+          .select(`id, name, register_no, department, year, section, gender, email, phone,
+                   avatar_url, assigned_skill, linkedin, github, github_repo, resume_link,
+                   software_domain, hardware_domain, domain, domain_interests,
+                   project_type, project_title, project_description,
+                   youtube_link, google_drive_ppt, languages,
+                   sih_participant, sih_num_participations, sih_participation_year,
+                   sih_problem_statement, sih_project_domain, sih_project_role,
+                   sih_position_reached, sih_nodal_center, sih_history`)
           .in("id", memberIds);
         const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
         members = memberIds.map((id) => profileMap.get(id)).filter(Boolean);

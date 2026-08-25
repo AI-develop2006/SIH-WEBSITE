@@ -175,6 +175,50 @@ app.get("/api/spoc/claimed-members", async (req, res) => {
   }
 });
 
+// ─── Access Log: read login attempts (admin use) ─────────────────────────────
+// Returns the most recent N login attempts. Requires valid SPOC auth token
+// to prevent public exposure of IP addresses.
+app.get("/api/spoc/access-log", async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith("Bearer ")) return res.status(401).json({ error: "Not signed in" });
+  const token = authHeader.split(" ")[1];
+
+  // Verify the caller is the SPOC (or admin) — just validate the token is live
+  try {
+    if (supabase) {
+      const { data: { user }, error } = await supabase.auth.getUser(token);
+      if (error || !user) return res.status(401).json({ error: "Invalid token" });
+    }
+
+    const limit = Math.min(parseInt(req.query.limit ?? "200", 10), 500);
+
+    let rows = [];
+    if (DATABASE_URL) {
+      const result = await dbQuery(
+        `SELECT id, attempted_name, resolved_email, success, failure_reason,
+                ip_address, user_agent, created_at
+         FROM public.spoc_access_log
+         ORDER BY created_at DESC
+         LIMIT $1`,
+        [limit]
+      );
+      rows = result.rows;
+    } else if (supabase) {
+      const { data, error: qErr } = await supabase
+        .from("spoc_access_log")
+        .select("id, attempted_name, resolved_email, success, failure_reason, ip_address, user_agent, created_at")
+        .order("created_at", { ascending: false })
+        .limit(limit);
+      if (qErr) return res.status(500).json({ error: qErr.message });
+      rows = data ?? [];
+    }
+
+    return res.json({ data: rows });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 // ─── Auth: Login by name ──────────────────────────────────────────────────────
 // Accepts { name, password } — looks up the SPOC profile by name to resolve
 // the internal email, then signs in via Supabase. Never exposes the email.
@@ -183,6 +227,28 @@ app.post("/api/auth/login-by-name", async (req, res) => {
   const { name, password } = req.body;
   if (!name?.trim()) return res.status(400).json({ error: "Name is required" });
   if (!password) return res.status(400).json({ error: "Password is required" });
+
+  // Capture request metadata for access logging
+  const ip = (req.headers["cf-connecting-ip"] || req.headers["x-forwarded-for"] || req.socket.remoteAddress || "")
+    .split(",")[0].trim().replace(/^::ffff:/, "");
+  const userAgent = req.headers["user-agent"] || "";
+
+  async function logAccess({ success, resolvedEmail = null, reason = null }) {
+    try {
+      if (DATABASE_URL) {
+        await dbQuery(
+          `INSERT INTO public.spoc_access_log (attempted_name, resolved_email, success, failure_reason, ip_address, user_agent)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [name.trim(), resolvedEmail, success, reason, ip, userAgent]
+        );
+      } else if (supabase) {
+        await supabase.from("spoc_access_log").insert([{
+          attempted_name: name.trim(), resolved_email: resolvedEmail,
+          success, failure_reason: reason, ip_address: ip, user_agent: userAgent,
+        }]);
+      }
+    } catch (_) { /* fire-and-forget */ }
+  }
 
   try {
     // Resolve the internal email from the profile row by matching name + role
@@ -206,12 +272,18 @@ app.post("/api/auth/login-by-name", async (req, res) => {
     }
 
     if (!email) {
+      await logAccess({ success: false, reason: "Name not found" });
       return res.status(401).json({ error: "Invalid name or password" });
     }
 
     const { data: authData, error: signInError } =
       await supabase.auth.signInWithPassword({ email, password });
-    if (signInError) return res.status(401).json({ error: "Invalid name or password" });
+    if (signInError) {
+      await logAccess({ success: false, resolvedEmail: email, reason: "Wrong password" });
+      return res.status(401).json({ error: "Invalid name or password" });
+    }
+
+    await logAccess({ success: true, resolvedEmail: email });
 
     const user = authData.user;
     let profile = null;

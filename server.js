@@ -808,6 +808,73 @@ app.put("/api/settings/ministry-seats", async (req, res) => {
   }
 });
 
+// ── SPOC Portal Maintenance Mode ──────────────────────────────────────────────
+// Stores a simple boolean in system_settings under key "spoc_maintenance".
+// The SPOC frontend checks this on load — if true, it shows a maintenance screen.
+// No data is touched; it's purely a gate flag.
+
+// GET /api/settings/spoc-maintenance — read current state (public, no auth needed)
+// SPOC frontend calls this before rendering anything.
+app.get("/api/settings/spoc-maintenance", async (_req, res) => {
+  try {
+    let enabled = false;
+    if (supabase) {
+      const { data } = await supabase
+        .from("system_settings")
+        .select("value")
+        .eq("key", "spoc_maintenance")
+        .maybeSingle();
+      enabled = data?.value?.enabled === true;
+    }
+    return res.json({ enabled, message: enabled ? (await (async () => {
+      if (!supabase) return "";
+      const { data } = await supabase.from("system_settings").select("value").eq("key", "spoc_maintenance").maybeSingle();
+      return data?.value?.message ?? "The SPOC portal is temporarily unavailable for maintenance. Please check back later.";
+    })()) : "" });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/settings/spoc-maintenance — toggle on/off (admin auth required)
+app.post("/api/settings/spoc-maintenance", async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: "Supabase not configured" });
+
+  // Verify admin token
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith("Bearer ")) return res.status(401).json({ error: "Admin auth required" });
+  const token = authHeader.split(" ")[1];
+  try {
+    const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
+    if (authErr || !user) return res.status(401).json({ error: "Invalid token" });
+    const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
+    if (profile?.role !== "admin") return res.status(403).json({ error: "Admin only" });
+  } catch (_) {
+    return res.status(401).json({ error: "Auth check failed" });
+  }
+
+  const { enabled, message } = req.body;
+  if (typeof enabled !== "boolean") return res.status(400).json({ error: "enabled (boolean) required" });
+
+  try {
+    const { error } = await supabase
+      .from("system_settings")
+      .upsert({
+        key: "spoc_maintenance",
+        value: {
+          enabled,
+          message: message?.trim() || "The SPOC portal is temporarily unavailable for maintenance. Please check back later.",
+          updated_at: new Date().toISOString(),
+        },
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "key" });
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json({ success: true, enabled });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 // Serve static files from Vite dist if present
 const distFolder = join(__dirname, "dist");
 const indexHtmlFile = join(distFolder, "index.html");

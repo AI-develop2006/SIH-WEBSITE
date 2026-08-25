@@ -283,6 +283,30 @@ app.get("/api/auth/me", async (req, res) => {
   }
 });
 
+// ─── Profiles: all students (for monitoring tab) ─────────────────────────────
+app.get("/api/profiles", async (_req, res) => {
+  try {
+    if (DATABASE_URL) {
+      const { rows } = await dbQuery(
+        `SELECT id, name, register_no, email, department, year, section, gender, role
+         FROM public.profiles WHERE role = 'student' ORDER BY name;`
+      );
+      return res.json({ data: rows });
+    } else if (supabase) {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, name, register_no, email, department, year, section, gender, role")
+        .eq("role", "student")
+        .order("name");
+      if (error) return res.status(500).json({ error: error.message });
+      return res.json({ data: data ?? [] });
+    }
+    return res.json({ data: [] });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 // ─── Teams: Read all enriched teams ──────────────────────────────────────────
 // SPOC reads all mentor-created pair-teams to pick members from
 app.get("/api/teams", async (_req, res) => {

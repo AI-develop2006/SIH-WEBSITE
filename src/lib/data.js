@@ -228,3 +228,17 @@ export function subscribeToPairTeamEvents(onUpdate) {
     if (es) es.close();
   };
 }
+
+// ─── Access Log ───────────────────────────────────────────────────────────────
+export async function fetchAccessLog(limit = 200) {
+  try {
+    const res = await fetch(`${API_BASE}/api/spoc/access-log?limit=${limit}`, {
+      headers: { ...getAuthHeader() },
+    });
+    const json = await res.json();
+    if (!res.ok) return { data: [], error: json.error };
+    return { data: json.data ?? [], error: null };
+  } catch (err) {
+    return { data: [], error: err.message };
+  }
+}

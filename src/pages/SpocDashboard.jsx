@@ -19,6 +19,7 @@ import { TeamBuilderModal } from "@/components/TeamBuilderModal";
 import { OutdatedMinistryBadge } from "@/components/OutdatedMinistryBadge";
 import { NewMinistryBadge } from "@/components/NewMinistryBadge";
 import { MonitoringView } from "@/components/MonitoringView";
+import { AccessLogView } from "@/components/AccessLogView";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -854,6 +855,7 @@ export default function SpocDashboard() {
         {[
           { id: "teams",      label: "Teams & Ministries", icon: Building2 },
           { id: "monitoring", label: "Monitoring",          icon: Activity  },
+          { id: "access-log", label: "Access Log",          icon: Shield    },
         ].map((t) => (
           <button
             key={t.id}
@@ -1033,6 +1035,10 @@ export default function SpocDashboard() {
           onRefresh={() => refreshData(false)}
           refreshing={refreshing}
         />
+      )}
+
+      {activeTab === "access-log" && (
+        <AccessLogView />
       )}
 
       {/* Team Builder Modal */}

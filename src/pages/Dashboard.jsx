@@ -731,7 +731,9 @@ export default function DashboardPage() {
           <div className="lg:col-span-7 flex flex-col gap-6">
             {/* Final SIH 6-member team — shown prominently when SPOC has confirmed the team */}
             {myFinalTeam && (
-              <FinalSixTeamCard finalTeam={myFinalTeam} currentUserId={profile?.id} />
+              <div id="final-team-card">
+                <FinalSixTeamCard finalTeam={myFinalTeam} currentUserId={profile?.id} />
+              </div>
             )}
 
             {myTeam ? (
@@ -791,45 +793,18 @@ export default function DashboardPage() {
               ) : (
                 <div className="flex flex-col gap-2">
                   {notifications.map((n) => (
-                    <div
+                    <NotificationCard
                       key={n.id}
-                      className={cn(
-                        "rounded-xl border px-4 py-3 flex items-start gap-3 transition-colors",
-                        n.read
-                          ? "border-border/40 bg-card/20"
-                          : n.type === "spoc_team_added"
-                          ? "border-emerald-500/30 bg-emerald-500/5"
-                          : "border-amber-500/30 bg-amber-500/5"
-                      )}
-                    >
-                      <span className="text-lg shrink-0 mt-0.5">
-                        {n.type === "spoc_team_added" ? "🎉" : "⚠️"}
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <p className={cn(
-                          "text-sm font-bold leading-tight",
-                          n.read ? "text-muted-foreground" : n.type === "spoc_team_added" ? "text-emerald-300" : "text-amber-300"
-                        )}>
-                          {n.title}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{n.message}</p>
-                        <p className="text-[10px] text-muted-foreground/60 mt-1.5">
-                          {new Date(n.created_at).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
-                        </p>
-                      </div>
-                      {!n.read && (
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            await markNotificationRead(n.id);
-                            setNotifications((prev) => prev.map((x) => x.id === n.id ? { ...x, read: true } : x));
-                          }}
-                          className="shrink-0 text-[10px] text-muted-foreground hover:text-primary font-semibold mt-0.5"
-                        >
-                          ✓ Read
-                        </button>
-                      )}
-                    </div>
+                      n={n}
+                      hasFinalTeam={!!myFinalTeam}
+                      onRead={async () => {
+                        await markNotificationRead(n.id);
+                        setNotifications((prev) => prev.map((x) => x.id === n.id ? { ...x, read: true } : x));
+                      }}
+                      onViewTeam={() => {
+                        document.getElementById("final-team-card")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                      }}
+                    />
                   ))}
                 </div>
               )}
@@ -852,7 +827,9 @@ export default function DashboardPage() {
 
             {/* Final SIH 6-member team — shown prominently when SPOC has confirmed the team */}
             {myFinalTeam && (
-              <FinalSixTeamCard finalTeam={myFinalTeam} currentUserId={profile?.id} />
+              <div id="final-team-card-mobile">
+                <FinalSixTeamCard finalTeam={myFinalTeam} currentUserId={profile?.id} />
+              </div>
             )}
 
             {/* Team or Completed Status Card */}
@@ -956,45 +933,23 @@ export default function DashboardPage() {
               ) : (
                 <div className="flex flex-col gap-2">
                   {notifications.map((n) => (
-                    <div
+                    <NotificationCard
                       key={n.id}
-                      className={cn(
-                        "rounded-xl border px-4 py-3 flex items-start gap-3 transition-colors",
-                        n.read
-                          ? "border-border/40 bg-card/20"
-                          : n.type === "spoc_team_added"
-                          ? "border-emerald-500/30 bg-emerald-500/5"
-                          : "border-amber-500/30 bg-amber-500/5"
-                      )}
-                    >
-                      <span className="text-lg shrink-0 mt-0.5">
-                        {n.type === "spoc_team_added" ? "🎉" : "⚠️"}
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <p className={cn(
-                          "text-sm font-bold leading-tight",
-                          n.read ? "text-muted-foreground" : n.type === "spoc_team_added" ? "text-emerald-300" : "text-amber-300"
-                        )}>
-                          {n.title}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{n.message}</p>
-                        <p className="text-[10px] text-muted-foreground/60 mt-1.5">
-                          {new Date(n.created_at).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
-                        </p>
-                      </div>
-                      {!n.read && (
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            await markNotificationRead(n.id);
-                            setNotifications((prev) => prev.map((x) => x.id === n.id ? { ...x, read: true } : x));
-                          }}
-                          className="shrink-0 text-[10px] text-muted-foreground hover:text-primary font-semibold mt-0.5"
-                        >
-                          ✓ Read
-                        </button>
-                      )}
-                    </div>
+                      n={n}
+                      hasFinalTeam={!!myFinalTeam}
+                      onRead={async () => {
+                        await markNotificationRead(n.id);
+                        setNotifications((prev) => prev.map((x) => x.id === n.id ? { ...x, read: true } : x));
+                      }}
+                      onViewTeam={() => {
+                        setActiveTab('dashboard');
+                        setTimeout(() => {
+                          // Try both desktop and mobile anchors
+                          const el = document.getElementById("final-team-card") ?? document.getElementById("final-team-card-mobile");
+                          el?.scrollIntoView({ behavior: "smooth", block: "start" });
+                        }, 100);
+                      }}
+                    />
                   ))}
                 </div>
               )}
@@ -1386,6 +1341,60 @@ export default function DashboardPage() {
   );
 }
 
+// ─── Notification Card helper ────────────────────────────────────────────────
+// Shared between desktop and mobile notification lists.
+// For spoc_team_added type, shows a "View Final Team" scroll link.
+function NotificationCard({ n, hasFinalTeam, onRead, onViewTeam }) {
+  return (
+    <div
+      className={cn(
+        "rounded-xl border px-4 py-3 flex items-start gap-3 transition-colors",
+        n.read
+          ? "border-border/40 bg-card/20"
+          : n.type === "spoc_team_added"
+          ? "border-emerald-500/30 bg-emerald-500/5"
+          : "border-amber-500/30 bg-amber-500/5"
+      )}
+    >
+      <span className="text-lg shrink-0 mt-0.5">
+        {n.type === "spoc_team_added" ? "🎉" : "⚠️"}
+      </span>
+      <div className="flex-1 min-w-0">
+        <p className={cn(
+          "text-sm font-bold leading-tight",
+          n.read ? "text-muted-foreground" : n.type === "spoc_team_added" ? "text-emerald-300" : "text-amber-300"
+        )}>
+          {n.title}
+        </p>
+        <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{n.message}</p>
+        <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+          <p className="text-[10px] text-muted-foreground/60">
+            {new Date(n.created_at).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+          </p>
+          {n.type === "spoc_team_added" && hasFinalTeam && (
+            <button
+              type="button"
+              onClick={onViewTeam}
+              className="text-[10px] font-bold text-emerald-400 hover:text-emerald-300 hover:underline transition-colors"
+            >
+              View Your Final Team →
+            </button>
+          )}
+        </div>
+      </div>
+      {!n.read && (
+        <button
+          type="button"
+          onClick={onRead}
+          className="shrink-0 text-[10px] text-muted-foreground hover:text-primary font-semibold mt-0.5"
+        >
+          ✓ Read
+        </button>
+      )}
+    </div>
+  );
+}
+
 // ─── SPOC Final Team Card ────────────────────────────────────────────────────
 function FinalTeamCard({ finalTeam, currentUserId }) {
   if (!finalTeam) return null;
@@ -1491,8 +1500,8 @@ function FinalSixTeamCard({ finalTeam, currentUserId }) {
   const members = finalTeam.members || [];
   const teamName = finalTeam.name ?? "Final SIH Team";
   const ministry = finalTeam.ministry ?? null;
+  const [expandedId, setExpandedId] = useState(null);
 
-  // Dept abbreviation helper
   function deptCode(dept) {
     if (!dept) return "—";
     const MAP = {
@@ -1503,13 +1512,39 @@ function FinalSixTeamCard({ finalTeam, currentUserId }) {
       "Civil Engineering": "CIVIL",
       "Information Technology": "IT",
       "Artificial Intelligence and Data Science": "AI&DS",
-      "AIDS": "AI&DS",
       "Cyber Security": "CYS",
       "Robotics and Automation": "R&A",
       "Agricultural Engineering": "AGE",
       "Bio Medical Engineering": "BME",
+      "Biomedical Engineering": "BME",
+      "Master of Computer Applications": "MCA",
+      "Master of Business Administration": "MBA",
+      "Instrumentation and Control Engineering": "ICE",
+      "Computer and Communication Engineering": "CCE",
+      "Mechatronics": "MCTR",
     };
     return MAP[dept] ?? dept.replace(/\s+/g, "").toUpperCase().slice(0, 6);
+  }
+
+  function ensureHttp(url) {
+    if (!url) return null;
+    const t = url.trim();
+    return /^https?:\/\//i.test(t) ? t : `https://${t}`;
+  }
+
+  function InfoRow({ label, value, href }) {
+    if (!value) return null;
+    return (
+      <div className="flex flex-col sm:flex-row sm:items-start gap-0.5 sm:gap-2">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground shrink-0 w-28">{label}</span>
+        {href ? (
+          <a href={href} target="_blank" rel="noreferrer"
+            className="text-xs text-primary hover:underline truncate">{value}</a>
+        ) : (
+          <span className="text-xs text-foreground">{value}</span>
+        )}
+      </div>
+    );
   }
 
   return (
@@ -1522,9 +1557,7 @@ function FinalSixTeamCard({ finalTeam, currentUserId }) {
         <div>
           <div className="flex items-center gap-2.5 flex-wrap">
             <span className="flex size-2.5 rounded-full bg-emerald-400 animate-pulse" />
-            <h3 className="text-xl font-extrabold tracking-tight text-white">
-              {teamName}
-            </h3>
+            <h3 className="text-xl font-extrabold tracking-tight text-white">{teamName}</h3>
             <span className="rounded-full border border-emerald-500/40 bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-bold text-emerald-300">
               🏆 Final SIH Team
             </span>
@@ -1546,7 +1579,7 @@ function FinalSixTeamCard({ finalTeam, currentUserId }) {
         </div>
       )}
 
-      {/* Team composition pills */}
+      {/* Stats pills */}
       <div className="grid grid-cols-3 gap-2 sm:gap-3 text-center">
         <div className="rounded-xl border border-border/40 bg-muted/20 p-2.5">
           <div className="text-[10px] uppercase font-bold text-muted-foreground">Members</div>
@@ -1566,59 +1599,174 @@ function FinalSixTeamCard({ finalTeam, currentUserId }) {
         </div>
       </div>
 
-      {/* Teammates */}
+      {/* Teammates — expandable full profile */}
       <div className="space-y-3">
         <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-400">
           Your Final Team Members ({members.length})
         </h4>
+        <p className="text-[11px] text-muted-foreground -mt-1">
+          Click any teammate to view their full profile.
+        </p>
 
         <div className="grid gap-2.5">
           {members.map((member) => {
             const isMe = member.id === currentUserId;
+            const isExpanded = expandedId === member.id;
+            const domains = [
+              ...(Array.isArray(member.domain_interests) ? member.domain_interests : []),
+              member.software_domain, member.hardware_domain, member.domain,
+            ].filter(Boolean);
+            const langs = Array.isArray(member.languages) ? member.languages : [];
+            const sihHistory = Array.isArray(member.sih_history) ? member.sih_history : [];
+
             return (
               <div
                 key={member.id}
-                className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3.5 rounded-xl border transition-all ${
+                className={cn(
+                  "rounded-xl border transition-all overflow-hidden",
                   isMe
                     ? "border-emerald-500/50 bg-emerald-500/10"
-                    : "border-border/40 bg-card/40 hover:bg-card/70"
-                }`}
+                    : "border-border/40 bg-card/40"
+                )}
               >
-                <div className="flex items-center gap-3 min-w-0">
-                  <Avatar
-                    name={member.name}
-                    src={member.avatar_url ?? undefined}
-                    className="size-10 text-xs ring-1 ring-emerald-500/30 shrink-0"
-                  />
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-bold text-white truncate">{member.name}</span>
-                      {isMe && (
-                        <span className="rounded bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-bold text-emerald-300 shrink-0">
-                          YOU
-                        </span>
-                      )}
-                      {member.gender === "Female" && (
-                        <span className="rounded-full bg-pink-500/15 border border-pink-500/30 px-1.5 py-0.5 text-[9px] font-bold text-pink-300">F</span>
-                      )}
+                {/* Collapsed row — always visible, click to expand */}
+                <button
+                  type="button"
+                  onClick={() => setExpandedId(isExpanded ? null : member.id)}
+                  className="w-full flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3.5 text-left cursor-pointer hover:bg-white/[0.03] transition-colors"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Avatar name={member.name} src={member.avatar_url ?? undefined} className="size-10 text-xs ring-1 ring-emerald-500/30 shrink-0" />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-bold text-white">{member.name}</span>
+                        {isMe && (
+                          <span className="rounded bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-bold text-emerald-300 shrink-0">YOU</span>
+                        )}
+                        {member.gender === "Female" && (
+                          <span className="rounded-full bg-pink-500/15 border border-pink-500/30 px-1.5 py-0.5 text-[9px] font-bold text-pink-300">F</span>
+                        )}
+                        {member.assigned_skill && (
+                          <span className="rounded-full bg-[#c9a227]/15 border border-[#c9a227]/30 px-1.5 py-0.5 text-[9px] font-bold text-[#e8c058]">{member.assigned_skill}</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {member.register_no} · {deptCode(member.department)}
+                        {member.year ? ` · Yr ${member.year}` : ""}
+                        {member.section ? ` · Sec ${member.section}` : ""}
+                      </p>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                      {member.register_no} · {deptCode(member.department)}
-                      {member.year ? ` · Yr ${member.year}` : ""}
-                      {member.assigned_skill ? ` · ${member.assigned_skill}` : ""}
-                    </p>
                   </div>
-                </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <div className="sm:text-right text-xs space-y-0.5">
+                      {member.email && <p className="text-slate-300 font-mono text-[11px] truncate max-w-[180px]">{member.email}</p>}
+                      {member.phone && <p className="text-muted-foreground text-[11px]">{member.phone}</p>}
+                    </div>
+                    <ChevronDown className={cn("size-4 text-muted-foreground transition-transform shrink-0", isExpanded && "rotate-180")} />
+                  </div>
+                </button>
 
-                {/* Contact details */}
-                <div className="sm:text-right text-xs space-y-0.5 shrink-0">
-                  {member.email && (
-                    <p className="text-slate-300 font-mono text-[11px] truncate max-w-[200px] sm:max-w-none">{member.email}</p>
-                  )}
-                  {member.phone && (
-                    <p className="text-muted-foreground text-[11px]">{member.phone}</p>
-                  )}
-                </div>
+                {/* Expanded full profile */}
+                {isExpanded && (
+                  <div className="border-t border-border/30 px-4 pb-4 pt-3 space-y-4 bg-black/20">
+
+                    {/* Academic & personal */}
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Academic & Personal</p>
+                      <div className="grid sm:grid-cols-2 gap-1.5">
+                        <InfoRow label="Department" value={member.department} />
+                        <InfoRow label="Year" value={member.year} />
+                        <InfoRow label="Section" value={member.section} />
+                        <InfoRow label="Gender" value={member.gender} />
+                        <InfoRow label="Register No." value={member.register_no} />
+                        <InfoRow label="Phone" value={member.phone} />
+                        <InfoRow label="Email" value={member.email} />
+                        {langs.length > 0 && (
+                          <InfoRow label="Languages" value={langs.join(", ")} />
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Skills & Domains */}
+                    {(domains.length > 0 || member.assigned_skill) && (
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Skills & Domains</p>
+                        <div className="grid sm:grid-cols-2 gap-1.5">
+                          {member.assigned_skill && <InfoRow label="Assigned Skill" value={member.assigned_skill} />}
+                          {member.software_domain && <InfoRow label="Software Domain" value={member.software_domain} />}
+                          {member.hardware_domain && <InfoRow label="Hardware Domain" value={member.hardware_domain} />}
+                          {member.domain && <InfoRow label="Domain" value={member.domain} />}
+                          {Array.isArray(member.domain_interests) && member.domain_interests.length > 0 && (
+                            <InfoRow label="Domain Interests" value={member.domain_interests.join(", ")} />
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Project */}
+                    {(member.project_title || member.project_description) && (
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Project</p>
+                        <div className="space-y-1.5">
+                          <InfoRow label="Title" value={member.project_title} />
+                          <InfoRow label="Type" value={member.project_type} />
+                          {member.project_description && (
+                            <div className="flex flex-col gap-0.5">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Description</span>
+                              <p className="text-xs text-foreground leading-relaxed">{member.project_description}</p>
+                            </div>
+                          )}
+                          <InfoRow label="YouTube" value={member.youtube_link} href={ensureHttp(member.youtube_link)} />
+                          <InfoRow label="PPT" value={member.google_drive_ppt ? "View Slides" : null} href={ensureHttp(member.google_drive_ppt)} />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Links */}
+                    {(member.linkedin || member.github || member.github_repo || member.resume_link) && (
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Links</p>
+                        <div className="grid sm:grid-cols-2 gap-1.5">
+                          <InfoRow label="LinkedIn" value={member.linkedin ? "View Profile" : null} href={ensureHttp(member.linkedin)} />
+                          <InfoRow label="GitHub" value={member.github ? "View GitHub" : null} href={ensureHttp(member.github)} />
+                          <InfoRow label="GitHub Repo" value={member.github_repo ? "View Repo" : null} href={ensureHttp(member.github_repo)} />
+                          <InfoRow label="Resume" value={member.resume_link ? "View Resume" : null} href={ensureHttp(member.resume_link)} />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* SIH History */}
+                    {member.sih_participant && (
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
+                          SIH Experience · {member.sih_num_participations ?? sihHistory.length} participation{(member.sih_num_participations ?? sihHistory.length) !== 1 ? "s" : ""}
+                        </p>
+                        {sihHistory.length > 0 ? (
+                          <div className="space-y-2">
+                            {sihHistory.map((h, i) => (
+                              <div key={i} className="rounded-lg border border-border/30 bg-muted/10 px-3 py-2 text-xs space-y-0.5">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-bold text-white">{h.year}</span>
+                                  {h.position_reached && (
+                                    <span className="rounded-full bg-[#c9a227]/15 border border-[#c9a227]/30 px-1.5 py-0.5 text-[9px] font-bold text-[#e8c058]">{h.position_reached}</span>
+                                  )}
+                                </div>
+                                {h.problem_statement && <p className="text-muted-foreground">{h.problem_statement}</p>}
+                                {h.project_domain && <p className="text-muted-foreground">Domain: {h.project_domain}</p>}
+                                {h.nodal_center && <p className="text-muted-foreground">Nodal: {h.nodal_center}</p>}
+                                {h.certificate_link && (
+                                  <a href={ensureHttp(h.certificate_link)} target="_blank" rel="noreferrer" className="text-primary hover:underline">View Certificate →</a>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">No SIH history details available.</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}

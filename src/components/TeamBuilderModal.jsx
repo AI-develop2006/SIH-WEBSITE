@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   X, CheckCircle2, AlertTriangle, Plus, Minus,
 } from "lucide-react";
-import { cn, validateFinalTeam } from "@/lib/utils";
+import { cn, validateFinalTeam, duplicatedSkills } from "@/lib/utils";
 import { SPOC_TEAM_SIZE, DEPT_CODE } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
@@ -104,7 +104,7 @@ export function TeamBuilderModal({ ministry, sourceTeams, editingTeam, profileMa
   const errors = useMemo(() => validateFinalTeam(selected), [selected]);
   const isValid = errors.length === 0 && selected.length === SPOC_TEAM_SIZE && teamName.trim();
 
-  // Skill conflict check — highlight members whose skill clashes
+  // Skill conflict — warning only, does NOT block saving
   const skillConflictIds = useMemo(() => {
     const skillMap = {};
     for (const m of selected) {
@@ -119,6 +119,8 @@ export function TeamBuilderModal({ ministry, sourceTeams, editingTeam, profileMa
     }
     return conflicting;
   }, [selected]);
+
+  const skillWarnings = useMemo(() => duplicatedSkills(selected), [selected]);
 
   function toggleMember(member) {
     if (selectedIds.has(member.id)) {
@@ -202,7 +204,7 @@ export function TeamBuilderModal({ ministry, sourceTeams, editingTeam, profileMa
               </span>
             </h2>
             <p className="text-xs text-[#94a3b8] mt-0.5">
-              Select exactly 6 members · ≥2 depts · ≥2 female · unique skills · faded = already taken
+              Select exactly 6 members · ≥2 depts · ≥2 female · shared skills allowed with warning
             </p>
           </div>
           <button
@@ -449,8 +451,6 @@ export function TeamBuilderModal({ ministry, sourceTeams, editingTeam, profileMa
                   {(() => {
                     const femaleCount = selected.filter((m) => m.gender === "Female").length;
                     const depts = [...new Set(selected.map((m) => m.department).filter(Boolean))];
-                    const skills = selected.map((m) => m.assigned_skill).filter(Boolean);
-                    const uniqueSkills = new Set(skills.map((s) => s.toLowerCase())).size === skills.length;
 
                     return (
                       <div className="flex flex-wrap gap-1.5">
@@ -458,7 +458,11 @@ export function TeamBuilderModal({ ministry, sourceTeams, editingTeam, profileMa
                           { label: `${selected.length}/6`, ok: selected.length === SPOC_TEAM_SIZE },
                           { label: `${depts.length} dept${depts.length !== 1 ? "s" : ""}`, ok: depts.length >= 2 },
                           { label: `${femaleCount}F`, ok: femaleCount >= 2 },
-                          { label: uniqueSkills ? "Skills ✓" : "Skill conflict", ok: uniqueSkills },
+                          {
+                            label: skillWarnings.length === 0 ? "Skills ✓" : `${skillWarnings.length} skill conflict${skillWarnings.length > 1 ? "s" : ""}`,
+                            ok: skillWarnings.length === 0,
+                            warn: skillWarnings.length > 0,
+                          },
                         ].map((c) => (
                           <span
                             key={c.label}
@@ -466,7 +470,9 @@ export function TeamBuilderModal({ ministry, sourceTeams, editingTeam, profileMa
                               "text-[10px] font-bold px-2.5 py-1 rounded-full border inline-flex items-center gap-1",
                               c.ok
                                 ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
-                                : "bg-amber-500/10 border-amber-500/30 text-amber-400"
+                                : c.warn
+                                ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
+                                : "bg-red-500/10 border-red-500/30 text-red-400"
                             )}
                           >
                             {c.ok ? <CheckCircle2 className="size-3" /> : <AlertTriangle className="size-3" />}
@@ -478,10 +484,24 @@ export function TeamBuilderModal({ ministry, sourceTeams, editingTeam, profileMa
                   })()}
 
                   {errors.length > 0 && (
-                    <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2.5 space-y-1">
+                    <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-3 py-2.5 space-y-1">
                       {errors.map((e) => (
-                        <p key={e} className="text-[11px] text-amber-400 flex items-start gap-1.5">
+                        <p key={e} className="text-[11px] text-red-400 flex items-start gap-1.5">
                           <AlertTriangle className="size-3 mt-0.5 shrink-0" />{e}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+
+                  {skillWarnings.length > 0 && (
+                    <div className="rounded-xl border border-amber-500/25 bg-amber-500/8 px-3 py-2.5 space-y-1">
+                      <p className="text-[11px] font-bold text-amber-400 flex items-center gap-1.5">
+                        <AlertTriangle className="size-3 shrink-0" />
+                        Skill overlap detected — allowed but not recommended
+                      </p>
+                      {skillWarnings.map((s) => (
+                        <p key={s} className="text-[10px] text-amber-400/80 pl-4">
+                          · Multiple members share the skill "{s}"
                         </p>
                       ))}
                     </div>
@@ -499,8 +519,13 @@ export function TeamBuilderModal({ ministry, sourceTeams, editingTeam, profileMa
           </Button>
           <div className="flex items-center gap-3">
             {!isValid && selected.length > 0 && errors.length > 0 && (
-              <p className="text-[11px] text-amber-400 hidden sm:block max-w-[260px] text-right leading-snug">
+              <p className="text-[11px] text-red-400 hidden sm:block max-w-[260px] text-right leading-snug">
                 {errors[0]}
+              </p>
+            )}
+            {isValid && skillWarnings.length > 0 && (
+              <p className="text-[11px] text-amber-400 hidden sm:block max-w-[260px] text-right leading-snug">
+                ⚠ Skill overlap — saving anyway
               </p>
             )}
             <Button

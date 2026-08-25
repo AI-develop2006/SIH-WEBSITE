@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   Shield, LogOut, Users, Building2, CheckCircle2, AlertTriangle,
   ChevronDown, ChevronUp, Plus, X, Download, Search, RefreshCw, Sparkles, Trash2,
-  ListChecks,
+  ListChecks, Activity,
 } from "lucide-react";
 import {
   getCurrentProfile, logoutSpoc, fetchEnrichedTeams,
@@ -18,6 +18,7 @@ import { MINISTRIES, SPOC_TEAM_SIZE, SPOC_MIN_FEMALE, DEPT_CODE, OUTDATED_MINIST
 import { TeamBuilderModal } from "@/components/TeamBuilderModal";
 import { OutdatedMinistryBadge } from "@/components/OutdatedMinistryBadge";
 import { NewMinistryBadge } from "@/components/NewMinistryBadge";
+import { MonitoringView } from "@/components/MonitoringView";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -569,6 +570,7 @@ export default function SpocDashboard() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("active");
   const [refreshing, setRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState("teams"); // "teams" | "monitoring"
 
   // Team builder modal state
   const [builderOpen, setBuilderOpen] = useState(false);
@@ -842,7 +844,30 @@ export default function SpocDashboard() {
         </div>
       </header>
 
-      {/* Stats row */}
+      {/* Tab navigation */}
+      <div className="flex items-center gap-1 bg-[#0a1226]/60 border border-[rgba(147,197,253,0.10)] rounded-2xl p-1 mb-6 mt-0">
+        {[
+          { id: "teams",      label: "Teams & Ministries", icon: Building2 },
+          { id: "monitoring", label: "Monitoring",          icon: Activity  },
+        ].map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => setActiveTab(t.id)}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer",
+              activeTab === t.id
+                ? "bg-[#c9a227] text-black shadow"
+                : "text-[#94a3b8] hover:text-white hover:bg-[rgba(147,197,253,0.06)]"
+            )}
+          >
+            <t.icon className="size-3.5 shrink-0" />
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Stats row — always visible */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         {[
           { label: "Active Ministries", value: stats.activeMinistries, icon: Building2, color: "text-[#c9a227]" },
@@ -856,8 +881,11 @@ export default function SpocDashboard() {
             <p className="text-[10px] text-[#94a3b8] font-semibold uppercase tracking-wider mt-0.5">{s.label}</p>
           </div>
         ))}
+
       </div>
 
+      {/* ── TEAMS & MINISTRIES tab ────────────────────────────────────────── */}
+      {activeTab === "teams" && (<>
       {/* Rules banner */}
       <div className="mb-5 rounded-2xl border border-[#c9a227]/20 bg-[#c9a227]/5 px-5 py-3.5">
         <p className="text-xs font-bold text-[#e8c058] mb-1.5">Final Team Rules</p>
@@ -989,6 +1017,17 @@ export default function SpocDashboard() {
           />
         ))}
       </div>
+      </>)}
+
+      {/* ── MONITORING tab ────────────────────────────────────────────────── */}
+      {activeTab === "monitoring" && (
+        <MonitoringView
+          pairTeams={pairTeams}
+          finalTeams={finalTeams}
+          onRefresh={() => refreshData(false)}
+          refreshing={refreshing}
+        />
+      )}
 
       {/* Team Builder Modal */}
       {builderOpen && (

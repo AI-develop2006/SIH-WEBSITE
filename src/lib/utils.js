@@ -8,8 +8,8 @@ export function initials(name) {
 }
 
 /**
- * Check if two team members have conflicting skills.
- * Returns true if all members have DIFFERENT assigned skills.
+ * Check if all members have DIFFERENT assigned skills.
+ * Returns true when skills are unique (no conflict).
  */
 export function allSkillsUnique(members) {
   const skills = members.map((m) => m.assigned_skill).filter(Boolean);
@@ -17,8 +17,23 @@ export function allSkillsUnique(members) {
 }
 
 /**
+ * Returns the list of duplicated skill labels for warning display.
+ * Empty array = no conflicts.
+ */
+export function duplicatedSkills(members) {
+  const freq = {};
+  for (const m of members) {
+    if (!m.assigned_skill) continue;
+    const key = m.assigned_skill.toLowerCase();
+    freq[key] = (freq[key] ?? 0) + 1;
+  }
+  return Object.entries(freq).filter(([, n]) => n > 1).map(([k]) => k);
+}
+
+/**
  * Validate a final 6-member SPOC team.
- * Returns array of error strings (empty = valid).
+ * Returns array of BLOCKING error strings (empty = valid).
+ * Skill conflicts are NOT blocking — they are warnings only (see duplicatedSkills).
  */
 export function validateFinalTeam(members) {
   const errors = [];
@@ -31,7 +46,7 @@ export function validateFinalTeam(members) {
   const femaleCount = members.filter((m) => m.gender === "Female").length;
   if (femaleCount < 2) errors.push(`Need at least 2 female members (currently ${femaleCount})`);
 
-  if (!allSkillsUnique(members)) errors.push("Each member must have a unique assigned skill");
+  // Skill uniqueness is a WARNING, not a blocking error — removed from here.
 
   return errors;
 }

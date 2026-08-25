@@ -441,6 +441,19 @@ export async function saveMinistrySeats(seats) {
   }
 }
 
+export async function fetchFinalTeams() {
+  try {
+    const res = await fetch(`${API_BASE}/api/spoc/final-teams`, {
+      headers: { ...getAuthHeader() },
+    });
+    const j = await res.json();
+    if (!res.ok) return { data: [], error: j.error };
+    return { data: j.data ?? [], error: null };
+  } catch (e) {
+    return { data: [], error: e.message };
+  }
+}
+
 // ─── SSE: subscribe to pair-team changes from the mentor backend ──────────────
 // Admin portal subscribes to the mentor backend's /api/events stream so the
 // teams list auto-refreshes when a mentor assigns/changes a ministry or skill,

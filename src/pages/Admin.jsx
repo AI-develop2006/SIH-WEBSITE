@@ -25,6 +25,7 @@ import {
   ChevronDown,
   ChevronUp,
   Sliders,
+  Activity,
 } from "lucide-react";
 import * as data from "@/lib/data";
 import { downloadCsv, downloadXlsx, deptToAbbr } from "@/lib/utils";
@@ -39,6 +40,7 @@ import { CollegeBrand } from "@/components/common/college-brand";
 import { cn } from "@/lib/utils";
 import { OverallMinistriesView } from "./OverallMinistriesView";
 import { MinistrySeatsView } from "./MinistrySeatsView";
+import { MonitoringView } from "./MonitoringView";
 import { MINISTRIES, OUTDATED_MINISTRIES } from "@/lib/constants";
 import { OutdatedMinistryBadge } from "@/components/common/OutdatedMinistryBadge";
 import { NewMinistryBadge } from "@/components/common/NewMinistryBadge";
@@ -59,6 +61,7 @@ export default function AdminPage() {
   const [tablesMissing, setTablesMissing] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [finalTeams, setFinalTeams] = useState([]);
 
   const [q, setQ] = useState("");
   const [dept, setDept] = useState("");
@@ -71,7 +74,7 @@ export default function AdminPage() {
   const [deleting, setDeleting] = useState(null);
 
   const load = useCallback(async () => {
-    const [profilesRes, teamsRes, problemsRes, themesRes, timelineRes, announcementsRes, regRes] = await Promise.all([
+    const [profilesRes, teamsRes, problemsRes, themesRes, timelineRes, announcementsRes, regRes, finalTeamsRes] = await Promise.all([
       data.fetchAllProfiles(),
       data.fetchEnrichedTeams(),
       data.fetchProblems(),
@@ -79,6 +82,7 @@ export default function AdminPage() {
       data.fetchTimelineEvents(),
       data.fetchAnnouncements(),
       data.fetchRegistrationSettings(),
+      data.fetchFinalTeams(),
     ]);
     if (profilesRes.error) toast("error", profilesRes.error);
     if (teamsRes.error) toast("error", teamsRes.error);
@@ -112,6 +116,7 @@ export default function AdminPage() {
     setTimeline(timelineRes.data ?? []);
     setAnnouncements(announcementsRes.data ?? []);
     if (regRes.data) setRegSettings(regRes.data);
+    setFinalTeams(finalTeamsRes.data ?? []);
   }, [toast]);
 
   const handleSaveRegSettings = async (updatedSettings) => {
@@ -157,6 +162,9 @@ export default function AdminPage() {
       debounceTimer = setTimeout(async () => {
         const teamsRes = await data.fetchEnrichedTeams();
         if (teamsRes.data) setTeams(teamsRes.data);
+        // Also refresh final teams in case monitoring view is open
+        const finalRes = await data.fetchFinalTeams();
+        if (finalRes.data) setFinalTeams(finalRes.data);
       }, 500);
     });
 
@@ -472,14 +480,15 @@ export default function AdminPage() {
 
   // Tab definitions with Lucide icons
   const TABS = [
-    { key: "students", label: "Students", shortLabel: "Students", icon: Users, count: isFiltered ? students.length : totalStudents },
-    { key: "teams",    label: "Teams",    shortLabel: "Teams",    icon: UsersRound, count: teams.length },
-    { key: "problems", label: "Problems", shortLabel: "Problems", icon: FileText },
-    { key: "timeline", label: "Timeline", shortLabel: "Timeline", icon: CalendarDays },
-    { key: "announcements", label: "Announcements", shortLabel: "Announce", icon: Megaphone },
-    { key: "registration",  label: "Registration",  shortLabel: "Reg",     icon: Settings },
-    { key: "ministries",    label: "Ministries",    shortLabel: "Ministry", icon: Building2 },
-    { key: "seats",         label: "Seats",         shortLabel: "Seats",    icon: Sliders },
+    { key: "students",      label: "Students",      shortLabel: "Students",  icon: Users,       count: isFiltered ? students.length : totalStudents },
+    { key: "teams",         label: "Teams",         shortLabel: "Teams",     icon: UsersRound,  count: teams.length },
+    { key: "monitoring",    label: "Monitoring",    shortLabel: "Monitor",   icon: Activity },
+    { key: "problems",      label: "Problems",      shortLabel: "Problems",  icon: FileText },
+    { key: "timeline",      label: "Timeline",      shortLabel: "Timeline",  icon: CalendarDays },
+    { key: "announcements", label: "Announcements", shortLabel: "Announce",  icon: Megaphone },
+    { key: "registration",  label: "Registration",  shortLabel: "Reg",       icon: Settings },
+    { key: "ministries",    label: "Ministries",    shortLabel: "Ministry",  icon: Building2 },
+    { key: "seats",         label: "Seats",         shortLabel: "Seats",     icon: Sliders },
   ];
 
   if (loading) {
@@ -599,6 +608,16 @@ export default function AdminPage() {
 
       {/* ── Content ──────────────────────────────────────────────────────── */}
       <div className="flex flex-col gap-4 py-4">
+
+          {tab === "monitoring" && (
+            <MonitoringView
+              profiles={profiles}
+              teams={teams}
+              finalTeams={finalTeams}
+              onRefresh={load}
+              refreshing={loading}
+            />
+          )}
 
           {tab === "registration" && (
             <RegistrationControlSection

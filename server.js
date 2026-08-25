@@ -240,26 +240,61 @@ app.post("/api/profiles/:id/verify", async (req, res) => {
 
 // 3d. Delete Profile (Admin)
 app.delete("/api/profiles/:id", async (req, res) => {
-  if (!supabase) return res.status(500).json({ error: "Supabase client not configured" });
+  if (!supabase && !process.env.DATABASE_URL) return res.status(500).json({ error: "No database configured" });
   const { id } = req.params;
 
-  // Remove from any teams first
-  const { data: memberships } = await supabase.from("team_members").select("team_id").eq("member_id", id);
-  if (memberships?.length) {
-    await supabase.from("team_members").delete().eq("member_id", id);
-    // Re-assign leaders where needed
-    for (const { team_id } of memberships) {
-      const { data: team } = await supabase.from("teams").select("leader_id").eq("id", team_id).single();
-      if (team?.leader_id === id) {
-        const { data: rem } = await supabase.from("team_members").select("member_id").eq("team_id", team_id).limit(1);
-        await supabase.from("teams").update({ leader_id: rem?.[0]?.member_id ?? null }).eq("id", team_id);
+  try {
+    if (process.env.DATABASE_URL) {
+      // Use direct pg connection — bypasses RLS entirely
+      // 1. Remove from team_members
+      const { rows: memberships } = await dbQuery(
+        `SELECT team_id FROM public.team_members WHERE member_id = $1`, [id]
+      );
+      if (memberships.length) {
+        await dbQuery(`DELETE FROM public.team_members WHERE member_id = $1`, [id]);
+        // Re-assign leaders where this user was the leader
+        for (const { team_id } of memberships) {
+          const { rows: [team] } = await dbQuery(
+            `SELECT leader_id FROM public.teams WHERE id = $1`, [team_id]
+          );
+          if (team?.leader_id === id) {
+            const { rows: rem } = await dbQuery(
+              `SELECT member_id FROM public.team_members WHERE team_id = $1 LIMIT 1`, [team_id]
+            );
+            await dbQuery(
+              `UPDATE public.teams SET leader_id = $1 WHERE id = $2`,
+              [rem[0]?.member_id ?? null, team_id]
+            );
+          }
+        }
+      }
+      // 2. Delete the profile row
+      await dbQuery(`DELETE FROM public.profiles WHERE id = $1`, [id]);
+      // 3. Delete from Supabase auth (best-effort — requires service role, may fail with anon key)
+      if (supabase) {
+        try { await supabase.auth.admin.deleteUser(id); } catch (_) {}
+      }
+      return res.json({ success: true });
+    }
+
+    // Supabase path (fallback when no DATABASE_URL)
+    const { data: memberships } = await supabase.from("team_members").select("team_id").eq("member_id", id);
+    if (memberships?.length) {
+      await supabase.from("team_members").delete().eq("member_id", id);
+      for (const { team_id } of memberships) {
+        const { data: team } = await supabase.from("teams").select("leader_id").eq("id", team_id).single();
+        if (team?.leader_id === id) {
+          const { data: rem } = await supabase.from("team_members").select("member_id").eq("team_id", team_id).limit(1);
+          await supabase.from("teams").update({ leader_id: rem?.[0]?.member_id ?? null }).eq("id", team_id);
+        }
       }
     }
+    const { error } = await supabase.from("profiles").delete().eq("id", id);
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json({ success: true });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
   }
-
-  const { error } = await supabase.from("profiles").delete().eq("id", id);
-  if (error) return res.status(500).json({ error: error.message });
-  return res.json({ success: true });
 });
 
 // 4. Fetch Enriched Teams List

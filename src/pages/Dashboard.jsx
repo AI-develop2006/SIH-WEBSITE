@@ -1783,6 +1783,27 @@ function StudentTeamCard({ myTeam, currentUserId }) {
   const members = myTeam.members || [];
   const stats = computeStats(members);
   const isLeader = team.leader_id === currentUserId;
+  const [expandedId, setExpandedId] = useState(null);
+
+  function ensureHttp(url) {
+    if (!url) return null;
+    const t = url.trim();
+    return /^https?:\/\//i.test(t) ? t : `https://${t}`;
+  }
+
+  function InfoRow({ label, value, href }) {
+    if (!value) return null;
+    return (
+      <div className="flex flex-col sm:flex-row sm:items-start gap-0.5 sm:gap-2">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground shrink-0 w-28">{label}</span>
+        {href ? (
+          <a href={href} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline truncate">{value}</a>
+        ) : (
+          <span className="text-xs text-foreground">{value}</span>
+        )}
+      </div>
+    );
+  }
 
   return (
     <Card className="p-6 border border-[#c9a227]/30 bg-card/60 backdrop-blur-xl relative overflow-hidden space-y-5 shadow-xl">
@@ -1807,8 +1828,6 @@ function StudentTeamCard({ myTeam, currentUserId }) {
             Assigned Hackathon Team · {members.length} Member{members.length !== 1 ? "s" : ""}
           </p>
         </div>
-
-        {/* Team Diversity Status Badge */}
         <div>
           {stats.valid ? (
             <span className="inline-flex items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-300">
@@ -1822,7 +1841,6 @@ function StudentTeamCard({ myTeam, currentUserId }) {
         </div>
       </div>
 
-      {/* Diversity Stats Pills */}
       {/* Ministry Banner */}
       {team.ministry ? (
         <div className="rounded-xl border border-[#c9a227]/30 bg-[#c9a227]/5 px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-1.5 flex-wrap">
@@ -1837,6 +1855,7 @@ function StudentTeamCard({ myTeam, currentUserId }) {
         </div>
       )}
 
+      {/* Stats pills */}
       <div className="grid grid-cols-3 gap-2 sm:gap-3 text-center">
         <div className="rounded-xl border border-border/40 bg-muted/20 p-2.5">
           <div className="text-[10px] uppercase font-bold text-muted-foreground">Members</div>
@@ -1849,56 +1868,172 @@ function StudentTeamCard({ myTeam, currentUserId }) {
           </div>
         </div>
         <div className="rounded-xl border border-border/40 bg-muted/20 p-2.5">
-          <div className="text-[10px] uppercase font-bold text-muted-foreground">Skillset & Domain</div>
+          <div className="text-[10px] uppercase font-bold text-muted-foreground">Skillset</div>
           <div className={`text-sm font-extrabold mt-0.5 ${stats.differentSkills ? "text-emerald-400" : "text-amber-400"}`}>
             {stats.differentSkills ? "Diverse" : "Overlap"}
           </div>
         </div>
       </div>
 
-      {/* Teammates Section */}
+      {/* Teammates — expandable full profile */}
       <div className="space-y-3">
         <h4 className="text-xs font-bold uppercase tracking-wider text-[#c9a227]">
           Teammates & Details ({members.length})
         </h4>
+        <p className="text-[11px] text-muted-foreground -mt-1">
+          Click any teammate to view their full profile.
+        </p>
 
-        <div className="grid gap-3">
+        <div className="grid gap-2.5">
           {members.map((member) => {
             const isMe = member.id === currentUserId;
+            const isExpanded = expandedId === member.id;
+            const langs = Array.isArray(member.languages) ? member.languages : [];
+            const sihHistory = Array.isArray(member.sih_history) ? member.sih_history : [];
 
             return (
               <div
                 key={member.id}
-                className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3.5 rounded-xl border transition-all ${
+                className={cn(
+                  "rounded-xl border transition-all overflow-hidden",
                   isMe
                     ? "border-[#c9a227]/40 bg-[#c9a227]/10"
-                    : "border-border/40 bg-card/40 hover:bg-card/70"
-                }`}
+                    : "border-border/40 bg-card/40"
+                )}
               >
-                <div className="flex items-center gap-3 min-w-0">
-                  <Avatar name={member.name} src={member.avatar_url ?? undefined} className="size-10 text-xs ring-1 ring-primary/30 shrink-0" />
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-bold text-white truncate">{member.name}</span>
-                      {isMe && (
-                        <span className="rounded bg-primary/20 px-1.5 py-0.5 text-[10px] font-bold text-primary shrink-0">
-                          YOU
-                        </span>
-                      )}
+                {/* Collapsed row — click to expand */}
+                <button
+                  type="button"
+                  onClick={() => setExpandedId(isExpanded ? null : member.id)}
+                  className="w-full flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3.5 text-left cursor-pointer hover:bg-white/[0.03] transition-colors"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Avatar name={member.name} src={member.avatar_url ?? undefined} className="size-10 text-xs ring-1 ring-primary/30 shrink-0" />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-bold text-white">{member.name}</span>
+                        {isMe && (
+                          <span className="rounded bg-primary/20 px-1.5 py-0.5 text-[10px] font-bold text-primary shrink-0">YOU</span>
+                        )}
+                        {member.assigned_skill && (
+                          <span className="rounded-full bg-[#c9a227]/15 border border-[#c9a227]/30 px-1.5 py-0.5 text-[9px] font-bold text-[#e8c058]">{member.assigned_skill}</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {member.register_no} · {member.department}
+                        {member.year ? ` · Yr ${member.year}` : ""}
+                        {member.section ? ` · Sec ${member.section}` : ""}
+                      </p>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                      {member.register_no} · {member.department} {member.year ? `(${member.year} Yr)` : ""} · {member.gender}
-                    </p>
                   </div>
-                </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <div className="sm:text-right text-xs space-y-0.5">
+                      {member.email && <p className="text-slate-300 font-mono text-[11px] truncate max-w-[180px]">{member.email}</p>}
+                      {member.phone && <p className="text-muted-foreground text-[11px]">{member.phone}</p>}
+                    </div>
+                    <ChevronDown className={cn("size-4 text-muted-foreground transition-transform shrink-0", isExpanded && "rotate-180")} />
+                  </div>
+                </button>
 
-                {/* Contact details */}
-                <div className="sm:text-right text-xs space-y-0.5 shrink-0">
-                  <p className="text-slate-300 font-mono text-[11px] truncate max-w-[200px] sm:max-w-none">{member.email}</p>
-                  {member.phone && (
-                    <p className="text-muted-foreground text-[11px]">{member.phone}</p>
-                  )}
-                </div>
+                {/* Expanded full profile */}
+                {isExpanded && (
+                  <div className="border-t border-border/30 px-4 pb-4 pt-3 space-y-4 bg-black/20">
+
+                    {/* Academic & personal */}
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Academic & Personal</p>
+                      <div className="grid sm:grid-cols-2 gap-1.5">
+                        <InfoRow label="Department" value={member.department} />
+                        <InfoRow label="Year" value={member.year} />
+                        <InfoRow label="Section" value={member.section} />
+                        <InfoRow label="Gender" value={member.gender} />
+                        <InfoRow label="Register No." value={member.register_no} />
+                        <InfoRow label="Phone" value={member.phone} />
+                        <InfoRow label="Email" value={member.email} />
+                        {langs.length > 0 && <InfoRow label="Languages" value={langs.join(", ")} />}
+                      </div>
+                    </div>
+
+                    {/* Skills & Domains */}
+                    {(member.assigned_skill || member.software_domain || member.hardware_domain || member.domain || (Array.isArray(member.domain_interests) && member.domain_interests.length > 0)) && (
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Skills & Domains</p>
+                        <div className="grid sm:grid-cols-2 gap-1.5">
+                          {member.assigned_skill && <InfoRow label="Assigned Skill" value={member.assigned_skill} />}
+                          {member.software_domain && <InfoRow label="Software Domain" value={member.software_domain} />}
+                          {member.hardware_domain && <InfoRow label="Hardware Domain" value={member.hardware_domain} />}
+                          {member.domain && <InfoRow label="Domain" value={member.domain} />}
+                          {Array.isArray(member.domain_interests) && member.domain_interests.length > 0 && (
+                            <InfoRow label="Interests" value={member.domain_interests.join(", ")} />
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Project */}
+                    {(member.project_title || member.project_description) && (
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Project</p>
+                        <div className="space-y-1.5">
+                          <InfoRow label="Title" value={member.project_title} />
+                          <InfoRow label="Type" value={member.project_type} />
+                          {member.project_description && (
+                            <div className="flex flex-col gap-0.5">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Description</span>
+                              <p className="text-xs text-foreground leading-relaxed">{member.project_description}</p>
+                            </div>
+                          )}
+                          <InfoRow label="YouTube" value={member.youtube_link} href={ensureHttp(member.youtube_link)} />
+                          <InfoRow label="PPT" value={member.google_drive_ppt ? "View Slides" : null} href={ensureHttp(member.google_drive_ppt)} />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Links */}
+                    {(member.linkedin || member.github || member.github_repo || member.resume_link) && (
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Links</p>
+                        <div className="grid sm:grid-cols-2 gap-1.5">
+                          <InfoRow label="LinkedIn" value={member.linkedin ? "View Profile" : null} href={ensureHttp(member.linkedin)} />
+                          <InfoRow label="GitHub" value={member.github ? "View GitHub" : null} href={ensureHttp(member.github)} />
+                          <InfoRow label="GitHub Repo" value={member.github_repo ? "View Repo" : null} href={ensureHttp(member.github_repo)} />
+                          <InfoRow label="Resume" value={member.resume_link ? "View Resume" : null} href={ensureHttp(member.resume_link)} />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* SIH History */}
+                    {member.sih_participant && (
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
+                          SIH Experience · {member.sih_num_participations ?? sihHistory.length} participation{(member.sih_num_participations ?? sihHistory.length) !== 1 ? "s" : ""}
+                        </p>
+                        {sihHistory.length > 0 ? (
+                          <div className="space-y-2">
+                            {sihHistory.map((h, i) => (
+                              <div key={i} className="rounded-lg border border-border/30 bg-muted/10 px-3 py-2 text-xs space-y-0.5">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-bold text-white">{h.year}</span>
+                                  {h.position_reached && (
+                                    <span className="rounded-full bg-[#c9a227]/15 border border-[#c9a227]/30 px-1.5 py-0.5 text-[9px] font-bold text-[#e8c058]">{h.position_reached}</span>
+                                  )}
+                                </div>
+                                {h.problem_statement && <p className="text-muted-foreground">{h.problem_statement}</p>}
+                                {h.project_domain && <p className="text-muted-foreground">Domain: {h.project_domain}</p>}
+                                {h.nodal_center && <p className="text-muted-foreground">Nodal: {h.nodal_center}</p>}
+                                {h.certificate_link && (
+                                  <a href={ensureHttp(h.certificate_link)} target="_blank" rel="noreferrer" className="text-primary hover:underline">View Certificate →</a>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">No SIH history details available.</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}

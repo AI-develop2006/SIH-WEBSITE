@@ -27,7 +27,7 @@ import { useToast } from "@/components/unlumen-ui/toast";
 import { Input, Select } from "@/components/unlumen-ui/input";
 import { DEPARTMENTS, YEARS } from "@/lib/constants";
 import { OutdatedMinistryBadge } from "@/components/common/OutdatedMinistryBadge";
-import { fetchNotifications, markNotificationRead, markAllNotificationsRead, fetchMyFinalTeam, subscribeToPairTeamEvents } from "@/lib/data";
+import { fetchNotifications, markNotificationRead, markAllNotificationsRead, fetchMyFinalTeam, subscribeToPairTeamEvents, subscribeToFinalTeamEvents } from "@/lib/data";
 import { NewMinistryBadge } from "@/components/common/NewMinistryBadge";
 
 function ensureHttp(url) {
@@ -277,6 +277,30 @@ export default function DashboardPage() {
       }
       if (finalTeamRes.data !== undefined) {
         setMyFinalTeam(finalTeamRes.data ?? null);
+      }
+    });
+
+    return cleanup;
+  }, [profile]);
+
+  // ── SSE: stay in sync when SPOC creates / edits / deletes a final team ─────
+  // Subscribes to `final_teams_updated` events from the SPOC backend.
+  // When the SPOC adds this participant to a final team (or updates/removes them),
+  // the final team card appears/disappears and notifications refresh instantly —
+  // no page reload required.
+  useEffect(() => {
+    if (!profile) return;
+
+    const cleanup = subscribeToFinalTeamEvents(async () => {
+      const [finalTeamRes, notifRes] = await Promise.all([
+        data.fetchMyFinalTeam(),
+        fetchNotifications(),
+      ]);
+      if (finalTeamRes.data !== undefined) {
+        setMyFinalTeam(finalTeamRes.data ?? null);
+      }
+      if (notifRes.data) {
+        setNotifications(notifRes.data);
       }
     });
 
@@ -726,6 +750,32 @@ export default function DashboardPage() {
           </div>
         )}
 
+        {/* ── Final Team Alert Banner — shown whenever the participant is in a final team ── */}
+        {myFinalTeam && (
+          <div className="rounded-2xl border border-emerald-500/50 bg-emerald-500/8 px-5 py-3.5 flex items-center justify-between gap-4 shadow-lg shadow-emerald-500/5 animate-pulse-once">
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="text-2xl shrink-0">🏆</span>
+              <div className="min-w-0">
+                <p className="text-sm font-extrabold text-emerald-300 leading-tight">
+                  You are in the SIH 2026 Final Team!
+                </p>
+                <p className="text-xs text-emerald-400/80 mt-0.5 truncate">
+                  <span className="font-bold text-white">{myFinalTeam.name}</span>
+                  {myFinalTeam.ministry ? ` · ${myFinalTeam.ministry}` : ""}
+                  {" · "}{(myFinalTeam.members?.length ?? 0)} members
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => document.getElementById("final-team-card")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+              className="shrink-0 text-xs font-bold px-4 py-2 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/30 transition-colors whitespace-nowrap"
+            >
+              View Team ↓
+            </button>
+          </div>
+        )}
+
         <div className="grid gap-6 lg:grid-cols-12 items-start">
           {/* Left Column: Instructions and Profile Details */}
           <div className="lg:col-span-7 flex flex-col gap-6">
@@ -822,6 +872,31 @@ export default function DashboardPage() {
               <div className="rounded-2xl border border-[#dba328]/35 bg-[#dba328]/10 px-4 py-3.5 backdrop-blur shadow">
                 <h4 className="text-[10px] font-black uppercase tracking-wider text-[#dba328] mb-2">Admin Announcement</h4>
                 <FormattedAnnouncement content={announcement.content} />
+              </div>
+            )}
+
+            {/* Final Team Alert Banner — mobile */}
+            {myFinalTeam && (
+              <div className="rounded-2xl border border-emerald-500/50 bg-emerald-500/8 px-4 py-3 flex items-center justify-between gap-3 shadow-lg shadow-emerald-500/5">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className="text-xl shrink-0">🏆</span>
+                  <div className="min-w-0">
+                    <p className="text-xs font-extrabold text-emerald-300 leading-tight">
+                      You're in the Final Team!
+                    </p>
+                    <p className="text-[10px] text-emerald-400/80 mt-0.5 truncate">
+                      <span className="font-bold text-white">{myFinalTeam.name}</span>
+                      {myFinalTeam.ministry ? ` · ${myFinalTeam.ministry}` : ""}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => document.getElementById("final-team-card-mobile")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                  className="shrink-0 text-[10px] font-bold px-3 py-1.5 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/30 transition-colors whitespace-nowrap"
+                >
+                  View ↓
+                </button>
               </div>
             )}
 

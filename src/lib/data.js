@@ -678,3 +678,44 @@ export function subscribeToPairTeamEvents(onUpdate) {
     if (es) es.close();
   };
 }
+
+// ─── SSE: subscribe to final-team changes from the SPOC backend ───────────────
+// Connects to the SPOC backend's /api/spoc/events stream.
+// Calls `onUpdate` whenever the SPOC creates, edits, or deletes a final team.
+// Used by the participant Dashboard to instantly show/hide the final team card
+// when the SPOC adds or removes the participant from a team.
+//
+// SPOC_API_BASE: configure via VITE_SPOC_BACKEND_URL in .env.
+// Falls back to the same host as the participant backend if not set.
+const SPOC_API_BASE = import.meta.env.VITE_SPOC_BACKEND_URL || API_BASE;
+
+export function subscribeToFinalTeamEvents(onUpdate) {
+  const url = `${SPOC_API_BASE}/api/spoc/events`;
+  let es;
+  let retryTimer;
+  let active = true;
+
+  function connect() {
+    if (!active) return;
+    es = new EventSource(url);
+
+    es.addEventListener("final_teams_updated", () => {
+      onUpdate();
+    });
+
+    es.onerror = () => {
+      es.close();
+      if (active) {
+        retryTimer = setTimeout(connect, 3000);
+      }
+    };
+  }
+
+  connect();
+
+  return function cleanup() {
+    active = false;
+    clearTimeout(retryTimer);
+    if (es) es.close();
+  };
+}

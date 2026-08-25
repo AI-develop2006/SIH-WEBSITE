@@ -760,36 +760,78 @@ export default function SpocDashboard() {
   }
 
   async function exportFinalTeams() {
-    const rows = finalTeams.flatMap((ft) => {
-      const members = (ft.member_ids || []).map((id) => profileMap.get(id)).filter(Boolean);
-      return members.map((m, i) => ({
-        team_name: ft.name,
-        ministry: ft.ministry ?? "",
-        member_no: i + 1,
-        name: m.name,
-        register_no: m.register_no ?? "",
-        gender: m.gender ?? "",
-        department: m.department ?? "",
-        year: m.year ?? "",
-        section: m.section ?? "",
-        skill: m.assigned_skill ?? "",
-        valid: validateFinalTeam(members).length === 0 ? "Yes" : "No",
-      }));
+    const XLSX = await import("xlsx");
+    const wb = XLSX.utils.book_new();
+
+    // Group final teams by ministry
+    const byMin = new Map();
+    for (const ft of finalTeams) {
+      const min = ft.ministry?.trim() || "No Ministry";
+      if (!byMin.has(min)) byMin.set(min, []);
+      byMin.get(min).push(ft);
+    }
+
+    // Sort ministries alphabetically, but put "No Ministry" last
+    const sortedMinistries = [...byMin.keys()].sort((a, b) => {
+      if (a === "No Ministry") return 1;
+      if (b === "No Ministry") return -1;
+      return a.localeCompare(b);
     });
 
-    await downloadXlsx("spoc-final-teams.xlsx", rows, [
-      { key: "team_name",   label: "Final Team Name" },
-      { key: "ministry",    label: "Ministry" },
-      { key: "member_no",   label: "#" },
-      { key: "name",        label: "Student Name" },
-      { key: "register_no", label: "Register No" },
-      { key: "gender",      label: "Gender" },
-      { key: "department",  label: "Department" },
-      { key: "year",        label: "Year" },
-      { key: "section",     label: "Section" },
-      { key: "skill",       label: "Assigned Skill" },
-      { key: "valid",       label: "Valid" },
-    ]);
+    const HEADER = ["Team Name", "Register Number", "Member Name", "Department", "Year", "Section", "Phone Number"];
+
+    for (const ministry of sortedMinistries) {
+      const teams = byMin.get(ministry);
+      const aoa = [HEADER]; // array-of-arrays for the sheet
+
+      for (const ft of teams) {
+        const members = (ft.member_ids || []).map((id) => profileMap.get(id)).filter(Boolean);
+
+        members.forEach((m, idx) => {
+          aoa.push([
+            idx === 0 ? ft.name : "",   // Team Name only on first member row
+            m.register_no ?? "",
+            m.name ?? "",
+            m.department ?? "",
+            m.year ?? "",
+            m.section ?? "",
+            m.phone ?? "",
+          ]);
+        });
+
+        // Blank separator row between teams
+        aoa.push(["", "", "", "", "", "", ""]);
+      }
+
+      const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+      // Column widths
+      ws["!cols"] = [
+        { wch: 28 }, // Team Name
+        { wch: 16 }, // Register Number
+        { wch: 28 }, // Member Name
+        { wch: 30 }, // Department
+        { wch: 8  }, // Year
+        { wch: 10 }, // Section
+        { wch: 14 }, // Phone Number
+      ];
+
+      // Freeze header row
+      ws["!freeze"] = { xSplit: 0, ySplit: 1, topLeftCell: "A2", activePane: "bottomLeft" };
+
+      // Bold header row
+      for (let c = 0; c < HEADER.length; c++) {
+        const cellRef = XLSX.utils.encode_cell({ r: 0, c });
+        if (!ws[cellRef]) continue;
+        ws[cellRef].s = { font: { bold: true } };
+      }
+
+      // Sheet name: Excel limits to 31 chars, strip invalid chars
+      const sheetName = ministry.replace(/[:\\/?*[\]]/g, "").slice(0, 31);
+      XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    }
+
+    XLSX.writeFile(wb, "spoc-final-teams-by-ministry.xlsx");
   }
 
   async function logout() {

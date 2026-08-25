@@ -32,6 +32,17 @@ export async function logoutSpoc() {
   return { data: true, error: null };
 }
 
+export async function checkSpocMaintenance() {
+  try {
+    const res = await fetch(`${API_BASE}/api/settings/spoc-maintenance`);
+    const json = await res.json();
+    return { enabled: json.enabled ?? false, message: json.message ?? "", error: null };
+  } catch (e) {
+    // If the backend is unreachable, don't block the SPOC portal
+    return { enabled: false, message: "", error: e.message };
+  }
+}
+
 export async function getCurrentProfile() {
   const token = localStorage.getItem("spoc_auth_token");
   if (!token) return { data: null, error: "Not signed in" };

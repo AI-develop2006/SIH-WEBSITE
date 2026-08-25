@@ -26,6 +26,7 @@ import {
   ChevronUp,
   Sliders,
   Activity,
+  Wrench,
 } from "lucide-react";
 import * as data from "@/lib/data";
 import { downloadCsv, downloadXlsx, deptToAbbr } from "@/lib/utils";
@@ -58,6 +59,8 @@ export default function AdminPage() {
   const [announcements, setAnnouncements] = useState([]);
   const [regSettings, setRegSettings] = useState(null);
   const [savingRegSettings, setSavingRegSettings] = useState(false);
+  const [spocMaintenance, setSpocMaintenance] = useState({ enabled: false, message: "" });
+  const [savingSpocMaintenance, setSavingSpocMaintenance] = useState(false);
   const [tablesMissing, setTablesMissing] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -74,7 +77,7 @@ export default function AdminPage() {
   const [deleting, setDeleting] = useState(null);
 
   const load = useCallback(async () => {
-    const [profilesRes, teamsRes, problemsRes, themesRes, timelineRes, announcementsRes, regRes, finalTeamsRes] = await Promise.all([
+    const [profilesRes, teamsRes, problemsRes, themesRes, timelineRes, announcementsRes, regRes, finalTeamsRes, spocMaintRes] = await Promise.all([
       data.fetchAllProfiles(),
       data.fetchEnrichedTeams(),
       data.fetchProblems(),
@@ -83,6 +86,7 @@ export default function AdminPage() {
       data.fetchAnnouncements(),
       data.fetchRegistrationSettings(),
       data.fetchFinalTeams(),
+      data.fetchSpocMaintenance(),
     ]);
     if (profilesRes.error) toast("error", profilesRes.error);
     if (teamsRes.error) toast("error", teamsRes.error);
@@ -117,6 +121,7 @@ export default function AdminPage() {
     setAnnouncements(announcementsRes.data ?? []);
     if (regRes.data) setRegSettings(regRes.data);
     setFinalTeams(finalTeamsRes.data ?? []);
+    setSpocMaintenance({ enabled: spocMaintRes.enabled ?? false, message: spocMaintRes.message ?? "" });
   }, [toast]);
 
   const handleSaveRegSettings = async (updatedSettings) => {
@@ -128,6 +133,18 @@ export default function AdminPage() {
     } else {
       toast("success", "Registration settings updated successfully!");
       setRegSettings(res.data);
+    }
+  };
+
+  const handleSaveSpocMaintenance = async (enabled, message) => {
+    setSavingSpocMaintenance(true);
+    const res = await data.setSpocMaintenance(enabled, message);
+    setSavingSpocMaintenance(false);
+    if (res.error) {
+      toast("error", res.error);
+    } else {
+      toast("success", enabled ? "SPOC portal is now under maintenance." : "SPOC portal is back online.");
+      setSpocMaintenance({ enabled: res.enabled, message });
     }
   };
 
@@ -489,6 +506,7 @@ export default function AdminPage() {
     { key: "registration",  label: "Registration",  shortLabel: "Reg",       icon: Settings },
     { key: "ministries",    label: "Ministries",    shortLabel: "Ministry",  icon: Building2 },
     { key: "seats",         label: "Seats",         shortLabel: "Seats",     icon: Sliders },
+    { key: "spoc",          label: "SPOC Portal",   shortLabel: "SPOC",      icon: Wrench,      badge: spocMaintenance.enabled ? "MAINTENANCE" : null },
   ];
 
   if (loading) {
@@ -577,6 +595,11 @@ export default function AdminPage() {
                     {t.count}
                   </span>
                 )}
+                {t.badge && (
+                  <span className="rounded px-1.5 py-0.5 text-[10px] font-bold bg-amber-500/20 text-amber-400">
+                    {t.badge}
+                  </span>
+                )}
               </button>
             );
           })}
@@ -633,6 +656,15 @@ export default function AdminPage() {
 
           {tab === "seats" && (
             <MinistrySeatsView />
+          )}
+
+          {tab === "spoc" && (
+            <SpocMaintenanceSection
+              enabled={spocMaintenance.enabled}
+              message={spocMaintenance.message}
+              onSave={handleSaveSpocMaintenance}
+              loading={savingSpocMaintenance}
+            />
           )}
 
           {tab === "students" && (
@@ -1069,7 +1101,12 @@ export default function AdminPage() {
                     : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/20"
                 )}
               >
-                <Icon className="size-4 shrink-0" />
+                <div className="relative">
+                  <Icon className="size-4 shrink-0" />
+                  {t.badge && (
+                    <span className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-amber-400 border border-background" />
+                  )}
+                </div>
                 <span className="text-[9px] font-medium leading-none whitespace-nowrap">{t.shortLabel}</span>
               </button>
             );
@@ -2383,6 +2420,156 @@ function RegistrationControlSection({ settings, onSave, loading }) {
           <Button type="submit" disabled={loading} className="px-6 py-2.5 font-bold">
             {loading ? "Saving Settings..." : "Save Registration Settings"}
           </Button>
+        </div>
+      </form>
+    </Card>
+  );
+}
+
+// ─── SPOC Portal Maintenance Section ──────────────────────────────────────────
+// Lets the admin toggle the SPOC portal on/off by flipping the spoc_maintenance
+// flag in system_settings. No data is deleted or modified — it's a pure gate.
+function SpocMaintenanceSection({ enabled, message, onSave, loading }) {
+  const [localEnabled, setLocalEnabled] = useState(enabled);
+  const [localMessage, setLocalMessage] = useState(
+    message || "The SPOC portal is temporarily unavailable for maintenance. Please check back later."
+  );
+
+  // Sync when parent re-fetches
+  useEffect(() => {
+    setLocalEnabled(enabled);
+    setLocalMessage(message || "The SPOC portal is temporarily unavailable for maintenance. Please check back later.");
+  }, [enabled, message]);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSave(localEnabled, localMessage.trim());
+  };
+
+  return (
+    <Card className="p-6 space-y-6 max-w-3xl">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-5">
+        <div>
+          <h2 className="text-xl font-bold text-foreground">SPOC Portal Maintenance</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Take the SPOC portal offline for maintenance. All data stays untouched — this is just an access gate.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold text-muted-foreground uppercase">Current Status:</span>
+          {enabled ? (
+            <GlowingBadge variant="danger" className="px-3 py-1 text-sm font-bold">
+              UNDER MAINTENANCE
+            </GlowingBadge>
+          ) : (
+            <GlowingBadge variant="success" className="px-3 py-1 text-sm font-bold">
+              PORTAL ONLINE
+            </GlowingBadge>
+          )}
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Status banner */}
+        <div className={cn(
+          "rounded-xl border p-4 text-sm",
+          enabled
+            ? "border-amber-500/30 bg-amber-500/10 text-amber-300"
+            : "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+        )}>
+          <div className="font-semibold text-base mb-1">
+            {enabled
+              ? "⚠ SPOC Portal is currently OFFLINE (maintenance mode active)"
+              : "✓ SPOC Portal is currently ONLINE and accessible"}
+          </div>
+          <p className="opacity-90 text-xs">
+            {enabled
+              ? "SPOCs visiting the portal will see the maintenance screen. No data is affected."
+              : "SPOCs can access the portal normally. Toggle to offline to temporarily block access."}
+          </p>
+        </div>
+
+        {/* Safety callout */}
+        <div className="rounded-xl border border-blue-500/20 bg-blue-500/8 px-4 py-3 flex items-start gap-3">
+          <ShieldCheck className="size-4 text-blue-400 mt-0.5 shrink-0" />
+          <p className="text-xs text-blue-300 leading-relaxed">
+            <span className="font-bold">Data is always safe.</span> Enabling maintenance mode only blocks the portal UI.
+            All team data, profiles, and SPOC records remain untouched in the database.
+          </p>
+        </div>
+
+        {/* Toggle */}
+        <div className="space-y-2">
+          <label className="text-sm font-bold text-foreground">Portal Access State</label>
+          <div className="grid grid-cols-2 gap-3 sm:max-w-md">
+            <button
+              type="button"
+              onClick={() => setLocalEnabled(false)}
+              className={cn(
+                "flex items-center justify-center gap-2 rounded-xl border p-3 font-semibold transition-all text-sm",
+                !localEnabled
+                  ? "border-emerald-500/60 bg-emerald-500/20 text-emerald-400 ring-2 ring-emerald-500/30"
+                  : "border-border bg-muted/40 text-muted-foreground hover:bg-muted"
+              )}
+            >
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
+              ONLINE
+            </button>
+            <button
+              type="button"
+              onClick={() => setLocalEnabled(true)}
+              className={cn(
+                "flex items-center justify-center gap-2 rounded-xl border p-3 font-semibold transition-all text-sm",
+                localEnabled
+                  ? "border-amber-500/60 bg-amber-500/20 text-amber-400 ring-2 ring-amber-500/30"
+                  : "border-border bg-muted/40 text-muted-foreground hover:bg-muted"
+              )}
+            >
+              <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
+              MAINTENANCE
+            </button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Switch to <span className="font-semibold text-amber-400">MAINTENANCE</span> to block SPOC access.
+            Switch back to <span className="font-semibold text-emerald-400">ONLINE</span> to restore it instantly.
+          </p>
+        </div>
+
+        {/* Custom message */}
+        <div className="space-y-2">
+          <label className="text-sm font-bold text-foreground">Maintenance Message (shown to SPOCs)</label>
+          <textarea
+            rows={3}
+            value={localMessage}
+            onChange={(e) => setLocalMessage(e.target.value)}
+            placeholder="The SPOC portal is temporarily unavailable for maintenance. Please check back later."
+            className="w-full rounded-xl border border-border bg-muted/30 p-3 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+          <p className="text-xs text-muted-foreground">
+            This message is displayed on the maintenance screen that SPOCs see when they visit the portal.
+          </p>
+        </div>
+
+        {/* Submit */}
+        <div className="flex items-center gap-4 pt-2">
+          <Button
+            type="submit"
+            disabled={loading}
+            className={cn(
+              "px-6 py-2.5 font-bold",
+              localEnabled && "bg-amber-600 hover:bg-amber-700 border-amber-600"
+            )}
+          >
+            {loading
+              ? "Saving…"
+              : localEnabled
+              ? "Enable Maintenance Mode"
+              : "Bring Portal Online"}
+          </Button>
+          {localEnabled !== enabled && (
+            <span className="text-xs text-muted-foreground">Unsaved changes</span>
+          )}
         </div>
       </form>
     </Card>

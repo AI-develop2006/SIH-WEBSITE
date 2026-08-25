@@ -454,6 +454,34 @@ export async function fetchFinalTeams() {
   }
 }
 
+export async function fetchSpocMaintenance() {
+  try {
+    const res = await fetch(`${API_BASE}/api/settings/spoc-maintenance`, {
+      headers: { ...getAuthHeader() },
+    });
+    const j = await res.json();
+    if (!res.ok) return { enabled: false, error: j.error };
+    return { enabled: j.enabled, message: j.message, error: null };
+  } catch (e) {
+    return { enabled: false, error: e.message };
+  }
+}
+
+export async function setSpocMaintenance(enabled, message = "") {
+  try {
+    const res = await fetch(`${API_BASE}/api/settings/spoc-maintenance`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...getAuthHeader() },
+      body: JSON.stringify({ enabled, message }),
+    });
+    const j = await res.json();
+    if (!res.ok) return { success: false, error: j.error };
+    return { success: true, enabled: j.enabled, error: null };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
 // ─── SSE: subscribe to pair-team changes from the mentor backend ──────────────
 // Admin portal subscribes to the mentor backend's /api/events stream so the
 // teams list auto-refreshes when a mentor assigns/changes a ministry or skill,

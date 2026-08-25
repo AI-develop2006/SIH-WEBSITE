@@ -471,6 +471,26 @@ app.delete("/api/teams/:id", async (req, res) => {
   }
 });
 
+// 6g. Fetch SPOC Final Teams (read-only for admin monitoring)
+app.get("/api/spoc/final-teams", async (_req, res) => {
+  try {
+    if (process.env.DATABASE_URL) {
+      const { rows } = await dbQuery(
+        `SELECT * FROM public.spoc_final_teams ORDER BY created_at ASC;`
+      );
+      return res.json({ data: rows });
+    } else if (supabase) {
+      const { data, error } = await supabase
+        .from("spoc_final_teams").select("*").order("created_at", { ascending: true });
+      if (error) return res.status(500).json({ error: error.message });
+      return res.json({ data: data ?? [] });
+    }
+    return res.json({ data: [] });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 // 7. Fetch Problems
 app.get("/api/problems", async (_req, res) => {
   if (!supabase) return res.status(500).json({ error: "Supabase client not configured" });

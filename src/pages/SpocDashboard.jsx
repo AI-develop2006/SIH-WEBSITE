@@ -6,7 +6,7 @@ import {
   ListChecks, Activity,
 } from "lucide-react";
 import {
-  getCurrentProfile, logoutSpoc, fetchEnrichedTeams,
+  getCurrentProfile, logoutSpoc, fetchEnrichedTeams, fetchAllProfiles,
   fetchFinalTeams, saveFinalTeam, updateFinalTeam, deleteFinalTeam,
   fetchClaimedMembers, subscribeToTeamEvents, subscribeToPairTeamEvents,
 } from "@/lib/data";
@@ -563,6 +563,7 @@ export default function SpocDashboard() {
 
   const [loading, setLoading] = useState(true);
   const [spocName, setSpocName] = useState("SPOC");
+  const [allProfiles, setAllProfiles] = useState([]);
   const [pairTeams, setPairTeams] = useState([]);
   const [finalTeams, setFinalTeams] = useState([]);
   const [claimedMemberIds, setClaimedMemberIds] = useState(new Set());
@@ -580,11 +581,12 @@ export default function SpocDashboard() {
 
   // ── Load data ──────────────────────────────────────────────────────────────
   const loadAll = useCallback(async () => {
-    const [profileRes, teamsRes, finalRes, claimedRes] = await Promise.all([
+    const [profileRes, teamsRes, finalRes, claimedRes, allProfilesRes] = await Promise.all([
       getCurrentProfile(),
       fetchEnrichedTeams(),
       fetchFinalTeams(),
       fetchClaimedMembers(),
+      fetchAllProfiles(),
     ]);
 
     if (profileRes.error || !profileRes.data) {
@@ -601,18 +603,21 @@ export default function SpocDashboard() {
     setPairTeams(teamsRes.data ?? []);
     setFinalTeams(finalRes.data ?? []);
     setClaimedMemberIds(new Set(claimedRes.data ?? []));
+    setAllProfiles(allProfilesRes.data ?? []);
   }, [navigate, toast]);
 
   const refreshData = useCallback(async (silent = true) => {
     if (!silent) setRefreshing(true);
-    const [teamsRes, finalRes, claimedRes] = await Promise.all([
+    const [teamsRes, finalRes, claimedRes, allProfilesRes] = await Promise.all([
       fetchEnrichedTeams(),
       fetchFinalTeams(),
       fetchClaimedMembers(),
+      fetchAllProfiles(),
     ]);
     if (teamsRes.data) setPairTeams(teamsRes.data);
     if (finalRes.data) setFinalTeams(finalRes.data);
     if (claimedRes.data) setClaimedMemberIds(new Set(claimedRes.data));
+    if (allProfilesRes.data) setAllProfiles(allProfilesRes.data);
     setLastRefreshed(new Date());
     if (!silent) setRefreshing(false);
   }, []);
@@ -1022,6 +1027,7 @@ export default function SpocDashboard() {
       {/* ── MONITORING tab ────────────────────────────────────────────────── */}
       {activeTab === "monitoring" && (
         <MonitoringView
+          profiles={allProfiles}
           pairTeams={pairTeams}
           finalTeams={finalTeams}
           onRefresh={() => refreshData(false)}

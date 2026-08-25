@@ -62,6 +62,19 @@ export async function fetchEnrichedTeams() {
   }
 }
 
+export async function fetchAllProfiles() {
+  try {
+    const res = await fetch(`${API_BASE}/api/profiles`, {
+      headers: { ...getAuthHeader() },
+    });
+    const json = await res.json();
+    if (!res.ok) return { data: [], error: json.error };
+    return { data: json.data ?? [], error: null };
+  } catch (err) {
+    return { data: [], error: err.message };
+  }
+}
+
 // ─── SPOC Final Teams (stored in spoc_final_teams table) ─────────────────────
 
 export async function fetchFinalTeams() {

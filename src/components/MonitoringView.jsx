@@ -69,23 +69,15 @@ function TD({ children, className = "" }) {
  *   # | Participant | Department | Year | Section | Gender
  *   | Pair Team | Ministry (Paired) | Pair Status
  *   | Final Team | Ministry (Final) | Final Status
+ *
+ * Uses the full profiles list so unassigned participants (not yet in any
+ * pair team) are still counted and shown — giving the true registered total.
  */
-export function MonitoringView({ pairTeams = [], finalTeams = [], onRefresh, refreshing = false }) {
+export function MonitoringView({ profiles = [], pairTeams = [], finalTeams = [], onRefresh, refreshing = false }) {
   const [q, setQ] = useState("");
   const [deptFilter, setDeptFilter] = useState("");
   const [yearFilter, setYearFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-
-  // ── Build all unique profiles from pairTeams ──────────────────────────────
-  const allProfiles = useMemo(() => {
-    const map = new Map();
-    for (const t of pairTeams) {
-      for (const m of t.members) {
-        if (!map.has(m.id)) map.set(m.id, m);
-      }
-    }
-    return [...map.values()];
-  }, [pairTeams]);
 
   // ── Lookups ───────────────────────────────────────────────────────────────
   const pairedMemberIds = useMemo(() => {
@@ -123,27 +115,27 @@ export function MonitoringView({ pairTeams = [], finalTeams = [], onRefresh, ref
   }, [finalTeams]);
 
   const departments = useMemo(
-    () => [...new Set(allProfiles.map((p) => p.department).filter(Boolean))].sort(),
-    [allProfiles]
+    () => [...new Set(profiles.map((p) => p.department).filter(Boolean))].sort(),
+    [profiles]
   );
 
   const years = useMemo(
-    () => [...new Set(allProfiles.map((p) => p.year).filter(Boolean))].sort(),
-    [allProfiles]
+    () => [...new Set(profiles.map((p) => p.year).filter(Boolean))].sort(),
+    [profiles]
   );
 
   // ── Stats ─────────────────────────────────────────────────────────────────
   const stats = useMemo(() => {
-    const total   = allProfiles.length;
-    const paired  = allProfiles.filter((p) => pairedMemberIds.has(p.id)).length;
-    const final   = allProfiles.filter((p) => finalMemberIds.has(p.id)).length;
+    const total   = profiles.length;
+    const paired  = profiles.filter((p) => pairedMemberIds.has(p.id)).length;
+    const final   = profiles.filter((p) => finalMemberIds.has(p.id)).length;
     return { total, paired, unpaired: total - paired, final, notFinal: total - final };
-  }, [allProfiles, pairedMemberIds, finalMemberIds]);
+  }, [profiles, pairedMemberIds, finalMemberIds]);
 
   // ── Filtered rows ─────────────────────────────────────────────────────────
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    return allProfiles.filter((p) => {
+    return profiles.filter((p) => {
       const isPaired = pairedMemberIds.has(p.id);
       const isFinal  = finalMemberIds.has(p.id);
 
@@ -158,7 +150,7 @@ export function MonitoringView({ pairTeams = [], finalTeams = [], onRefresh, ref
       return [p.name, p.register_no, p.department, p.section, p.year]
         .filter(Boolean).join(" ").toLowerCase().includes(needle);
     });
-  }, [allProfiles, q, deptFilter, yearFilter, statusFilter, pairedMemberIds, finalMemberIds]);
+  }, [profiles, q, deptFilter, yearFilter, statusFilter, pairedMemberIds, finalMemberIds]);
 
   return (
     <div className="space-y-5">

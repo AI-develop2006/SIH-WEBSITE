@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   Shield, LogOut, Users, Building2, CheckCircle2, AlertTriangle,
   ChevronDown, ChevronUp, Plus, X, Download, Search, RefreshCw, Sparkles, Trash2,
-  ListChecks, Activity,
+  ListChecks, Activity, TableProperties,
 } from "lucide-react";
 import {
   getCurrentProfile, logoutSpoc, fetchEnrichedTeams, fetchAllProfiles,
@@ -20,6 +20,7 @@ import { OutdatedMinistryBadge } from "@/components/OutdatedMinistryBadge";
 import { NewMinistryBadge } from "@/components/NewMinistryBadge";
 import { MonitoringView } from "@/components/MonitoringView";
 import { AccessLogView } from "@/components/AccessLogView";
+import { DeptRosterView } from "@/components/DeptRosterView";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -895,9 +896,10 @@ export default function SpocDashboard() {
       {/* Tab navigation */}
       <div className="flex items-center gap-1 bg-[#0a1226]/60 border border-[rgba(147,197,253,0.10)] rounded-2xl p-1 mb-6 mt-0">
         {[
-          { id: "teams",      label: "Teams & Ministries", icon: Building2 },
-          { id: "monitoring", label: "Monitoring",          icon: Activity  },
-          { id: "access-log", label: "Access Log",          icon: Shield    },
+          { id: "teams",      label: "Teams & Ministries", icon: Building2       },
+          { id: "monitoring", label: "Monitoring",          icon: Activity        },
+          { id: "dept",       label: "Dept Roster",         icon: TableProperties },
+          { id: "access-log", label: "Access Log",          icon: Shield          },
         ].map((t) => (
           <button
             key={t.id}
@@ -1076,6 +1078,14 @@ export default function SpocDashboard() {
           finalTeams={finalTeams}
           onRefresh={() => refreshData(false)}
           refreshing={refreshing}
+        />
+      )}
+
+      {activeTab === "dept" && (
+        <DeptRosterView
+          allProfiles={allProfiles}
+          pairTeams={pairTeams}
+          finalTeams={finalTeams}
         />
       )}
 

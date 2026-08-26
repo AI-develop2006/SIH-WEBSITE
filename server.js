@@ -1882,7 +1882,7 @@ app.get("/api/spoc/my-final-team", async (req, res) => {
       if (process.env.DATABASE_URL) {
         const { rows: profiles } = await dbQuery(
           `SELECT id, name, register_no, department, year, section, gender, email, phone,
-                  avatar_url, assigned_skill, linkedin, github, github_repo, resume_link,
+                  avatar_url, linkedin, github, github_repo, resume_link,
                   software_domain, hardware_domain, domain, domain_interests,
                   project_type, project_title, project_description,
                   youtube_link, google_drive_ppt, languages,
@@ -1899,7 +1899,7 @@ app.get("/api/spoc/my-final-team", async (req, res) => {
         const { data: profiles } = await supabase
           .from("profiles")
           .select(`id, name, register_no, department, year, section, gender, email, phone,
-                   avatar_url, assigned_skill, linkedin, github, github_repo, resume_link,
+                   avatar_url, linkedin, github, github_repo, resume_link,
                    software_domain, hardware_domain, domain, domain_interests,
                    project_type, project_title, project_description,
                    youtube_link, google_drive_ppt, languages,
@@ -1914,6 +1914,7 @@ app.get("/api/spoc/my-final-team", async (req, res) => {
 
     return res.json({ data: { ...finalTeam, members } });
   } catch (err) {
+    console.error("[/api/spoc/my-final-team] Error:", err.message);
     return res.status(500).json({ error: err.message });
   }
 });

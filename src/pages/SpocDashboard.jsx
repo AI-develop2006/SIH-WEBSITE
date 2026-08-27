@@ -9,6 +9,7 @@ import {
   getCurrentProfile, logoutSpoc, fetchEnrichedTeams, fetchAllProfiles,
   fetchFinalTeams, saveFinalTeam, updateFinalTeam, deleteFinalTeam,
   fetchClaimedMembers, subscribeToTeamEvents, subscribeToPairTeamEvents,
+  isMasterSession,
 } from "@/lib/data";
 import { useToast } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
@@ -573,7 +574,8 @@ export default function SpocDashboard() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("active");
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState("teams"); // "teams" | "monitoring"
+  const [activeTab, setActiveTab] = useState("teams"); // "teams" | "final-teams" | "monitoring" | "dept" | "access-log"
+  const [isMaster, setIsMaster] = useState(false);
 
   // Team builder modal state
   const [builderOpen, setBuilderOpen] = useState(false);
@@ -602,6 +604,7 @@ export default function SpocDashboard() {
     }
 
     setSpocName(profileRes.data.name ?? "SPOC");
+    setIsMaster(isMasterSession());
     setPairTeams(teamsRes.data ?? []);
     setFinalTeams(finalRes.data ?? []);
     setClaimedMemberIds(new Set(claimedRes.data ?? []));
@@ -896,10 +899,11 @@ export default function SpocDashboard() {
       {/* Tab navigation */}
       <div className="flex items-center gap-1 bg-[#0a1226]/60 border border-[rgba(147,197,253,0.10)] rounded-2xl p-1 mb-6 mt-0">
         {[
-          { id: "teams",      label: "Teams & Ministries", icon: Building2       },
-          { id: "monitoring", label: "Monitoring",          icon: Activity        },
-          { id: "dept",       label: "Dept Roster",         icon: TableProperties },
-          { id: "access-log", label: "Access Log",          icon: Shield          },
+          { id: "teams",       label: "Teams & Ministries", icon: Building2       },
+          { id: "final-teams", label: "Final Teams",         icon: ListChecks      },
+          { id: "monitoring",  label: "Monitoring",          icon: Activity        },
+          { id: "dept",        label: "Dept Roster",         icon: TableProperties },
+          ...(isMaster ? [{ id: "access-log", label: "Access Log", icon: Shield }] : []),
         ].map((t) => (
           <button
             key={t.id}
@@ -913,7 +917,8 @@ export default function SpocDashboard() {
             )}
           >
             <t.icon className="size-3.5 shrink-0" />
-            {t.label}
+            <span className="hidden sm:inline">{t.label}</span>
+            <span className="sm:hidden">{t.id === "final-teams" ? "Finals" : t.id === "access-log" ? "Log" : t.label}</span>
           </button>
         ))}
       </div>
@@ -937,29 +942,6 @@ export default function SpocDashboard() {
 
       {/* ── TEAMS & MINISTRIES tab ────────────────────────────────────────── */}
       {activeTab === "teams" && (<>
-      {/* Rules banner */}
-      <div className="mb-5 rounded-2xl border border-[#c9a227]/20 bg-[#c9a227]/5 px-5 py-3.5">
-        <p className="text-xs font-bold text-[#e8c058] mb-1.5">Final Team Rules</p>
-        <div className="flex flex-wrap gap-x-6 gap-y-1 text-[11px] text-[#94a3b8]">
-          <span>• Exactly <strong className="text-white">6 members</strong> per final team</span>
-          <span>• Members from the <strong className="text-white">same ministry</strong></span>
-          <span>• At least <strong className="text-white">2 departments</strong> represented</span>
-          <span>• At least <strong className="text-white">2 female</strong> members</span>
-          <span>• All members must have <strong className="text-white">different skillsets</strong></span>
-        </div>
-      </div>
-
-      {/* Final Teams Panel — filterable overview of all created teams */}
-      <FinalTeamsPanel
-        finalTeams={finalTeams}
-        profileMap={profileMap}
-        onEdit={(ft) => {
-          const srcTeams = byMinistry.get(ft.ministry) ?? [];
-          openBuilder(ft.ministry, srcTeams, ft);
-        }}
-        onDelete={handleDeleteFinalTeam}
-      />
-
       {/* Search + Filter */}
       <div className="space-y-3 mb-5">
         <div className="relative">
@@ -1070,6 +1052,41 @@ export default function SpocDashboard() {
       </div>
       </>)}
 
+      {/* ── FINAL TEAMS tab ───────────────────────────────────────────────── */}
+      {activeTab === "final-teams" && (
+        <div className="space-y-5">
+          {/* Rules banner */}
+          <div className="rounded-2xl border border-[#c9a227]/20 bg-[#c9a227]/5 px-5 py-3.5">
+            <p className="text-xs font-bold text-[#e8c058] mb-1.5">Final Team Rules</p>
+            <div className="flex flex-wrap gap-x-6 gap-y-1 text-[11px] text-[#94a3b8]">
+              <span>• Exactly <strong className="text-white">6 members</strong> per final team</span>
+              <span>• Members from the <strong className="text-white">same ministry</strong></span>
+              <span>• At least <strong className="text-white">2 departments</strong> represented</span>
+              <span>• At least <strong className="text-white">2 female</strong> members</span>
+              <span>• All members must have <strong className="text-white">different skillsets</strong></span>
+            </div>
+          </div>
+
+          {finalTeams.length === 0 ? (
+            <div className="py-20 text-center rounded-2xl border border-[rgba(147,197,253,0.08)] bg-[#0a1226]/40">
+              <ListChecks className="size-10 text-[#94a3b8]/40 mx-auto mb-3" />
+              <p className="text-sm font-semibold text-[#94a3b8]">No final teams created yet.</p>
+              <p className="text-xs text-[#94a3b8]/60 mt-1">Go to <button type="button" onClick={() => setActiveTab("teams")} className="text-[#c9a227] hover:underline font-bold">Teams &amp; Ministries</button> to build final teams from pair teams.</p>
+            </div>
+          ) : (
+            <FinalTeamsPanel
+              finalTeams={finalTeams}
+              profileMap={profileMap}
+              onEdit={(ft) => {
+                const srcTeams = byMinistry.get(ft.ministry) ?? [];
+                openBuilder(ft.ministry, srcTeams, ft);
+              }}
+              onDelete={handleDeleteFinalTeam}
+            />
+          )}
+        </div>
+      )}
+
       {/* ── MONITORING tab ────────────────────────────────────────────────── */}
       {activeTab === "monitoring" && (
         <MonitoringView
@@ -1089,7 +1106,7 @@ export default function SpocDashboard() {
         />
       )}
 
-      {activeTab === "access-log" && (
+      {activeTab === "access-log" && isMaster && (
         <AccessLogView />
       )}
 

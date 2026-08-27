@@ -103,6 +103,8 @@ export function TeamBuilderModal({ ministry, sourceTeams, editingTeam, profileMa
 
   const errors = useMemo(() => validateFinalTeam(selected), [selected]);
   const isValid = errors.length === 0 && selected.length === SPOC_TEAM_SIZE && teamName.trim();
+  // Draft: name + at least 1 member, but NOT a fully valid complete team
+  const canSaveDraft = Boolean(teamName.trim()) && selected.length > 0 && !isValid;
 
   // Skill conflict — warning only, does NOT block saving
   const skillConflictIds = useMemo(() => {
@@ -131,8 +133,9 @@ export function TeamBuilderModal({ ministry, sourceTeams, editingTeam, profileMa
     }
   }
 
-  async function handleSave() {
+  async function handleSave(draft = false) {
     if (!teamName.trim()) return;
+    if (!draft && !isValid) return;
     setSaving(true);
     try {
       const result = await onSave({
@@ -204,7 +207,7 @@ export function TeamBuilderModal({ ministry, sourceTeams, editingTeam, profileMa
               </span>
             </h2>
             <p className="text-xs text-[#94a3b8] mt-0.5">
-              Select exactly 6 members · ≥2 depts · ≥2 female · shared skills allowed with warning
+              Select exactly 6 members · ≥2 depts · ≥2 female · shared skills allowed with warning · or save as draft anytime
             </p>
           </div>
           <button
@@ -528,8 +531,18 @@ export function TeamBuilderModal({ ministry, sourceTeams, editingTeam, profileMa
                 ⚠ Skill overlap — saving anyway
               </p>
             )}
+            {/* Draft save — visible only when team is incomplete but has a name + members */}
+            {canSaveDraft && (
+              <Button
+                onClick={() => handleSave(true)}
+                loading={busy}
+                className="px-5 text-sm bg-[#1e293b] border border-[rgba(147,197,253,0.25)] text-[#94a3b8] hover:bg-[rgba(147,197,253,0.08)] hover:text-white hover:border-[rgba(147,197,253,0.4)]"
+              >
+                Save as Draft
+              </Button>
+            )}
             <Button
-              onClick={handleSave}
+              onClick={() => handleSave(false)}
               loading={busy}
               disabled={!isValid}
               className={cn(

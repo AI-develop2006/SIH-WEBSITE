@@ -686,7 +686,11 @@ export default function SpocDashboard() {
       const members = (ft.member_ids || []).map((id) => profileMap.get(id)).filter(Boolean);
       return validateFinalTeam(members).length === 0;
     }).length;
-    return { activeMinistries, finalCount: finalTeams.length, validFinals };
+    const draftCount = finalTeams.filter((ft) => {
+      const members = (ft.member_ids || []).map((id) => profileMap.get(id)).filter(Boolean);
+      return members.length < 6;
+    }).length;
+    return { activeMinistries, finalCount: finalTeams.length, validFinals, draftCount };
   }, [byMinistry, finalTeams, profileMap]);
 
   const displayedMinistries = useMemo(() => {
@@ -926,12 +930,13 @@ export default function SpocDashboard() {
       </div>
 
       {/* Stats row — always visible */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3 mb-6">
         {[
-          { label: "Active Ministries", value: stats.activeMinistries, icon: Building2, color: "text-[#c9a227]" },
-          { label: "Pair Teams", value: pairTeams.filter((t) => t.team.ministry).length, icon: Users, color: "text-blue-400" },
-          { label: "Final Teams", value: stats.finalCount, icon: CheckCircle2, color: "text-emerald-400" },
-          { label: "Valid Finals", value: stats.validFinals, icon: CheckCircle2, color: "text-emerald-400" },
+          { label: "Active Ministries", value: stats.activeMinistries,                                    icon: Building2,    color: "text-[#c9a227]"   },
+          { label: "Pair Teams",        value: pairTeams.filter((t) => t.team.ministry).length,           icon: Users,        color: "text-blue-400"    },
+          { label: "Final Teams",       value: stats.finalCount,                                          icon: CheckCircle2, color: "text-emerald-400" },
+          { label: "Incomplete Drafts", value: stats.draftCount,                                          icon: AlertTriangle, color: "text-amber-400"  },
+          { label: "Valid Finals",      value: stats.validFinals,                                         icon: CheckCircle2, color: "text-emerald-400" },
         ].map((s) => (
           <div key={s.label} className="rounded-2xl border border-[rgba(147,197,253,0.10)] bg-[#0a1226]/60 p-4 transition-all hover:border-[rgba(147,197,253,0.18)]">
             <s.icon className={cn("size-5 mb-2", s.color)} />
@@ -939,7 +944,6 @@ export default function SpocDashboard() {
             <p className="text-[10px] text-[#94a3b8] font-semibold uppercase tracking-wider mt-0.5">{s.label}</p>
           </div>
         ))}
-
       </div>
 
       {/* ── TEAMS & MINISTRIES tab ────────────────────────────────────────── */}

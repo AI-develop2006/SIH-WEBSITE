@@ -730,7 +730,7 @@ app.get("/api/spoc/final-teams", async (_req, res) => {
 
 // POST — create a new final team
 app.post("/api/spoc/final-teams", async (req, res) => {
-  const { name, ministry, member_ids, draft = false } = req.body;
+  const { name, ministry, member_ids, draft = false, selected_ps_number: initialPs } = req.body;
   if (!name?.trim()) return res.status(400).json({ error: "Team name is required" });
   if (!Array.isArray(member_ids)) return res.status(400).json({ error: "member_ids must be an array" });
   if (member_ids.length === 0) return res.status(400).json({ error: "At least one member is required" });
@@ -776,9 +776,9 @@ app.post("/api/spoc/final-teams", async (req, res) => {
 
     if (DATABASE_URL) {
       const { rows } = await dbQuery(
-        `INSERT INTO public.spoc_final_teams (name, ministry, member_ids, created_by)
-         VALUES ($1, $2, $3, $4) RETURNING *;`,
-        [name.trim(), ministry || null, member_ids, createdBy]
+        `INSERT INTO public.spoc_final_teams (name, ministry, member_ids, created_by, selected_ps_number)
+         VALUES ($1, $2, $3, $4, $5) RETURNING *;`,
+        [name.trim(), ministry || null, member_ids, createdBy, initialPs ?? null]
       );
       sendNotifications(member_ids, {
         type: "spoc_team_added",
@@ -798,7 +798,7 @@ app.post("/api/spoc/final-teams", async (req, res) => {
     } else if (supabase) {
       const { data, error } = await supabase
         .from("spoc_final_teams")
-        .insert([{ name: name.trim(), ministry: ministry || null, member_ids, created_by: createdBy }])
+        .insert([{ name: name.trim(), ministry: ministry || null, member_ids, created_by: createdBy, selected_ps_number: initialPs ?? null }])
         .select().single();
       if (error) return res.status(500).json({ error: error.message });
       sendNotifications(member_ids, {
@@ -826,23 +826,32 @@ app.post("/api/spoc/final-teams", async (req, res) => {
 // PATCH — update a final team
 app.patch("/api/spoc/final-teams/:id", async (req, res) => {
   const { id } = req.params;
-  const { name, ministry, member_ids, draft = false } = req.body;
+  const { name, ministry, member_ids, draft = false, selected_ps_number } = req.body;
   const ip = extractIp(req);
 
   try {
     // Fetch current team to detect member changes for notifications
     let prevMemberIds = [];
     let prevName = "";
+    let prevSelectedPs = null;
     if (DATABASE_URL) {
       const { rows: prev } = await dbQuery(
-        `SELECT name, member_ids FROM public.spoc_final_teams WHERE id = $1`,
+        `SELECT name, member_ids, selected_ps_number FROM public.spoc_final_teams WHERE id = $1`,
         [id]
       );
-      if (prev[0]) { prevMemberIds = prev[0].member_ids || []; prevName = prev[0].name; }
+      if (prev[0]) {
+        prevMemberIds   = prev[0].member_ids || [];
+        prevName        = prev[0].name;
+        prevSelectedPs  = prev[0].selected_ps_number ?? null;
+      }
     } else if (supabase) {
       const { data: prev } = await supabase
-        .from("spoc_final_teams").select("name, member_ids").eq("id", id).maybeSingle();
-      if (prev) { prevMemberIds = prev.member_ids || []; prevName = prev.name; }
+        .from("spoc_final_teams").select("name, member_ids, selected_ps_number").eq("id", id).maybeSingle();
+      if (prev) {
+        prevMemberIds  = prev.member_ids || [];
+        prevName       = prev.name;
+        prevSelectedPs = prev.selected_ps_number ?? null;
+      }
     }
 
     // ── Race-condition guard: new members must not be claimed elsewhere ────────
@@ -878,12 +887,20 @@ app.patch("/api/spoc/final-teams/:id", async (req, res) => {
     if (DATABASE_URL) {
       const { rows } = await dbQuery(
         `UPDATE public.spoc_final_teams
-         SET name       = COALESCE($1, name),
-             ministry   = COALESCE($2, ministry),
-             member_ids = COALESCE($3, member_ids),
-             updated_at = now()
+         SET name                = COALESCE($1, name),
+             ministry            = COALESCE($2, ministry),
+             member_ids          = COALESCE($3, member_ids),
+             selected_ps_number  = CASE WHEN $5::boolean THEN $6 ELSE selected_ps_number END,
+             updated_at          = now()
          WHERE id = $4 RETURNING *;`,
-        [name?.trim() ?? null, ministry ?? null, member_ids ?? null, id]
+        [
+          name?.trim() ?? null,
+          ministry ?? null,
+          member_ids ?? null,
+          id,
+          selected_ps_number !== undefined,   // $5 — whether to update
+          selected_ps_number ?? null,          // $6 — new value (null clears it)
+        ]
       );
       if (!rows.length) return res.status(404).json({ error: "Team not found" });
       updated = rows[0];
@@ -892,6 +909,7 @@ app.patch("/api/spoc/final-teams/:id", async (req, res) => {
       if (name !== undefined) patch.name = name.trim();
       if (ministry !== undefined) patch.ministry = ministry;
       if (member_ids !== undefined) patch.member_ids = member_ids;
+      if (selected_ps_number !== undefined) patch.selected_ps_number = selected_ps_number ?? null;
       const { data, error } = await supabase
         .from("spoc_final_teams").update(patch).eq("id", id).select().single();
       if (error) return res.status(500).json({ error: error.message });
@@ -937,12 +955,34 @@ app.patch("/api/spoc/final-teams/:id", async (req, res) => {
       });
     }
 
+    // Notify all members when the selected problem statement changes
+    const finalSelectedPs = updated?.selected_ps_number ?? null;
+    if (selected_ps_number !== undefined && selected_ps_number !== prevSelectedPs) {
+      const notifyIds = [...new Set([...addedIds, ...keptIds])];
+      if (finalSelectedPs) {
+        sendNotifications(notifyIds, {
+          type: "spoc_ps_selected",
+          title: "📌 Problem Statement Selected",
+          message: `Your final team "${finalName}" has selected problem statement ${finalSelectedPs} to work on.`,
+          metadata: { team_name: finalName, ministry: finalMinistry, team_id: id, ps_number: finalSelectedPs },
+        });
+      } else {
+        sendNotifications(notifyIds, {
+          type: "spoc_ps_selected",
+          title: "📌 Problem Statement Cleared",
+          message: `The selected problem statement for your final team "${finalName}" has been cleared.`,
+          metadata: { team_name: finalName, ministry: finalMinistry, team_id: id, ps_number: null },
+        });
+      }
+    }
+
     broadcastUpdate("final_teams_updated", { action: "updated", team_id: id });
 
     // Build a human-readable diff for the audit log
     const auditDetails = {};
     if (name !== undefined && name?.trim() !== prevName) auditDetails.renamed = { from: prevName, to: name.trim() };
     if (ministry !== undefined) auditDetails.ministry = ministry || null;
+    if (selected_ps_number !== undefined) auditDetails.selected_ps_number = selected_ps_number ?? null;
     if (addedIds.length > 0)   auditDetails.members_added   = addedIds.length;
     if (removedIds.length > 0) auditDetails.members_removed = removedIds.length;
     if (keptIds.length > 0)    auditDetails.members_kept    = keptIds.length;

@@ -3,13 +3,13 @@ import { useNavigate } from "react-router-dom";
 import {
   Shield, LogOut, Users, Building2, CheckCircle2, AlertTriangle,
   ChevronDown, ChevronUp, Plus, X, Download, Search, RefreshCw, Sparkles, Trash2,
-  ListChecks, Activity, TableProperties, BookOpen,
+  ListChecks, Activity, TableProperties, BookOpen, Clock, UserX,
 } from "lucide-react";
 import {
-  getCurrentProfile, logoutSpoc, fetchEnrichedTeams, fetchAllProfiles,
+  getCurrentProfile, logoutSpoc, logoutAllSessions, fetchEnrichedTeams, fetchAllProfiles,
   fetchFinalTeams, saveFinalTeam, updateFinalTeam, deleteFinalTeam,
   fetchClaimedMembers, subscribeToTeamEvents, subscribeToPairTeamEvents,
-  isMasterSession,
+  isMasterSession, sessionMsRemaining, SESSION_TIMEOUT_MS,
 } from "@/lib/data";
 import { useToast } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
@@ -584,6 +584,11 @@ export default function SpocDashboard() {
   const [activeTab, setActiveTab] = useState("teams"); // "teams" | "final-teams" | "monitoring" | "dept" | "access-log"
   const [isMaster, setIsMaster] = useState(false);
 
+  // ── Session timeout state ─────────────────────────────────────────────────
+  // msLeft: ms remaining in the session. Shown as a warning when < 10 min.
+  const [sessionMsLeft, setSessionMsLeft] = useState(() => sessionMsRemaining());
+  const [logoutAllBusy, setLogoutAllBusy] = useState(false);
+
   // Team builder modal state
   const [builderOpen, setBuilderOpen] = useState(false);
   const [builderMinistry, setBuilderMinistry] = useState(null);
@@ -646,14 +651,23 @@ export default function SpocDashboard() {
 
   // ── SSE: real-time updates from other SPOC sessions (final teams) ─────────
   // Subscribes to SPOC backend SSE; refreshes data on any final-team change.
+  // Also listens for session_invalidated events to force logout.
   // Falls back to 30-second polling if SSE is unavailable.
   useEffect(() => {
-    const cleanup = subscribeToTeamEvents(() => refreshData(true));
+    const cleanup = subscribeToTeamEvents(
+      () => refreshData(true),
+      () => {
+        // session_invalidated received — clear local session and redirect
+        logoutSpoc();
+        toast("error", "Your session was cleared by an administrator. Please sign in again.");
+        navigate("/", { replace: true });
+      }
+    );
     setLiveConnected(true);
     // Polling fallback — fires only if SSE somehow misses an event
     const poll = setInterval(() => refreshData(true), 30_000);
     return () => { cleanup(); setLiveConnected(false); clearInterval(poll); };
-  }, [refreshData]);
+  }, [refreshData, navigate, toast]);
 
   // ── SSE: real-time updates from the mentor backend (pair teams) ────────────
   // When a mentor assigns/changes a ministry or skill on a pair-team, or adds /
@@ -666,6 +680,25 @@ export default function SpocDashboard() {
     });
     return () => cleanupPair();
   }, []);
+
+  // ── Session timeout: countdown + auto-logout ───────────────────────────────
+  // Updates sessionMsLeft every minute. Auto-logouts when time reaches 0.
+  // Master sessions don't expire.
+  useEffect(() => {
+    if (isMaster) return; // master session never times out
+    const tick = () => {
+      const ms = sessionMsRemaining();
+      setSessionMsLeft(ms);
+      if (ms <= 0) {
+        logoutSpoc();
+        toast("error", "Your session has expired. Please sign in again.");
+        navigate("/", { replace: true });
+      }
+    };
+    tick(); // run immediately
+    const interval = setInterval(tick, 60_000); // recheck every minute
+    return () => clearInterval(interval);
+  }, [isMaster, navigate, toast]);
 
   // ── Derived state ──────────────────────────────────────────────────────────
   const profileMap = useMemo(() => {
@@ -741,21 +774,21 @@ export default function SpocDashboard() {
     refreshData(true); // sync claimed members
   }
 
-  async function handleSaveFinalTeam({ name, ministry, member_ids }) {
+  async function handleSaveFinalTeam({ name, ministry, member_ids, draft = false }) {
     if (editingFinalTeam) {
       // Optimistic update
       setFinalTeams((prev) =>
         prev.map((ft) => ft.id === editingFinalTeam.id ? { ...ft, name, ministry, member_ids } : ft)
       );
-      const res = await updateFinalTeam(editingFinalTeam.id, { name, ministry, member_ids });
+      const res = await updateFinalTeam(editingFinalTeam.id, { name, ministry, member_ids, draft });
       if (res.error) {
         toast("error", res.error);
         await refreshData(true); // rollback + sync
         return { conflict: res.error?.includes("already assigned") };
       }
-      toast("success", `Final team "${name}" updated!`);
+      toast("success", draft ? `Draft "${name}" saved — complete the team later.` : `Final team "${name}" updated!`);
     } else {
-      const res = await saveFinalTeam({ name, ministry, member_ids });
+      const res = await saveFinalTeam({ name, ministry, member_ids, draft });
       if (res.error) {
         if (res.conflict) {
           toast("error", "⚡ One or more members were just claimed by another session. The list has been refreshed — please reselect.");
@@ -766,7 +799,7 @@ export default function SpocDashboard() {
         return { conflict: res.conflict };
       }
       if (res.data) setFinalTeams((prev) => [...prev, res.data]);
-      toast("success", `Final team "${name}" saved!`);
+      toast("success", draft ? `Draft "${name}" saved — complete the team later.` : `Final team "${name}" saved!`);
     }
     setBuilderOpen(false);
     setEditingFinalTeam(null);
@@ -854,6 +887,18 @@ export default function SpocDashboard() {
     navigate("/", { replace: true });
   }
 
+  async function handleLogoutAll() {
+    if (!confirm("This will immediately log out ALL currently active SPOC sessions. Continue?")) return;
+    setLogoutAllBusy(true);
+    const { ok, error } = await logoutAllSessions();
+    setLogoutAllBusy(false);
+    if (!ok) {
+      toast("error", error || "Failed to clear sessions");
+    } else {
+      toast("success", "All sessions cleared. Other users will be forced to sign in again.");
+    }
+  }
+
   // ── Render ─────────────────────────────────────────────────────────────────
 
   if (loading) return <DashboardSkeleton />;
@@ -893,10 +938,35 @@ export default function SpocDashboard() {
             <span className="hidden sm:inline text-[10px] text-[#94a3b8]/50">
               {lastRefreshed.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
             </span>
+            {/* Session time remaining — shown when < 30 min left */}
+            {!isMaster && sessionMsLeft > 0 && sessionMsLeft < 30 * 60 * 1000 && (
+              <span className={cn(
+                "hidden sm:inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full border tabular-nums",
+                sessionMsLeft < 10 * 60 * 1000
+                  ? "bg-red-500/15 border-red-500/30 text-red-300"
+                  : "bg-amber-500/15 border-amber-500/30 text-amber-300"
+              )}>
+                <Clock className="size-3 shrink-0" />
+                {Math.ceil(sessionMsLeft / 60_000)}m left
+              </span>
+            )}
             {finalTeams.length > 0 && (
               <Button variant="outline" onClick={exportFinalTeams} className="gap-1.5 text-xs px-3 py-1.5 border-[#c9a227]/30 text-[#c9a227] hover:bg-[#c9a227]/8">
                 <Download className="size-3.5" />
                 <span className="hidden sm:inline">Export</span>
+              </Button>
+            )}
+            {/* Master-only: clear all active sessions */}
+            {isMaster && (
+              <Button
+                variant="ghost"
+                onClick={handleLogoutAll}
+                loading={logoutAllBusy}
+                className="text-xs px-3 py-1.5 text-amber-400 hover:bg-amber-500/10 hover:text-amber-300"
+                title="Force all active SPOC sessions to expire"
+              >
+                <UserX className="size-3.5" />
+                <span className="hidden sm:inline">Clear Sessions</span>
               </Button>
             )}
             <Button variant="ghost" onClick={logout} className="text-xs px-3 py-1.5 text-[#94a3b8] hover:text-red-400">
@@ -906,6 +976,16 @@ export default function SpocDashboard() {
           </div>
         </div>
       </header>
+
+      {/* Session expiry warning banner */}
+      {!isMaster && sessionMsLeft > 0 && sessionMsLeft < 10 * 60 * 1000 && (
+        <div className="mb-4 flex items-center gap-3 rounded-2xl border border-red-500/30 bg-red-500/8 px-4 py-3">
+          <Clock className="size-4 text-red-400 shrink-0" />
+          <p className="text-xs text-red-300 font-semibold flex-1">
+            Your session expires in <strong className="text-red-200">{Math.ceil(sessionMsLeft / 60_000)} minute{Math.ceil(sessionMsLeft / 60_000) !== 1 ? "s" : ""}</strong>. Save your work and sign in again to continue.
+          </p>
+        </div>
+      )}
 
       {/* Tab navigation */}
       <div className="flex items-center gap-1 bg-[#0a1226]/60 border border-[rgba(147,197,253,0.10)] rounded-2xl p-1 mb-6 mt-0">

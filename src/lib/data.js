@@ -1,13 +1,28 @@
 const API_BASE = import.meta.env.VITE_BACKEND_URL || "";
 
+// ─── Session helpers ──────────────────────────────────────────────────────────
+// SESSION_TIMEOUT_MS must match the server. Default 8 hours.
+export const SESSION_TIMEOUT_MS = 8 * 60 * 60 * 1000;
+
 function getAuthHeader() {
-  const token = localStorage.getItem("spoc_auth_token");
-  return token ? { Authorization: `Bearer ${token}` } : {};
+  const token     = localStorage.getItem("spoc_auth_token");
+  const loginTime = localStorage.getItem("spoc_login_time");
+  const headers   = {};
+  if (token)     headers["Authorization"]  = `Bearer ${token}`;
+  if (loginTime) headers["X-Login-Time"]   = loginTime;
+  return headers;
 }
 
 /** Returns true only when the active session was authenticated with the master password. */
 export function isMasterSession() {
   return localStorage.getItem("spoc_auth_token") === "master";
+}
+
+/** Returns ms remaining in the current session, or 0 if expired / not logged in. */
+export function sessionMsRemaining() {
+  const loginTime = parseInt(localStorage.getItem("spoc_login_time") ?? "0", 10);
+  if (!loginTime) return 0;
+  return Math.max(0, loginTime + SESSION_TIMEOUT_MS - Date.now());
 }
 
 /**
@@ -25,6 +40,7 @@ export async function loginSpoc(name, password) {
     if (!res.ok) return { data: null, error: json.error || "Login failed" };
     if (json.session?.access_token) {
       localStorage.setItem("spoc_auth_token", json.session.access_token);
+      localStorage.setItem("spoc_login_time", String(Date.now()));
     }
     return { data: json, error: null };
   } catch (err) {
@@ -34,7 +50,23 @@ export async function loginSpoc(name, password) {
 
 export async function logoutSpoc() {
   localStorage.removeItem("spoc_auth_token");
+  localStorage.removeItem("spoc_login_time");
   return { data: true, error: null };
+}
+
+/** Master-only: invalidate all active SPOC sessions server-side. */
+export async function logoutAllSessions() {
+  try {
+    const res = await fetch(`${API_BASE}/api/spoc/logout-all`, {
+      method: "POST",
+      headers: { ...getAuthHeader() },
+    });
+    const json = await res.json();
+    if (!res.ok) return { ok: false, error: json.error };
+    return { ok: true, error: null };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
 }
 
 export async function checkSpocMaintenance() {
@@ -171,7 +203,7 @@ export async function fetchClaimedMembers(excludeTeamId = null) {
 // ─── SSE: subscribe to live final-team updates ────────────────────────────────
 // Calls `onUpdate` whenever the server broadcasts a final_teams_updated event.
 // Returns a cleanup function — call it on unmount.
-export function subscribeToTeamEvents(onUpdate) {
+export function subscribeToTeamEvents(onUpdate, onSessionInvalidated) {
   const url = `${API_BASE}/api/spoc/events`;
   let es;
   let retryTimer;
@@ -183,6 +215,10 @@ export function subscribeToTeamEvents(onUpdate) {
 
     es.addEventListener("final_teams_updated", () => {
       onUpdate();
+    });
+
+    es.addEventListener("session_invalidated", () => {
+      if (onSessionInvalidated) onSessionInvalidated();
     });
 
     es.onerror = () => {

@@ -519,43 +519,51 @@ export function TeamBuilderModal({ ministry, sourceTeams, editingTeam, profileMa
         </div>
 
         {/* Footer — fixed at bottom */}
-        <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-[rgba(147,197,253,0.10)] shrink-0">
-          <Button variant="ghost" onClick={onClose} className="text-sm px-5">
-            Cancel
-          </Button>
-          <div className="flex items-center gap-3">
-            {!isValid && selected.length > 0 && errors.length > 0 && (
-              <p className="text-[11px] text-red-400 hidden sm:block max-w-[260px] text-right leading-snug">
-                {errors[0]}
-              </p>
-            )}
-            {isValid && skillWarnings.length > 0 && (
-              <p className="text-[11px] text-amber-400 hidden sm:block max-w-[260px] text-right leading-snug">
-                ⚠ Skill overlap — saving anyway
-              </p>
-            )}
-            {/* Draft save — always visible when name + ≥1 member selected */}
-            {canSaveDraft && (
-              <Button
-                onClick={() => handleSave(true)}
-                loading={busy}
-                className="px-5 text-sm bg-[#1e293b] border border-[rgba(147,197,253,0.25)] text-[#94a3b8] hover:bg-[rgba(147,197,253,0.08)] hover:text-white hover:border-[rgba(147,197,253,0.4)]"
-              >
-                Save as Draft
-              </Button>
-            )}
-            <Button
-              onClick={() => handleSave(false)}
-              loading={busy}
-              disabled={!isValid}
-              className={cn(
-                "px-6 text-sm",
-                isValid ? "bg-emerald-500 text-white hover:bg-emerald-400" : "opacity-60 cursor-not-allowed"
+        <div className="flex flex-col gap-2 px-6 py-4 border-t border-[rgba(147,197,253,0.10)] shrink-0">
+          {/* Error / warning hint row — above buttons so it never crowds them */}
+          {selected.length > 0 && (
+            <div className="flex items-center justify-end gap-2 min-h-[1.25rem]">
+              {!isValid && errors.length > 0 && (
+                <p className="text-[11px] text-red-400 text-right leading-snug">
+                  {errors[0]}
+                </p>
               )}
-            >
-              {isValid ? <CheckCircle2 className="size-4" /> : null}
-              {editingTeam ? "Update Team" : "Save Final Team"}
+              {isValid && skillWarnings.length > 0 && (
+                <p className="text-[11px] text-amber-400 text-right leading-snug">
+                  ⚠ Skill overlap — saving anyway
+                </p>
+              )}
+            </div>
+          )}
+          {/* Button row */}
+          <div className="flex items-center justify-between gap-3">
+            <Button variant="ghost" onClick={onClose} className="text-sm px-5">
+              Cancel
             </Button>
+            <div className="flex items-center gap-2 shrink-0">
+              {/* Draft save — always visible when name + ≥1 member selected */}
+              {canSaveDraft && (
+                <Button
+                  onClick={() => handleSave(true)}
+                  loading={busy}
+                  className="px-4 text-sm bg-[#1e293b] border border-[rgba(147,197,253,0.25)] text-[#94a3b8] hover:bg-[rgba(147,197,253,0.08)] hover:text-white hover:border-[rgba(147,197,253,0.4)]"
+                >
+                  Save Draft
+                </Button>
+              )}
+              <Button
+                onClick={() => handleSave(false)}
+                loading={busy}
+                disabled={!isValid}
+                className={cn(
+                  "px-6 text-sm",
+                  isValid ? "bg-emerald-500 text-white hover:bg-emerald-400" : "opacity-60 cursor-not-allowed"
+                )}
+              >
+                {isValid ? <CheckCircle2 className="size-4" /> : null}
+                {editingTeam ? "Update Team" : "Save Final Team"}
+              </Button>
+            </div>
           </div>
         </div>
       </div>

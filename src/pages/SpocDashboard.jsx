@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   Shield, LogOut, Users, Building2, CheckCircle2, AlertTriangle,
   ChevronDown, ChevronUp, Plus, X, Download, Search, RefreshCw, Sparkles, Trash2,
-  ListChecks, Activity, TableProperties,
+  ListChecks, Activity, TableProperties, BookOpen,
 } from "lucide-react";
 import {
   getCurrentProfile, logoutSpoc, fetchEnrichedTeams, fetchAllProfiles,
@@ -18,6 +18,7 @@ import { cn, validateFinalTeam, downloadXlsx } from "@/lib/utils";
 import { MINISTRIES, SPOC_TEAM_SIZE, SPOC_MIN_FEMALE, DEPT_CODE, OUTDATED_MINISTRIES, NEW_MINISTRIES, ACTIVE_MINISTRIES_COUNT } from "@/lib/constants";
 import { TeamBuilderModal } from "@/components/TeamBuilderModal";
 import { OutdatedMinistryBadge } from "@/components/OutdatedMinistryBadge";
+import { SIH2026ProblemsView } from "@/components/SIH2026ProblemsView";
 import { NewMinistryBadge } from "@/components/NewMinistryBadge";
 import { MonitoringView } from "@/components/MonitoringView";
 import { AccessLogView } from "@/components/AccessLogView";
@@ -901,6 +902,7 @@ export default function SpocDashboard() {
         {[
           { id: "teams",       label: "Teams & Ministries", icon: Building2       },
           { id: "final-teams", label: "Final Teams",         icon: ListChecks      },
+          { id: "problems",    label: "SIH 2026 Problems",   icon: BookOpen        },
           { id: "monitoring",  label: "Monitoring",          icon: Activity        },
           { id: "dept",        label: "Dept Roster",         icon: TableProperties },
           ...(isMaster ? [{ id: "access-log", label: "Access Log", icon: Shield }] : []),
@@ -918,7 +920,7 @@ export default function SpocDashboard() {
           >
             <t.icon className="size-3.5 shrink-0" />
             <span className="hidden sm:inline">{t.label}</span>
-            <span className="sm:hidden">{t.id === "final-teams" ? "Finals" : t.id === "access-log" ? "Log" : t.label}</span>
+            <span className="sm:hidden">{t.id === "final-teams" ? "Finals" : t.id === "access-log" ? "Log" : t.id === "problems" ? "PS" : t.label}</span>
           </button>
         ))}
       </div>
@@ -1086,6 +1088,9 @@ export default function SpocDashboard() {
           )}
         </div>
       )}
+
+      {/* ── PROBLEMS tab ─────────────────────────────────────────────────── */}
+      {activeTab === "problems" && <SIH2026ProblemsView />}
 
       {/* ── MONITORING tab ────────────────────────────────────────────────── */}
       {activeTab === "monitoring" && (

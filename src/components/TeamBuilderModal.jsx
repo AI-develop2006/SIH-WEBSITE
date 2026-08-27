@@ -89,6 +89,7 @@ export function TeamBuilderModal({ ministry, sourceTeams, editingTeam, profileMa
   const [memberSearch, setMemberSearch] = useState("");
   const [memberDeptFilter, setMemberDeptFilter] = useState("");
   const [memberGenderFilter, setMemberGenderFilter] = useState("");
+  const nameInputRef = useRef(null);
 
   useEffect(() => {
     modalRef.current?.focus();
@@ -103,8 +104,8 @@ export function TeamBuilderModal({ ministry, sourceTeams, editingTeam, profileMa
 
   const errors = useMemo(() => validateFinalTeam(selected), [selected]);
   const isValid = errors.length === 0 && selected.length === SPOC_TEAM_SIZE && teamName.trim();
-  // Draft: name + at least 1 member — always available regardless of completeness
-  const canSaveDraft = Boolean(teamName.trim()) && selected.length > 0;
+  // Draft: at least 1 member selected — name is required at save time, not here
+  const canSaveDraft = selected.length > 0;
 
   // Skill conflict — warning only, does NOT block saving
   const skillConflictIds = useMemo(() => {
@@ -134,7 +135,12 @@ export function TeamBuilderModal({ ministry, sourceTeams, editingTeam, profileMa
   }
 
   async function handleSave(draft = false) {
-    if (!teamName.trim()) return;
+    if (!teamName.trim()) {
+      // Focus the name field and highlight it so the user knows to fill it
+      nameInputRef.current?.focus();
+      nameInputRef.current?.select();
+      return;
+    }
     if (!draft && !isValid) return;
     setSaving(true);
     try {
@@ -366,6 +372,7 @@ export function TeamBuilderModal({ ministry, sourceTeams, editingTeam, profileMa
                   Final Team Name <span className="text-red-400">*</span>
                 </label>
                 <input
+                  ref={nameInputRef}
                   type="text"
                   value={teamName}
                   onChange={(e) => setTeamName(e.target.value)}
@@ -523,7 +530,12 @@ export function TeamBuilderModal({ ministry, sourceTeams, editingTeam, profileMa
           {/* Error / warning hint row — above buttons so it never crowds them */}
           {selected.length > 0 && (
             <div className="flex items-center justify-end gap-2 min-h-[1.25rem]">
-              {!isValid && errors.length > 0 && (
+              {!teamName.trim() && (
+                <p className="text-[11px] text-amber-400 text-right leading-snug">
+                  Enter a team name to save
+                </p>
+              )}
+              {teamName.trim() && !isValid && errors.length > 0 && (
                 <p className="text-[11px] text-red-400 text-right leading-snug">
                   {errors[0]}
                 </p>

@@ -25,9 +25,9 @@ import { FormattedAnnouncement } from "@/components/common/FormattedAnnouncement
 import { GlowingBadge } from "@/components/unlumen-ui/glowing-badge";
 import { useToast } from "@/components/unlumen-ui/toast";
 import { Input, Select } from "@/components/unlumen-ui/input";
-import { DEPARTMENTS, YEARS } from "@/lib/constants";
+import { DEPARTMENTS, YEARS, LANGUAGE_OPTIONS, HARDWARE_ROLES, SOFTWARE_ROLES, OTHER_ROLES } from "@/lib/constants";
 import { OutdatedMinistryBadge } from "@/components/common/OutdatedMinistryBadge";
-import { fetchNotifications, markNotificationRead, markAllNotificationsRead, fetchMyFinalTeam, subscribeToPairTeamEvents, subscribeToFinalTeamEvents } from "@/lib/data";
+import { fetchNotifications, markNotificationRead, markAllNotificationsRead, fetchMyFinalTeam, subscribeToPairTeamEvents, subscribeToFinalTeamEvents, updateRegisterNo } from "@/lib/data";
 import { NewMinistryBadge } from "@/components/common/NewMinistryBadge";
 
 function ensureHttp(url) {
@@ -59,16 +59,24 @@ export default function DashboardPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState(null);
   const [updating, setUpdating] = useState(false);
+  const [registerNoEdit, setRegisterNoEdit] = useState("");
+  const [registerNoError, setRegisterNoError] = useState("");
+  const [updatingRegisterNo, setUpdatingRegisterNo] = useState(false);
 
   const startEdit = () => {
     if (!profile) return;
+    setRegisterNoEdit(profile.register_no ?? "");
+    setRegisterNoError("");
     setEditForm({
+      name: profile.name ?? "",
       phone: profile.phone ?? "",
       department: profile.department ?? "",
       year: profile.year ?? "",
       section: profile.section ?? "",
       gender: profile.gender ?? "",
       languages: profile.languages?.join(", ") ?? "",
+      domain_interests: Array.isArray(profile.domain_interests) ? profile.domain_interests : [],
+      domain_interests_other: "",
       linkedin: profile.linkedin ?? "",
       resume_link: profile.resume_link ?? "",
       project_type: profile.project_type ?? "",
@@ -106,6 +114,7 @@ export default function DashboardPage() {
     if (!profile) return;
     setUpdating(true);
     try {
+      if (!editForm.name.trim()) throw new Error("Name is required");
       if (!editForm.phone.trim()) throw new Error("Phone number is required");
       if (!editForm.department) throw new Error("Select your department");
       if (!editForm.year) throw new Error("Select your year");
@@ -134,12 +143,19 @@ export default function DashboardPage() {
       }
 
       const payload = {
+        name: editForm.name.trim(),
         phone: editForm.phone.trim(),
         department: editForm.department,
         year: editForm.year,
         section: editForm.section.trim(),
         gender: editForm.gender,
         languages: editForm.languages.split(",").map((l) => l.trim()).filter(Boolean),
+        domain_interests: [
+          ...editForm.domain_interests,
+          ...(editForm.domain_interests_other.trim()
+            ? editForm.domain_interests_other.split(",").map((r) => r.trim()).filter(Boolean)
+            : []),
+        ],
         linkedin: ensureHttp(editForm.linkedin) || null,
         resume_link: ensureHttp(editForm.resume_link),
         project_type: editForm.project_type || null,
@@ -180,6 +196,27 @@ export default function DashboardPage() {
       toast("error", err instanceof Error ? err.message : "Failed to update profile");
     } finally {
       setUpdating(false);
+    }
+  };
+
+  const handleRegisterNoSave = async () => {
+    const trimmed = registerNoEdit.trim().toUpperCase();
+    if (!trimmed) { setRegisterNoError("Register number cannot be empty."); return; }
+    if (trimmed === (profile?.register_no ?? "").toUpperCase()) {
+      setRegisterNoError("No change detected.");
+      return;
+    }
+    setRegisterNoError("");
+    setUpdatingRegisterNo(true);
+    try {
+      const { error } = await updateRegisterNo(trimmed);
+      if (error) throw new Error(error);
+      setProfile((prev) => ({ ...prev, register_no: trimmed }));
+      toast("success", `Register number updated to ${trimmed}. Your new password is also ${trimmed}.`);
+    } catch (err) {
+      setRegisterNoError(err instanceof Error ? err.message : "Update failed");
+    } finally {
+      setUpdatingRegisterNo(false);
     }
   };
 
@@ -1110,8 +1147,8 @@ export default function DashboardPage() {
 
       {/* Edit Profile Modal */}
       {isEditing && editForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm overflow-y-auto">
-          <div className="relative w-full max-w-2xl bg-card border border-border/80 rounded-2xl shadow-2xl p-6 md:p-8 max-h-[90vh] overflow-y-auto animate-page-enter">
+        <div className="fixed inset-0 z-50 flex items-start justify-center p-4 bg-black/60 overflow-y-auto">
+          <div className="relative w-full max-w-2xl bg-card border border-border/80 rounded-2xl shadow-2xl p-6 md:p-8 my-8 animate-page-enter">
             {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-border/60 pb-4 mb-6">
               <div>
@@ -1127,11 +1164,52 @@ export default function DashboardPage() {
               </button>
             </div>
 
+            {/* Register Number & Password Change */}
+            <div className="mb-6 rounded-xl border border-[#dba328]/30 bg-[#dba328]/5 p-4 flex flex-col gap-3">
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-[#dba328]">Register Number &amp; Password</h4>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Your password is always your register number. Changing it here updates both.
+                </p>
+              </div>
+              <div className="flex items-start gap-2">
+                <div className="flex-1">
+                  <Input
+                    label="Register Number"
+                    value={registerNoEdit}
+                    onChange={(e) => { setRegisterNoEdit(e.target.value.toUpperCase()); setRegisterNoError(""); }}
+                    placeholder="e.g. 22CS001"
+                  />
+                  {registerNoError && (
+                    <p className="text-xs text-destructive mt-1">{registerNoError}</p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={handleRegisterNoSave}
+                  disabled={updatingRegisterNo}
+                  className="mt-6 shrink-0 px-4 py-2.5 rounded-lg bg-[#dba328] hover:bg-[#c9921e] text-black text-xs font-bold transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {updatingRegisterNo ? "Updating…" : "Update"}
+                </button>
+              </div>
+              <p className="text-[10px] text-muted-foreground/70">
+                ⚠ After updating, you must log in again using the new register number as your password.
+              </p>
+            </div>
+
             {/* Modal Form */}
             <form onSubmit={saveProfile} className="flex flex-col gap-6">
               {/* Section 1: Academic & Personal */}
               <div className="flex flex-col gap-4">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-[#dba328]">Academic &amp; Personal Info</h4>
+                <Input
+                  label="Full Name"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                  placeholder="Your full name"
+                  required
+                />
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Input
                     label="Phone Number"
@@ -1188,6 +1266,96 @@ export default function DashboardPage() {
                   onChange={(e) => setEditForm((f) => ({ ...f, languages: e.target.value }))}
                   placeholder="e.g. C, Python, JavaScript (comma separated)"
                 />
+
+                {/* Domain Interests */}
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs font-semibold text-muted-foreground">Domain Interests</label>
+
+                  <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Hardware Roles</p>
+                  <div className="flex flex-wrap gap-2">
+                    {HARDWARE_ROLES.map((role) => (
+                      <button
+                        key={role}
+                        type="button"
+                        onClick={() => setEditForm((f) => ({
+                          ...f,
+                          domain_interests: f.domain_interests.includes(role)
+                            ? f.domain_interests.filter((r) => r !== role)
+                            : [...f.domain_interests, role],
+                        }))}
+                        className={cn(
+                          "px-3 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer",
+                          editForm.domain_interests.includes(role)
+                            ? "bg-primary/20 border-primary/50 text-primary"
+                            : "bg-muted/30 border-border/40 text-muted-foreground hover:text-foreground hover:border-border"
+                        )}
+                      >
+                        {role}
+                      </button>
+                    ))}
+                  </div>
+
+                  <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider mt-1">Software Roles</p>
+                  <div className="flex flex-wrap gap-2">
+                    {SOFTWARE_ROLES.map((role) => (
+                      <button
+                        key={role}
+                        type="button"
+                        onClick={() => setEditForm((f) => ({
+                          ...f,
+                          domain_interests: f.domain_interests.includes(role)
+                            ? f.domain_interests.filter((r) => r !== role)
+                            : [...f.domain_interests, role],
+                        }))}
+                        className={cn(
+                          "px-3 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer",
+                          editForm.domain_interests.includes(role)
+                            ? "bg-primary/20 border-primary/50 text-primary"
+                            : "bg-muted/30 border-border/40 text-muted-foreground hover:text-foreground hover:border-border"
+                        )}
+                      >
+                        {role}
+                      </button>
+                    ))}
+                  </div>
+
+                  <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider mt-1">Other Roles</p>
+                  <div className="flex flex-wrap gap-2">
+                    {OTHER_ROLES.map((role) => (
+                      <button
+                        key={role}
+                        type="button"
+                        onClick={() => setEditForm((f) => ({
+                          ...f,
+                          domain_interests: f.domain_interests.includes(role)
+                            ? f.domain_interests.filter((r) => r !== role)
+                            : [...f.domain_interests, role],
+                        }))}
+                        className={cn(
+                          "px-3 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer",
+                          editForm.domain_interests.includes(role)
+                            ? "bg-primary/20 border-primary/50 text-primary"
+                            : "bg-muted/30 border-border/40 text-muted-foreground hover:text-foreground hover:border-border"
+                        )}
+                      >
+                        {role}
+                      </button>
+                    ))}
+                  </div>
+
+                  <Input
+                    label="Custom Domain / Other Role (optional)"
+                    value={editForm.domain_interests_other}
+                    onChange={(e) => setEditForm((f) => ({ ...f, domain_interests_other: e.target.value }))}
+                    placeholder="e.g. Data Analysis, DevOps (comma separated)"
+                  />
+
+                  {editForm.domain_interests.length > 0 && (
+                    <p className="text-[10px] text-primary font-semibold">
+                      {editForm.domain_interests.length} role{editForm.domain_interests.length !== 1 ? "s" : ""} selected
+                    </p>
+                  )}
+                </div>
               </div>
 
               {/* Section 2: Profiles & Links */}
@@ -1317,7 +1485,7 @@ export default function DashboardPage() {
                       };
 
                       return (
-                        <div key={index} className="flex flex-col gap-4 border border-border/40 bg-card/10 backdrop-blur-sm rounded-xl p-4 relative">
+                        <div key={index} className="flex flex-col gap-4 border border-border/40 bg-card/20 rounded-xl p-4 relative">
                           <span className="text-[10px] font-black uppercase tracking-wider text-purple-400">
                             Participation #{index + 1}
                           </span>
@@ -1547,9 +1715,17 @@ function FinalTeamCard({ finalTeam, currentUserId }) {
                           YOU
                         </span>
                       )}
+                      {member.gender === "Female" && (
+                        <span className="rounded-full bg-pink-500/15 border border-pink-500/30 px-1.5 py-0.5 text-[9px] font-bold text-pink-300 shrink-0">F</span>
+                      )}
+                      {member.assigned_skill && (
+                        <span className="rounded-full bg-[#c9a227]/15 border border-[#c9a227]/30 px-1.5 py-0.5 text-[9px] font-bold text-[#e8c058] shrink-0">{member.assigned_skill}</span>
+                      )}
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                      {member.register_no} · {member.department} {member.year ? `(${member.year} Yr)` : ""} · {member.gender}
+                      {member.register_no} · {member.department}
+                      {member.year ? ` · Yr ${member.year}` : ""}
+                      {member.section ? ` · Sec ${member.section}` : ""}
                     </p>
                   </div>
                 </div>

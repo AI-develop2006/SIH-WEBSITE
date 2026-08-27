@@ -765,6 +765,8 @@ export default function MentorDashboardPage() {
           mentorDept={mentorDept}
           problemMap={problemMap}
           ministrySeats={ministrySeats}
+          assignMemberSkill={assignMemberSkill}
+          assignTeamMinistry={assignTeamMinistry}
         />
       )}
 

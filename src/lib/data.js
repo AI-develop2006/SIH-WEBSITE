@@ -180,6 +180,22 @@ export async function updateProfile(uid, profileData) {
   }
 }
 
+export async function updateRegisterNo(newRegisterNo) {
+  await ensureFreshToken();
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/update-register-no`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...getAuthHeader() },
+      body: JSON.stringify({ newRegisterNo }),
+    });
+    const json = await res.json();
+    if (!res.ok) return { error: json.error };
+    return { data: json, error: null };
+  } catch (err) {
+    return { error: err.message };
+  }
+}
+
 export async function fetchEnrichedTeams() {
   try {
     const res = await fetch(`${API_BASE}/api/teams`, {

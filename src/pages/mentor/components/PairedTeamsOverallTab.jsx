@@ -24,7 +24,7 @@ function getCap(ministrySeats, ministry, dept) {
  *   • "By Department" — left-sidebar dept list + right team grid
  *   • "By Ministry"  — cross-dept ministry accordion
  */
-export const PairedTeamsOverallTab = memo(function PairedTeamsOverallTab({ teams, mentorDept, problemMap, ministrySeats = {} }) {
+export const PairedTeamsOverallTab = memo(function PairedTeamsOverallTab({ teams, mentorDept, problemMap, ministrySeats = {}, assignMemberSkill, assignTeamMinistry }) {
   const [detailStudent, setDetailStudent] = useState(null);
   const [selectedTeamOverlay, setSelectedTeamOverlay] = useState(null);
   const [categoryFilter, setCategoryFilter] = useState("All");
@@ -401,10 +401,15 @@ export const PairedTeamsOverallTab = memo(function PairedTeamsOverallTab({ teams
                                   <li
                                     key={m.id}
                                     onClick={(e) => { e.stopPropagation(); setDetailStudent(m); }}
-                                    className="flex items-center justify-between text-xs hover:bg-muted/10 px-1.5 py-1 rounded-lg cursor-pointer transition-colors"
+                                    className="flex items-center justify-between text-xs hover:bg-muted/10 px-1.5 py-1 rounded-lg cursor-pointer transition-colors gap-1"
                                   >
                                     <span className="text-slate-300 font-medium truncate">{m.name}</span>
-                                    <span className="text-[9px] text-muted-foreground font-semibold bg-muted/20 px-1.5 py-0.5 rounded shrink-0 ml-1">{m.department}</span>
+                                    <div className="flex items-center gap-1 shrink-0 ml-1 flex-wrap justify-end">
+                                      {m.assigned_skill && (
+                                        <span className="text-[9px] bg-[#c9a227]/10 border border-[#c9a227]/30 px-1.5 py-0.5 rounded text-[#e8c058] font-semibold truncate max-w-[100px]">{m.assigned_skill}</span>
+                                      )}
+                                      <span className="text-[9px] text-muted-foreground font-semibold bg-muted/20 px-1.5 py-0.5 rounded">{m.department}</span>
+                                    </div>
                                   </li>
                                 ))}
                               </ul>
@@ -720,8 +725,8 @@ export const PairedTeamsOverallTab = memo(function PairedTeamsOverallTab({ teams
         removeMember={() => {}}
         deleteTeam={() => {}}
         onViewProfile={(st) => setDetailStudent(st)}
-        assignMemberSkill={() => {}}
-        assignTeamMinistry={() => {}}
+        assignMemberSkill={overlayIsOwnDept && assignMemberSkill ? assignMemberSkill : () => {}}
+        assignTeamMinistry={overlayIsOwnDept && assignTeamMinistry ? assignTeamMinistry : () => {}}
         readOnly={!overlayIsOwnDept}
       />
 

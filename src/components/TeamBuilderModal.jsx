@@ -103,8 +103,8 @@ export function TeamBuilderModal({ ministry, sourceTeams, editingTeam, profileMa
 
   const errors = useMemo(() => validateFinalTeam(selected), [selected]);
   const isValid = errors.length === 0 && selected.length === SPOC_TEAM_SIZE && teamName.trim();
-  // Draft: name + at least 1 member, but NOT a fully valid complete team
-  const canSaveDraft = Boolean(teamName.trim()) && selected.length > 0 && !isValid;
+  // Draft: name + at least 1 member — always available regardless of completeness
+  const canSaveDraft = Boolean(teamName.trim()) && selected.length > 0;
 
   // Skill conflict — warning only, does NOT block saving
   const skillConflictIds = useMemo(() => {
@@ -142,6 +142,7 @@ export function TeamBuilderModal({ ministry, sourceTeams, editingTeam, profileMa
         name: teamName.trim(),
         ministry,
         member_ids: selected.map((m) => m.id),
+        ...(draft ? { draft: true } : {}),
       });
       // If the parent returns a conflict signal, refresh claimed and stay open
       if (result?.conflict) {
@@ -531,7 +532,7 @@ export function TeamBuilderModal({ ministry, sourceTeams, editingTeam, profileMa
                 ⚠ Skill overlap — saving anyway
               </p>
             )}
-            {/* Draft save — visible only when team is incomplete but has a name + members */}
+            {/* Draft save — always visible when name + ≥1 member selected */}
             {canSaveDraft && (
               <Button
                 onClick={() => handleSave(true)}

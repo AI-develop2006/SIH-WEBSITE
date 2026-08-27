@@ -630,9 +630,12 @@ async function sendNotifications(profileIds, { type, title, message, metadata = 
 //   • Exactly 6 members
 //   • ≥ 2 female members
 // Returns null if valid, or an error string if not.
-async function validateTeamComposition(memberIds, excludeTeamId = null) {
+async function validateTeamComposition(memberIds, excludeTeamId = null, draft = false) {
   if (!memberIds || memberIds.length === 0) return null; // no members to check yet
-  if (memberIds.length !== 6) return `Team must have exactly 6 members (got ${memberIds.length})`;
+  // Draft teams are allowed to have fewer than 6 members — skip the count check.
+  if (!draft && memberIds.length !== 6) return `Team must have exactly 6 members (got ${memberIds.length})`;
+  // Draft teams with < 6 members skip gender/dept validation too — nothing to enforce yet.
+  if (draft && memberIds.length < 6) return null;
 
   // Resolve genders
   let profiles = [];
@@ -674,9 +677,10 @@ app.get("/api/spoc/final-teams", async (_req, res) => {
 
 // POST — create a new final team
 app.post("/api/spoc/final-teams", async (req, res) => {
-  const { name, ministry, member_ids } = req.body;
+  const { name, ministry, member_ids, draft = false } = req.body;
   if (!name?.trim()) return res.status(400).json({ error: "Team name is required" });
   if (!Array.isArray(member_ids)) return res.status(400).json({ error: "member_ids must be an array" });
+  if (member_ids.length === 0) return res.status(400).json({ error: "At least one member is required" });
 
   const ip = extractIp(req);
 
@@ -712,7 +716,7 @@ app.post("/api/spoc/final-teams", async (req, res) => {
     }
 
     // ── Female-count rule ─────────────────────────────────────────────────────
-    const compositionError = await validateTeamComposition(member_ids);
+    const compositionError = await validateTeamComposition(member_ids, null, draft);
     if (compositionError) {
       return res.status(422).json({ error: compositionError });
     }
@@ -769,7 +773,7 @@ app.post("/api/spoc/final-teams", async (req, res) => {
 // PATCH — update a final team
 app.patch("/api/spoc/final-teams/:id", async (req, res) => {
   const { id } = req.params;
-  const { name, ministry, member_ids } = req.body;
+  const { name, ministry, member_ids, draft = false } = req.body;
   const ip = extractIp(req);
 
   try {
@@ -811,7 +815,7 @@ app.patch("/api/spoc/final-teams/:id", async (req, res) => {
       }
 
       // ── Female-count rule ───────────────────────────────────────────────────
-      const compositionError = await validateTeamComposition(member_ids);
+      const compositionError = await validateTeamComposition(member_ids, null, draft);
       if (compositionError) {
         return res.status(422).json({ error: compositionError });
       }

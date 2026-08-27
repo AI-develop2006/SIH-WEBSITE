@@ -42,6 +42,23 @@ function broadcastUpdate(event, data = {}) {
   }
 }
 
+// ─── Session invalidation ─────────────────────────────────────────────────────
+// validSince: all sessions whose loginTime < validSince are rejected.
+// Starts at server boot time — so a server restart clears all sessions.
+// Call invalidateAllSessions() to clear without restarting.
+//
+// SESSION_TIMEOUT_MS: max session lifetime from login time.
+// Default: 8 hours. Override via env SESSION_TIMEOUT_HOURS.
+const SESSION_TIMEOUT_MS = (parseInt(process.env.SESSION_TIMEOUT_HOURS ?? "8", 10) || 8) * 60 * 60 * 1000;
+let validSince = Date.now(); // server start = clears any pre-restart sessions
+
+function invalidateAllSessions() {
+  validSince = Date.now();
+  // Broadcast to all connected SSE clients so they auto-logout immediately
+  broadcastUpdate("session_invalidated", { reason: "logout_all" });
+  console.log(`[SPOC] All sessions invalidated at ${new Date(validSince).toISOString()}`);
+}
+
 // ─── CORS ────────────────────────────────────────────────────────────────────
 const ALLOWED = new Set([
   "http://localhost:5173",
@@ -185,6 +202,19 @@ app.get("/api/spoc/claimed-members", async (req, res) => {
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
+});
+
+// ─── Logout All Sessions (master-only) ───────────────────────────────────────
+// Bumps validSince to now, instantly invalidating every non-master token.
+// All connected SSE clients receive a session_invalidated event and auto-logout.
+app.post("/api/spoc/logout-all", (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith("Bearer ")) return res.status(401).json({ error: "Not signed in" });
+  const token = authHeader.split(" ")[1];
+  if (token !== "master") return res.status(403).json({ error: "Master session required" });
+
+  invalidateAllSessions();
+  return res.json({ ok: true, invalidatedAt: validSince });
 });
 
 // ─── Access Log: read login attempts (admin use) ─────────────────────────────
@@ -390,6 +420,23 @@ app.get("/api/auth/me", async (req, res) => {
   if (!authHeader?.startsWith("Bearer "))
     return res.status(401).json({ error: "Not signed in" });
   const token = authHeader.split(" ")[1];
+
+  // ── Session freshness check ───────────────────────────────────────────────
+  // The frontend sends X-Login-Time (ms since epoch) so we can enforce:
+  //   1. loginTime >= validSince   (not cleared by a logout-all)
+  //   2. Date.now() - loginTime <= SESSION_TIMEOUT_MS  (not timed out)
+  const loginTimeHeader = req.headers["x-login-time"];
+  if (loginTimeHeader && token !== "master") {
+    const loginTime = parseInt(loginTimeHeader, 10);
+    if (!isNaN(loginTime)) {
+      if (loginTime < validSince) {
+        return res.status(401).json({ error: "Session cleared — please sign in again.", code: "SESSION_CLEARED" });
+      }
+      if (Date.now() - loginTime > SESSION_TIMEOUT_MS) {
+        return res.status(401).json({ error: "Session expired — please sign in again.", code: "SESSION_EXPIRED" });
+      }
+    }
+  }
 
   // ── Master token shortcut ─────────────────────────────────────────────────
   if (token === "master") {

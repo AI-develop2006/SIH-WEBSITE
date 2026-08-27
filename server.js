@@ -461,9 +461,91 @@ app.put("/api/profiles/me", async (req, res) => {
   if (!supabase) return res.status(500).json({ error: "Supabase client not configured" });
   const { uid, profileData } = req.body;
 
-  const { error } = await supabase.from("profiles").update(profileData).eq("id", uid);
+  // Never allow role or id to be overwritten via this route
+  const { role: _r, id: _i, ...safeData } = profileData ?? {};
+
+  if (process.env.DATABASE_URL) {
+    // Build a parameterised SET clause from safeData
+    const entries = Object.entries(safeData);
+    if (entries.length === 0) return res.json({ success: true });
+    const setClauses = entries.map(([col], idx) => `"${col}" = $${idx + 1}`).join(", ");
+    const values = entries.map(([, v]) => v);
+    values.push(uid); // last param for WHERE
+    try {
+      await dbQuery(
+        `UPDATE public.profiles SET ${setClauses} WHERE id = $${values.length}`,
+        values
+      );
+      return res.json({ success: true });
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
+  const { error } = await supabase.from("profiles").update(safeData).eq("id", uid);
   if (error) return res.status(500).json({ error: error.message });
   return res.json({ success: true });
+});
+
+// 6c. Update register number + change auth password to match
+// The student's password is always their register number, so changing the
+// register number must also update the Supabase auth password.
+app.post("/api/auth/update-register-no", async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: "Supabase not configured" });
+
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith("Bearer ")) return res.status(401).json({ error: "Not signed in" });
+  const token = authHeader.split(" ")[1];
+
+  const { newRegisterNo } = req.body;
+  if (!newRegisterNo?.trim()) return res.status(400).json({ error: "Register number is required" });
+
+  try {
+    // 1. Verify token and get user
+    const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
+    if (authErr || !user) return res.status(401).json({ error: "Invalid token" });
+
+    const cleanRegNo = newRegisterNo.trim().toUpperCase();
+
+    // 2. Check no other profile already uses this register number
+    if (process.env.DATABASE_URL) {
+      const { rows } = await dbQuery(
+        `SELECT id FROM public.profiles WHERE UPPER(register_no) = $1 AND id <> $2 LIMIT 1`,
+        [cleanRegNo, user.id]
+      );
+      if (rows.length > 0) return res.status(409).json({ error: "This register number is already in use." });
+    } else {
+      const { data: existing } = await supabase
+        .from("profiles").select("id").ilike("register_no", cleanRegNo).neq("id", user.id).maybeSingle();
+      if (existing) return res.status(409).json({ error: "This register number is already in use." });
+    }
+
+    // 3. Update the profile row
+    if (process.env.DATABASE_URL) {
+      await dbQuery(`UPDATE public.profiles SET register_no = $1 WHERE id = $2`, [cleanRegNo, user.id]);
+    } else {
+      await supabase.from("profiles").update({ register_no: cleanRegNo }).eq("id", user.id);
+    }
+
+    // 4. Update the auth password to the new register number
+    // We create a Supabase client scoped to the user's own session token so
+    // supabase.auth.updateUser changes that user's password (not the anon user).
+    const { createClient } = await import("@supabase/supabase-js");
+    const userSupabase = createClient(
+      process.env.VITE_SUPABASE_URL,
+      process.env.VITE_SUPABASE_ANON_KEY,
+      { global: { headers: { Authorization: `Bearer ${token}` } } }
+    );
+
+    const { error: pwErr } = await userSupabase.auth.updateUser({ password: cleanRegNo });
+    if (pwErr) {
+      return res.status(500).json({ error: `Register number saved, but password update failed: ${pwErr.message}. You may need to reset your password manually.` });
+    }
+
+    return res.json({ success: true, register_no: cleanRegNo });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
 });
 
 // 6b. Profile: Update Category by Mentor or User
@@ -501,17 +583,58 @@ app.post("/api/profiles/avatar", async (req, res) => {
 
 // 8. Profiles: Search Profiles
 app.get("/api/profiles/search", async (req, res) => {
-  if (!supabase) return res.status(500).json({ error: "Supabase client not configured" });
   const { excludeId, stack, q } = req.query;
 
-  let query = supabase.from("profiles").select("*").order("name");
-  if (excludeId) query = query.neq("id", excludeId);
-  if (stack) query = query.contains("tech_stack", [stack]);
-  if (q) query = query.or(`name.ilike.%${q}%,department.ilike.%${q}%,section.ilike.%${q}%,language.ilike.%${q}%`);
+  try {
+    // Prefer direct pg connection — bypasses Supabase client row limits and RLS quirks
+    if (process.env.DATABASE_URL) {
+      let sql = `SELECT * FROM public.profiles WHERE 1=1`;
+      const params = [];
 
-  const { data, error } = await query;
-  if (error) return res.status(500).json({ error: error.message });
-  return res.json({ data: data ?? [] });
+      if (excludeId) {
+        params.push(excludeId);
+        sql += ` AND id <> $${params.length}`;
+      }
+      if (stack) {
+        params.push(`{${stack}}`);
+        sql += ` AND tech_stack @> $${params.length}`;
+      }
+      if (q) {
+        const needle = `%${q.toLowerCase()}%`;
+        params.push(needle);
+        sql += ` AND (LOWER(name) LIKE $${params.length} OR LOWER(department) LIKE $${params.length} OR LOWER(section) LIKE $${params.length})`;
+      }
+
+      sql += ` ORDER BY name ASC`;
+      const { rows } = await dbQuery(sql, params);
+      return res.json({ data: rows });
+    }
+
+    // Supabase fallback — fetch in chunks to avoid the default 1000-row cap
+    if (!supabase) return res.status(500).json({ error: "No database configured" });
+
+    let query = supabase.from("profiles").select("*", { count: "exact" }).order("name");
+    if (excludeId) query = query.neq("id", excludeId);
+    if (stack) query = query.contains("tech_stack", [stack]);
+    if (q) query = query.or(`name.ilike.%${q}%,department.ilike.%${q}%,section.ilike.%${q}%`);
+
+    // Fetch all pages
+    const PAGE = 1000;
+    let all = [];
+    let from = 0;
+    while (true) {
+      const { data, error } = await query.range(from, from + PAGE - 1);
+      if (error) return res.status(500).json({ error: error.message });
+      if (!data || data.length === 0) break;
+      all = all.concat(data);
+      if (data.length < PAGE) break;
+      from += PAGE;
+    }
+
+    return res.json({ data: all });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
 });
 
 // 9. Teams: Fetch Enriched Teams

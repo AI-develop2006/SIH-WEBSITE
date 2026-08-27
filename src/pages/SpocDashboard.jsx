@@ -44,6 +44,7 @@ function MemberChip({ member }) {
       <div className="min-w-0 flex-1">
         <p className="text-xs font-semibold text-white truncate leading-tight">{member.name}</p>
         <p className="text-[10px] text-[#94a3b8] truncate">
+          {member.register_no ? <span className="font-mono text-[#c9a227]/80">{member.register_no} · </span> : null}
           {getDeptCode(member.department)}
           {member.assigned_skill ? ` · ${member.assigned_skill}` : ""}
         </p>
@@ -472,7 +473,12 @@ function MinistryRow({ ministry, pairTeams, finalTeams, onBuildTeam, onEditTeam,
                           return (
                             <div key={m.id} className={cn("flex items-center gap-2", isClaimed && "opacity-40")}>
                               <Avatar name={m.name} className="size-5" />
-                              <span className={cn("text-[11px] truncate flex-1", isClaimed ? "text-[#94a3b8]/60 line-through" : "text-[#e8ecf7]")}>{m.name}</span>
+                              <div className="min-w-0 flex-1">
+                                <span className={cn("text-[11px] truncate block", isClaimed ? "text-[#94a3b8]/60 line-through" : "text-[#e8ecf7]")}>{m.name}</span>
+                                {m.register_no && (
+                                  <span className="text-[9px] font-mono text-[#c9a227]/70 truncate block">{m.register_no}</span>
+                                )}
+                              </div>
                               {genderBadge(m.gender)}
                               {isClaimed
                                 ? <span className="text-[9px] font-bold text-rose-400/70">taken</span>

@@ -332,6 +332,7 @@ export function TeamBuilderModal({ ministry, sourceTeams, editingTeam, profileMa
                               <div className="min-w-0 flex-1">
                                 <p className="text-xs font-semibold text-white truncate">{m.name}</p>
                                 <p className="text-[10px] text-[#94a3b8]">
+                                  {m.register_no && <span className="font-mono text-[#c9a227]/80">{m.register_no} · </span>}
                                   {getDeptCode(m.department)}
                                   {m.assigned_skill ? ` · ${m.assigned_skill}` : " · No skill"}
                                   {isClaimed && <span className="ml-1 text-rose-400/70 font-bold">· taken</span>}
@@ -423,6 +424,7 @@ export function TeamBuilderModal({ ministry, sourceTeams, editingTeam, profileMa
                           <div className="min-w-0 flex-1">
                             <p className="text-xs font-semibold text-white truncate">{m.name}</p>
                             <p className="text-[10px] text-[#94a3b8]">
+                              {m.register_no && <span className="font-mono text-[#c9a227]/80">{m.register_no} · </span>}
                               {m.department ? getDeptCode(m.department) : "—"}
                               {m.assigned_skill ? ` · ${m.assigned_skill}` : " · No skill"}
                             </p>

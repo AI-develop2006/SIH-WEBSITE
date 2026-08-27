@@ -72,7 +72,13 @@ const SUPABASE_URL   = process.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON  = process.env.VITE_SUPABASE_ANON_KEY;
 
 const supabase = SUPABASE_URL && SUPABASE_ANON
-  ? createClient(SUPABASE_URL, SUPABASE_ANON)
+  ? createClient(SUPABASE_URL, SUPABASE_ANON, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+      },
+    })
   : null;
 
 let pool = null;

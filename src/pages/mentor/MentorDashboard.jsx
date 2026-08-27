@@ -19,6 +19,7 @@ import { PairedTeamsOverallTab } from "./components/PairedTeamsOverallTab";
 import { CreateTeamModal } from "./components/CreateTeamModal";
 import { AssignStudentModal } from "./components/AssignStudentModal";
 import { EditProfileModal } from "./components/EditProfileModal";
+import { SIH2026ProblemsView } from "@/components/common/SIH2026ProblemsView";
 
 export default function MentorDashboardPage() {
   const navigate = useNavigate();
@@ -609,11 +610,11 @@ export default function MentorDashboardPage() {
   if (!isAuthenticated) return null;
 
   const TABS = [
-    { key: "home", label: "Home Overview", shortLabel: "Home" },
-    { key: "students", label: "Student Roster", shortLabel: "Roster" },
-    { key: "teams", label: "Teams Builder", shortLabel: "Teams" },
-    { key: "paired-overall", label: "Paired Teams Overall", shortLabel: "All Teams" },
-    { key: "problems", label: "Problem Statements", shortLabel: "Problems" },
+    { key: "home",            label: "Home Overview",        shortLabel: "Home"     },
+    { key: "students",        label: "Student Roster",       shortLabel: "Roster"   },
+    { key: "teams",           label: "Teams Builder",        shortLabel: "Teams"    },
+    { key: "paired-overall",  label: "Paired Teams Overall", shortLabel: "All Teams"},
+    { key: "sih-problems",    label: "Problem Statements",   shortLabel: "Problems" },
   ];
 
   return (
@@ -770,7 +771,7 @@ export default function MentorDashboardPage() {
         />
       )}
 
-      {tab === "problems" && <ProblemsTab problems={problems} />}
+      {tab === "sih-problems" && <SIH2026ProblemsView />}
 
       {/* Mobile Bottom Tab Navigation */}
       <div className="fixed bottom-0 inset-x-0 z-40 border-t border-[rgba(201,162,39,0.18)] bg-[#06090f]/95 backdrop-blur-md py-2 px-2 flex items-center justify-around md:hidden shadow-[0_-8px_24px_rgba(0,0,0,0.4)]">

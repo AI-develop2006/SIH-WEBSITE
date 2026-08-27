@@ -88,9 +88,12 @@ function ValidationBar({ members }) {
 }
 
 // ─── Final team card ─────────────────────────────────────────────────────────
-function FinalTeamCard({ ft, profileMap, onEdit, onDelete }) {
+function FinalTeamCard({ ft, profileMap, onEdit, onDelete, onChangeMinistry }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showMinistryPicker, setShowMinistryPicker] = useState(false);
+  const [newMinistry, setNewMinistry] = useState(ft.ministry ?? "");
+  const [savingMinistry, setSavingMinistry] = useState(false);
 
   const members = useMemo(
     () => (ft.member_ids || []).map((id) => profileMap.get(id)).filter(Boolean),
@@ -104,6 +107,15 @@ function FinalTeamCard({ ft, profileMap, onEdit, onDelete }) {
     await onDelete(ft.id, ft.name);
     setDeleting(false);
     setConfirmDelete(false);
+  }
+
+  async function handleSaveMinistry() {
+    if (!newMinistry.trim()) return;
+    if (newMinistry === ft.ministry) { setShowMinistryPicker(false); return; }
+    setSavingMinistry(true);
+    await onChangeMinistry(ft.id, ft.name, newMinistry.trim());
+    setSavingMinistry(false);
+    setShowMinistryPicker(false);
   }
 
   return (
@@ -122,6 +134,15 @@ function FinalTeamCard({ ft, profileMap, onEdit, onDelete }) {
         </div>
         {!confirmDelete && (
           <div className="flex items-center gap-2 shrink-0">
+            <Button
+              variant="ghost"
+              onClick={() => { setShowMinistryPicker((v) => !v); setNewMinistry(ft.ministry ?? ""); }}
+              className="text-[11px] px-3 py-1.5 text-blue-400 hover:bg-blue-500/10"
+              title="Change the ministry for this final team"
+            >
+              <Building2 className="size-3 shrink-0" />
+              Ministry
+            </Button>
             <Button
               variant="ghost"
               onClick={() => onEdit(ft)}
@@ -170,6 +191,48 @@ function FinalTeamCard({ ft, profileMap, onEdit, onDelete }) {
 
       <ValidationBar members={members} />
 
+      {/* Inline ministry picker */}
+      {showMinistryPicker && !confirmDelete && (
+        <div className="rounded-xl border border-blue-500/30 bg-blue-500/8 px-4 py-3 space-y-2.5">
+          <p className="text-[11px] font-bold text-blue-300 flex items-center gap-1.5">
+            <Building2 className="size-3.5 shrink-0" />
+            Change Ministry — all members will be notified
+          </p>
+          <div className="flex items-center gap-2">
+            <select
+              value={newMinistry}
+              onChange={(e) => setNewMinistry(e.target.value)}
+              className="flex-1 rounded-xl border border-[rgba(147,197,253,0.18)] bg-[#050b18]/60 px-3 py-2 text-xs text-white outline-none focus:border-blue-400/50 transition-all cursor-pointer"
+            >
+              <option value="">— No Ministry —</option>
+              {MINISTRIES.map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+            <Button
+              onClick={handleSaveMinistry}
+              loading={savingMinistry}
+              disabled={!newMinistry.trim() || newMinistry === ft.ministry}
+              className="text-[11px] px-4 py-2 bg-blue-500 hover:bg-blue-400 text-white disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+            >
+              Save
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => setShowMinistryPicker(false)}
+              className="text-[11px] px-3 py-2 text-[#94a3b8]"
+            >
+              Cancel
+            </Button>
+          </div>
+          {ft.ministry && (
+            <p className="text-[10px] text-[#94a3b8]">
+              Current: <span className="text-white font-semibold">{ft.ministry}</span>
+            </p>
+          )}
+        </div>
+      )}
+
       <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3 mt-2">
         {members.map((m) => (
           <MemberChip key={m.id} member={m} />
@@ -191,7 +254,7 @@ function FinalTeamCard({ ft, profileMap, onEdit, onDelete }) {
 
 // ─── Final Teams Panel ────────────────────────────────────────────────────────
 // Standalone filterable view of all created final teams, shown above the ministry accordion.
-function FinalTeamsPanel({ finalTeams, profileMap, onEdit, onDelete }) {
+function FinalTeamsPanel({ finalTeams, profileMap, onEdit, onDelete, onChangeMinistry }) {
   const [open, setOpen] = useState(true);
   const [search, setSearch] = useState("");
   const [ministryFilter, setMinistryFilter] = useState("all");
@@ -336,6 +399,7 @@ function FinalTeamsPanel({ finalTeams, profileMap, onEdit, onDelete }) {
                   profileMap={profileMap}
                   onEdit={onEdit}
                   onDelete={onDelete}
+                  onChangeMinistry={onChangeMinistry}
                 />
               ))}
             </div>
@@ -347,7 +411,7 @@ function FinalTeamsPanel({ finalTeams, profileMap, onEdit, onDelete }) {
 }
 
 // ─── Ministry accordion row ──────────────────────────────────────────────────
-function MinistryRow({ ministry, pairTeams, finalTeams, onBuildTeam, onEditTeam, onDeleteTeam, profileMap, claimedMemberIds }) {
+function MinistryRow({ ministry, pairTeams, finalTeams, onBuildTeam, onEditTeam, onDeleteTeam, onChangeMinistryTeam, profileMap, claimedMemberIds }) {
   const [open, setOpen] = useState(false);
   const bodyRef = useRef(null);
   const isOutdated = OUTDATED_MINISTRIES.has(ministry);
@@ -508,6 +572,7 @@ function MinistryRow({ ministry, pairTeams, finalTeams, onBuildTeam, onEditTeam,
                       profileMap={profileMap}
                       onEdit={onEditTeam}
                       onDelete={onDeleteTeam}
+                      onChangeMinistry={onChangeMinistryTeam}
                     />
                   ))}
                 </div>
@@ -757,7 +822,6 @@ export default function SpocDashboard() {
   }
 
   async function handleDeleteFinalTeam(id, name) {
-    // Optimistic remove
     setFinalTeams((prev) => prev.filter((ft) => ft.id !== id));
     setClaimedMemberIds((prev) => {
       // Remove claimed IDs that belonged to the deleted team
@@ -772,6 +836,21 @@ export default function SpocDashboard() {
     }
     toast("success", `Team "${name}" deleted.`);
     refreshData(true); // sync claimed members
+  }
+
+  async function handleChangeMinistryFinalTeam(id, teamName, newMinistry) {
+    // Optimistic update
+    setFinalTeams((prev) =>
+      prev.map((ft) => ft.id === id ? { ...ft, ministry: newMinistry || null } : ft)
+    );
+    const res = await updateFinalTeam(id, { ministry: newMinistry || null });
+    if (res.error) {
+      toast("error", res.error);
+      await refreshData(true); // rollback
+    } else {
+      toast("success", `Ministry for "${teamName}" updated to "${newMinistry}". Members notified.`);
+      refreshData(true);
+    }
   }
 
   async function handleSaveFinalTeam({ name, ministry, member_ids, draft = false }) {
@@ -1139,6 +1218,7 @@ export default function SpocDashboard() {
               openBuilder(ft.ministry, srcTeams, ft);
             }}
             onDeleteTeam={handleDeleteFinalTeam}
+            onChangeMinistryTeam={handleChangeMinistryFinalTeam}
           />
         ))}
       </div>
@@ -1174,6 +1254,7 @@ export default function SpocDashboard() {
                 openBuilder(ft.ministry, srcTeams, ft);
               }}
               onDelete={handleDeleteFinalTeam}
+              onChangeMinistry={handleChangeMinistryFinalTeam}
             />
           )}
         </div>

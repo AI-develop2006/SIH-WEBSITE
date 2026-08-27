@@ -114,6 +114,12 @@ function computeStats(members = [], category = "Pairs") {
   };
 }
 
+// ─── Request IP helper ───────────────────────────────────────────────────────
+function extractIp(req) {
+  return (req.headers["cf-connecting-ip"] || req.headers["x-forwarded-for"] || req.socket.remoteAddress || "")
+    .split(",")[0].trim().replace(/^::ffff:/, "");
+}
+
 // ─── Health ───────────────────────────────────────────────────────────────────
 app.get(["/health", "/api/health"], (_req, res) => {
   res.json({ status: "ok", service: "spoc-backend", port: PORT });
@@ -176,22 +182,16 @@ app.get("/api/spoc/claimed-members", async (req, res) => {
 });
 
 // ─── Access Log: read login attempts (admin use) ─────────────────────────────
-// Returns the most recent N login attempts. Requires valid SPOC auth token
-// to prevent public exposure of IP addresses.
+// Returns the most recent N login attempts. Master-session only.
 app.get("/api/spoc/access-log", async (req, res) => {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith("Bearer ")) return res.status(401).json({ error: "Not signed in" });
   const token = authHeader.split(" ")[1];
 
-  // Verify the caller is the SPOC (or admin) — just validate the token is live
-  try {
-    if (token === "master") {
-      // master token is always valid
-    } else if (supabase) {
-      const { data: { user }, error } = await supabase.auth.getUser(token);
-      if (error || !user) return res.status(401).json({ error: "Invalid token" });
-    }
+  // Only the master-password session may read access logs
+  if (token !== "master") return res.status(403).json({ error: "Access denied — master session required" });
 
+  try {
     const limit = Math.min(parseInt(req.query.limit ?? "200", 10), 500);
 
     let rows = [];
@@ -527,6 +527,77 @@ app.get("/api/teams", async (_req, res) => {
   }
 });
 
+// ─── Audit Log helper ────────────────────────────────────────────────────────
+/**
+ * logAudit({ action, entityId, entityName, details, ip })
+ *
+ * Writes one row to spoc_audit_log. Fire-and-forget — never throws.
+ *
+ * action      : 'CREATE_FINAL_TEAM' | 'UPDATE_FINAL_TEAM' | 'DELETE_FINAL_TEAM'
+ * entityId    : final team id (string)
+ * entityName  : team name at time of action
+ * details     : arbitrary JSON object (diff summary)
+ * ip          : requester IP — pass the already-extracted string
+ */
+async function logAudit({ action, entityId = null, entityName = null, details = {}, ip = null }) {
+  try {
+    if (DATABASE_URL) {
+      await dbQuery(
+        `INSERT INTO public.spoc_audit_log (action, entity_type, entity_id, entity_name, details, ip_address)
+         VALUES ($1, 'final_team', $2, $3, $4, $5)`,
+        [action, entityId ? String(entityId) : null, entityName, JSON.stringify(details), ip]
+      );
+    } else if (supabase) {
+      await supabase.from("spoc_audit_log").insert([{
+        action,
+        entity_type: "final_team",
+        entity_id: entityId ? String(entityId) : null,
+        entity_name: entityName,
+        details,
+        ip_address: ip,
+      }]);
+    }
+  } catch (_) { /* fire-and-forget */ }
+}
+
+// ─── Audit Log: read action history ──────────────────────────────────────────
+app.get("/api/spoc/audit-log", async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith("Bearer ")) return res.status(401).json({ error: "Not signed in" });
+  const token = authHeader.split(" ")[1];
+
+  // Only the master-password session may read audit/access logs
+  if (token !== "master") return res.status(403).json({ error: "Access denied — master session required" });
+
+  try {
+    const limit = Math.min(parseInt(req.query.limit ?? "200", 10), 500);
+    let rows = [];
+
+    if (DATABASE_URL) {
+      const result = await dbQuery(
+        `SELECT id, action, entity_type, entity_id, entity_name, details, ip_address, created_at
+         FROM public.spoc_audit_log
+         ORDER BY created_at DESC
+         LIMIT $1`,
+        [limit]
+      );
+      rows = result.rows;
+    } else if (supabase) {
+      const { data, error: qErr } = await supabase
+        .from("spoc_audit_log")
+        .select("id, action, entity_type, entity_id, entity_name, details, ip_address, created_at")
+        .order("created_at", { ascending: false })
+        .limit(limit);
+      if (qErr) return res.status(500).json({ error: qErr.message });
+      rows = data ?? [];
+    }
+
+    return res.json({ data: rows });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 // ─── SPOC Final Teams ─────────────────────────────────────────────────────────
 
 // ── Notification helper ───────────────────────────────────────────────────────
@@ -607,6 +678,8 @@ app.post("/api/spoc/final-teams", async (req, res) => {
   if (!name?.trim()) return res.status(400).json({ error: "Team name is required" });
   if (!Array.isArray(member_ids)) return res.status(400).json({ error: "member_ids must be an array" });
 
+  const ip = extractIp(req);
+
   // Resolve creator from token
   let createdBy = null;
   const authHeader = req.headers.authorization;
@@ -657,6 +730,13 @@ app.post("/api/spoc/final-teams", async (req, res) => {
         metadata: { team_name: name.trim(), ministry: ministry || null, team_id: rows[0]?.id },
       });
       broadcastUpdate("final_teams_updated", { action: "created", team_id: rows[0]?.id });
+      logAudit({
+        action: "CREATE_FINAL_TEAM",
+        entityId: rows[0]?.id,
+        entityName: name.trim(),
+        details: { ministry: ministry || null, member_count: member_ids.length },
+        ip,
+      });
       return res.json({ data: rows[0] });
     } else if (supabase) {
       const { data, error } = await supabase
@@ -671,6 +751,13 @@ app.post("/api/spoc/final-teams", async (req, res) => {
         metadata: { team_name: name.trim(), ministry: ministry || null, team_id: data?.id },
       });
       broadcastUpdate("final_teams_updated", { action: "created", team_id: data?.id });
+      logAudit({
+        action: "CREATE_FINAL_TEAM",
+        entityId: data?.id,
+        entityName: name.trim(),
+        details: { ministry: ministry || null, member_count: member_ids.length },
+        ip,
+      });
       return res.json({ data });
     }
     return res.status(500).json({ error: "No database configured" });
@@ -683,6 +770,7 @@ app.post("/api/spoc/final-teams", async (req, res) => {
 app.patch("/api/spoc/final-teams/:id", async (req, res) => {
   const { id } = req.params;
   const { name, ministry, member_ids } = req.body;
+  const ip = extractIp(req);
 
   try {
     // Fetch current team to detect member changes for notifications
@@ -793,6 +881,22 @@ app.patch("/api/spoc/final-teams/:id", async (req, res) => {
     }
 
     broadcastUpdate("final_teams_updated", { action: "updated", team_id: id });
+
+    // Build a human-readable diff for the audit log
+    const auditDetails = {};
+    if (name !== undefined && name?.trim() !== prevName) auditDetails.renamed = { from: prevName, to: name.trim() };
+    if (ministry !== undefined) auditDetails.ministry = ministry || null;
+    if (addedIds.length > 0)   auditDetails.members_added   = addedIds.length;
+    if (removedIds.length > 0) auditDetails.members_removed = removedIds.length;
+    if (keptIds.length > 0)    auditDetails.members_kept    = keptIds.length;
+    logAudit({
+      action: "UPDATE_FINAL_TEAM",
+      entityId: id,
+      entityName: finalName,
+      details: auditDetails,
+      ip,
+    });
+
     return res.json({ data: updated });
   } catch (err) {
     return res.status(500).json({ error: err.message });
@@ -802,6 +906,7 @@ app.patch("/api/spoc/final-teams/:id", async (req, res) => {
 // DELETE — remove a final team (with member notifications + broadcast)
 app.delete("/api/spoc/final-teams/:id", async (req, res) => {
   const { id } = req.params;
+  const ip = extractIp(req);
   try {
     let memberIds = [];
     let teamName  = "";
@@ -844,6 +949,13 @@ app.delete("/api/spoc/final-teams/:id", async (req, res) => {
     }
 
     broadcastUpdate("final_teams_updated", { action: "deleted", team_id: id });
+    logAudit({
+      action: "DELETE_FINAL_TEAM",
+      entityId: id,
+      entityName: teamName,
+      details: { ministry, member_count: memberIds.length },
+      ip,
+    });
     return res.json({ success: true });
   } catch (err) {
     return res.status(500).json({ error: err.message });

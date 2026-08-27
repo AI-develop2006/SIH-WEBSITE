@@ -12,6 +12,7 @@ import {
   Bell,
   LogOut,
   X,
+  BookOpen,
 } from "lucide-react";
 import * as data from "@/lib/data";
 import { cn, computeStats } from "@/lib/utils";
@@ -29,6 +30,7 @@ import { DEPARTMENTS, YEARS, LANGUAGE_OPTIONS, HARDWARE_ROLES, SOFTWARE_ROLES, O
 import { OutdatedMinistryBadge } from "@/components/common/OutdatedMinistryBadge";
 import { fetchNotifications, markNotificationRead, markAllNotificationsRead, fetchMyFinalTeam, subscribeToPairTeamEvents, subscribeToFinalTeamEvents, updateRegisterNo } from "@/lib/data";
 import { NewMinistryBadge } from "@/components/common/NewMinistryBadge";
+import { ProblemStatementsSection } from "@/components/dashboard/ProblemStatementsSection";
 
 function ensureHttp(url) {
   if (!url) return "";
@@ -898,6 +900,11 @@ export default function DashboardPage() {
             </Card>
           </div>
         </div>
+
+        {/* ── Problem Statements — full width below the grid on desktop ── */}
+        <div className="mt-2">
+          <ProblemStatementsSection myFinalTeam={myFinalTeam} />
+        </div>
       </div>
 
       {/* Mobile Tabbed Layout (Screens < 1024px) */}
@@ -1084,6 +1091,12 @@ export default function DashboardPage() {
         )}
       </div>
 
+        {activeTab === 'problems' && (
+          <div className="animate-page-enter space-y-5 pb-4">
+            <ProblemStatementsSection myFinalTeam={myFinalTeam} />
+          </div>
+        )}
+
       {/* Mobile Bottom Navigation Tab Bar */}
       <div className="fixed bottom-0 inset-x-0 z-40 border-t border-[rgba(201,162,39,0.18)] bg-card/95 backdrop-blur-md py-2 px-6 flex items-center justify-between lg:hidden shadow-[0_-8px_24px_rgba(0,0,0,0.4)]">
         <button
@@ -1133,6 +1146,18 @@ export default function DashboardPage() {
           <Bell className="size-5" strokeWidth={2} />
           {(announcement || notifications.some((n) => !n.read)) && <span className="absolute top-1.5 right-3 size-1.5 rounded-full bg-rose-500 animate-pulse" />}
           <span className="text-[10px] font-bold">Notifications</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('problems')}
+          className={cn(
+            "flex flex-col items-center justify-center gap-1 text-center transition-colors relative",
+            activeTab === 'problems' ? "text-primary" : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <BookOpen className="size-5" strokeWidth={2} />
+          <span className="text-[10px] font-bold">Problems</span>
         </button>
 
         <button

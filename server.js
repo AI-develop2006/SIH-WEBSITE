@@ -2050,15 +2050,20 @@ app.get("/api/spoc/my-final-team", async (req, res) => {
   }
 });
 
-// PATCH /api/spoc/select-ps — any authenticated team member can set/clear
-// the selected_ps_number on their own final team.
-// Body: { ps_number: "SIH26042" }  (null or omit to clear)
-app.patch("/api/spoc/select-ps", async (req, res) => {
-  const authHeader = req.headers.authorization;
+// PATCH /api/spoc/select-ps — any authenticated team member can set the
+// selected_ps_number on their own final team. Once a PS is confirmed it
+// CANNOT be changed — this is enforced here on the backend.
+// Body: { ps_number: "SIH26042" }
+app.patch("/api/spoc/select-ps", async (req, res) => {  const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith("Bearer ")) return res.status(401).json({ error: "Not signed in" });
   const token = authHeader.split(" ")[1];
 
-  const { ps_number } = req.body; // null to clear
+  const { ps_number } = req.body;
+
+  // ps_number is required — clearing is no longer allowed once set
+  if (!ps_number || typeof ps_number !== "string" || !ps_number.trim()) {
+    return res.status(400).json({ error: "ps_number is required" });
+  }
 
   try {
     // Resolve caller's user id
@@ -2074,24 +2079,36 @@ app.patch("/api/spoc/select-ps", async (req, res) => {
     // Find the final team this user belongs to
     let teamId = null;
     let teamName = null;
+    let existingPs = null;
     if (process.env.DATABASE_URL) {
       const { rows } = await dbQuery(
-        `SELECT id, name FROM public.spoc_final_teams WHERE $1 = ANY(member_ids) LIMIT 1`,
+        `SELECT id, name, selected_ps_number FROM public.spoc_final_teams WHERE $1 = ANY(member_ids) LIMIT 1`,
         [userId]
       );
       if (!rows[0]) return res.status(404).json({ error: "You are not in any final team" });
-      teamId   = rows[0].id;
-      teamName = rows[0].name;
+      teamId     = rows[0].id;
+      teamName   = rows[0].name;
+      existingPs = rows[0].selected_ps_number ?? null;
     } else if (supabase) {
       const { data } = await supabase
         .from("spoc_final_teams")
-        .select("id, name")
+        .select("id, name, selected_ps_number")
         .contains("member_ids", [userId])
         .limit(1)
         .maybeSingle();
       if (!data) return res.status(404).json({ error: "You are not in any final team" });
-      teamId   = data.id;
-      teamName = data.name;
+      teamId     = data.id;
+      teamName   = data.name;
+      existingPs = data.selected_ps_number ?? null;
+    }
+
+    // ── Lock: once a PS is confirmed it cannot be changed ────────────────────
+    if (existingPs) {
+      return res.status(409).json({
+        error: "Problem statement already confirmed",
+        message: `Your team has already locked in PS ${existingPs}. Problem statements cannot be changed after confirmation.`,
+        locked_ps: existingPs,
+      });
     }
 
     // Update selected_ps_number
@@ -2101,13 +2118,13 @@ app.patch("/api/spoc/select-ps", async (req, res) => {
         `UPDATE public.spoc_final_teams
          SET selected_ps_number = $1, updated_at = now()
          WHERE id = $2 RETURNING *;`,
-        [ps_number ?? null, teamId]
+        [ps_number.trim(), teamId]
       );
       updated = rows[0];
     } else if (supabase) {
       const { data, error } = await supabase
         .from("spoc_final_teams")
-        .update({ selected_ps_number: ps_number ?? null, updated_at: new Date().toISOString() })
+        .update({ selected_ps_number: ps_number.trim(), updated_at: new Date().toISOString() })
         .eq("id", teamId)
         .select().single();
       if (error) return res.status(500).json({ error: error.message });
@@ -2115,11 +2132,119 @@ app.patch("/api/spoc/select-ps", async (req, res) => {
     }
 
     // Broadcast so SPOC/participant dashboards refresh
-    broadcastPairTeamUpdate("ps_selected", { team_id: teamId, ps_number: ps_number ?? null });
+    broadcastPairTeamUpdate("ps_selected", { team_id: teamId, ps_number: ps_number.trim() });
 
     return res.json({ data: updated });
   } catch (err) {
     console.error("[/api/spoc/select-ps] Error:", err.message);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// PATCH /api/spoc/submit-custom-ps — for AICTE (Open Innovation) teams only.
+// Instead of picking from the official PS list, the team writes their own
+// problem statement title. Stored in custom_ps_title on spoc_final_teams.
+// Once confirmed it cannot be changed (same lock semantics as select-ps).
+// Body: { custom_title: "Our innovative idea description..." }
+app.patch("/api/spoc/submit-custom-ps", async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith("Bearer ")) return res.status(401).json({ error: "Not signed in" });
+  const token = authHeader.split(" ")[1];
+
+  const { custom_title } = req.body;
+
+  if (!custom_title || typeof custom_title !== "string" || !custom_title.trim()) {
+    return res.status(400).json({ error: "custom_title is required" });
+  }
+  if (custom_title.trim().length < 10) {
+    return res.status(400).json({ error: "Problem statement title must be at least 10 characters" });
+  }
+  if (custom_title.trim().length > 500) {
+    return res.status(400).json({ error: "Problem statement title cannot exceed 500 characters" });
+  }
+
+  try {
+    // Resolve caller's user id
+    let userId = null;
+    if (supabase) {
+      const { data: { user }, error } = await supabase.auth.getUser(token);
+      if (error || !user) return res.status(401).json({ error: "Invalid token" });
+      userId = user.id;
+    } else {
+      return res.status(500).json({ error: "Auth not configured" });
+    }
+
+    // Find the final team this user belongs to
+    let teamId = null;
+    let teamName = null;
+    let existingCustomTitle = null;
+    let ministry = null;
+    if (process.env.DATABASE_URL) {
+      const { rows } = await dbQuery(
+        `SELECT id, name, ministry, custom_ps_title FROM public.spoc_final_teams WHERE $1 = ANY(member_ids) LIMIT 1`,
+        [userId]
+      );
+      if (!rows[0]) return res.status(404).json({ error: "You are not in any final team" });
+      teamId            = rows[0].id;
+      teamName          = rows[0].name;
+      ministry          = rows[0].ministry ?? "";
+      existingCustomTitle = rows[0].custom_ps_title ?? null;
+    } else if (supabase) {
+      const { data } = await supabase
+        .from("spoc_final_teams")
+        .select("id, name, ministry, custom_ps_title")
+        .contains("member_ids", [userId])
+        .limit(1)
+        .maybeSingle();
+      if (!data) return res.status(404).json({ error: "You are not in any final team" });
+      teamId              = data.id;
+      teamName            = data.name;
+      ministry            = data.ministry ?? "";
+      existingCustomTitle = data.custom_ps_title ?? null;
+    }
+
+    // Only AICTE (Open Innovation) teams may use this endpoint
+    if (!ministry.toLowerCase().includes("aicte")) {
+      return res.status(403).json({
+        error: "This endpoint is only available for AICTE (Open Innovation) teams",
+      });
+    }
+
+    // Lock: once confirmed it cannot be changed
+    if (existingCustomTitle) {
+      return res.status(409).json({
+        error: "Problem statement already confirmed",
+        message: "Your team has already locked in a custom problem statement. It cannot be changed after confirmation.",
+        locked_title: existingCustomTitle,
+      });
+    }
+
+    // Save the custom title
+    let updated = null;
+    if (process.env.DATABASE_URL) {
+      const { rows } = await dbQuery(
+        `UPDATE public.spoc_final_teams
+         SET custom_ps_title = $1, updated_at = now()
+         WHERE id = $2 RETURNING *;`,
+        [custom_title.trim(), teamId]
+      );
+      updated = rows[0];
+    } else if (supabase) {
+      const { data, error } = await supabase
+        .from("spoc_final_teams")
+        .update({ custom_ps_title: custom_title.trim(), updated_at: new Date().toISOString() })
+        .eq("id", teamId)
+        .select().single();
+      if (error) return res.status(500).json({ error: error.message });
+      updated = data;
+    }
+
+    // Broadcast so SPOC/participant dashboards refresh
+    broadcastPairTeamUpdate("custom_ps_submitted", { team_id: teamId, custom_title: custom_title.trim() });
+
+    return res.json({ data: updated });
+  } catch (err) {
+    console.error("[/api/spoc/submit-custom-ps] Error:", err.message);
     return res.status(500).json({ error: err.message });
   }
 });

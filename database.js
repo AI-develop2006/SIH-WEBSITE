@@ -56,6 +56,8 @@ export async function runMigrations() {
       ALTER TABLE public.team_members ADD COLUMN IF NOT EXISTS assigned_skill text DEFAULT NULL;
       ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS ministry text DEFAULT NULL;
       ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS created_by_dept text DEFAULT NULL;
+      ALTER TABLE public.spoc_final_teams ADD COLUMN IF NOT EXISTS selected_ps_number text DEFAULT NULL;
+      ALTER TABLE public.spoc_final_teams ADD COLUMN IF NOT EXISTS custom_ps_title text DEFAULT NULL;
     `);
 
     const { rows } = await client.query(`SELECT version FROM public._schema_migrations;`);

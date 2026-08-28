@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Download, Users, CheckCircle2, UserX, Filter, X } from "lucide-react";
+import { Download, Users, CheckCircle2, UserX, Filter, X, Cpu, Code2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DEPT_CODE } from "@/lib/constants";
 import { SIH2026_PROBLEMS } from "@/lib/sih2026Problems";
@@ -86,11 +86,27 @@ export function DeptRosterView({ allProfiles = [], pairTeams = [], finalTeams = 
   }, [students]);
 
   // ── Filter state ─────────────────────────────────────────────────────────
-  const [dept, setDept]       = useState("");
-  const [year, setYear]       = useState("");
-  const [section, setSection] = useState("");
-  const [gender, setGender]   = useState("");
-  const [status, setStatus]   = useState(""); // "" | "profile_only" | "pair_team" | "final_team"
+  const [dept, setDept]           = useState("");
+  const [year, setYear]           = useState("");
+  const [section, setSection]     = useState("");
+  const [gender, setGender]       = useState("");
+  const [status, setStatus]       = useState(""); // "" | "profile_only" | "pair_team" | "final_team"
+  const [psCategory, setPsCategory] = useState(""); // "" | "Software" | "Hardware" | "open"
+
+  // ── PS info lookup (psNumber → {category, title}) ─────────────────────────
+  const psInfoMap = useMemo(
+    () => new Map(SIH2026_PROBLEMS.map((p) => [p.psNumber, p])),
+    []
+  );
+
+  // Helper: get the PS category for a student
+  const getPsCategory = (studentId) => {
+    const psNum   = selectedPsByMemberId.get(studentId);
+    const customPs = customPsByMemberId.get(studentId);
+    if (psNum) return psInfoMap.get(psNum)?.category ?? null;
+    if (customPs) return "open"; // Open Innovation (AICTE)
+    return null;
+  };
 
   // Unique sections (scoped to selected dept for relevance)
   const sections = useMemo(() => {
@@ -117,9 +133,15 @@ export function DeptRosterView({ allProfiles = [], pairTeams = [], finalTeams = 
         if (status === "profile_only" && (inFinal || inPair)) return false;
       }
 
+      if (psCategory) {
+        const cat = getPsCategory(s.id);
+        if (psCategory === "none"     && cat !== null) return false;
+        if (psCategory !== "none"     && cat !== psCategory) return false;
+      }
+
       return true;
     });
-  }, [students, dept, year, section, gender, status, finalTeamByMemberId, inPairTeam]);
+  }, [students, dept, year, section, gender, status, psCategory, finalTeamByMemberId, inPairTeam, selectedPsByMemberId, customPsByMemberId, psInfoMap]);
 
   // ── Counts for stat chips ─────────────────────────────────────────────────
   const counts = useMemo(() => {
@@ -131,6 +153,34 @@ export function DeptRosterView({ allProfiles = [], pairTeams = [], finalTeams = 
       profileOnly:  base.filter((s) => !finalTeamByMemberId.has(s.id) && !inPairTeam.has(s.id)).length,
     };
   }, [students, dept, finalTeamByMemberId, inPairTeam]);
+
+  // ── PS category counts (scoped to current dept+status filter baseline) ────
+  // Count students who have confirmed a PS of each category.
+  // Scoped to the base population (dept + status applied, psCategory NOT applied)
+  // so the chips always show meaningful counts relative to the current view.
+  const psCounts = useMemo(() => {
+    const base = students.filter((s) => {
+      if (dept   && s.department !== dept) return false;
+      if (year   && s.year !== year) return false;
+      if (section && (s.section ?? "").toUpperCase() !== section) return false;
+      if (gender && s.gender !== gender) return false;
+      if (status) {
+        const inFinal = finalTeamByMemberId.has(s.id);
+        const inPair  = inPairTeam.has(s.id);
+        if (status === "final_team"   && !inFinal) return false;
+        if (status === "pair_team"    && (inFinal || !inPair)) return false;
+        if (status === "profile_only" && (inFinal || inPair)) return false;
+      }
+      return true;
+    });
+    return {
+      all:      base.length,
+      software: base.filter((s) => getPsCategory(s.id) === "Software").length,
+      hardware: base.filter((s) => getPsCategory(s.id) === "Hardware").length,
+      open:     base.filter((s) => getPsCategory(s.id) === "open").length,
+      none:     base.filter((s) => getPsCategory(s.id) === null).length,
+    };
+  }, [students, dept, year, section, gender, status, finalTeamByMemberId, inPairTeam, selectedPsByMemberId, customPsByMemberId, psInfoMap]);
 
   // ── CSV Export ────────────────────────────────────────────────────────────
   function exportCsv() {
@@ -166,7 +216,7 @@ export function DeptRosterView({ allProfiles = [], pairTeams = [], finalTeams = 
     const a    = document.createElement("a");
     a.href     = url;
     const deptPart = dept ? `_${deptLabel(dept)}` : "";
-    const filters  = [year, section, gender, status].filter(Boolean).join("_");
+    const filters  = [year, section, gender, status, psCategory].filter(Boolean).join("_");
     a.download = `dept_roster${deptPart}${filters ? "_" + filters : ""}.csv`;
     a.click();
     URL.revokeObjectURL(url);
@@ -193,7 +243,7 @@ export function DeptRosterView({ allProfiles = [], pairTeams = [], finalTeams = 
     );
   }
 
-  const hasFilters = dept || year || section || gender || status;
+  const hasFilters = dept || year || section || gender || status || psCategory;
 
   return (
     <div className="space-y-5">
@@ -206,7 +256,7 @@ export function DeptRosterView({ allProfiles = [], pairTeams = [], finalTeams = 
           {hasFilters && (
             <button
               type="button"
-              onClick={() => { setDept(""); setYear(""); setSection(""); setGender(""); setStatus(""); }}
+              onClick={() => { setDept(""); setYear(""); setSection(""); setGender(""); setStatus(""); setPsCategory(""); }}
               className="ml-auto flex items-center gap-1 text-[10px] text-[#94a3b8] hover:text-white transition-colors"
             >
               <X className="size-3" /> Clear all
@@ -296,6 +346,63 @@ export function DeptRosterView({ allProfiles = [], pairTeams = [], finalTeams = 
             </button>
           ))}
         </div>
+
+        {/* PS Category filter chips */}
+        <div className="border-t border-[rgba(147,197,253,0.08)] pt-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#94a3b8]">PS Category</span>
+            <span className="text-[9px] text-[#94a3b8]/50">— filter by confirmed problem statement type</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {[
+              {
+                id: "",
+                label: `All (${psCounts.all})`,
+                icon: null,
+                cls: "bg-[#c9a227]/20 border-[#c9a227]/40 text-[#e8c058]",
+              },
+              {
+                id: "Software",
+                label: `Software (${psCounts.software})`,
+                icon: <Code2 className="size-3 shrink-0" />,
+                cls: "bg-blue-500/20 border-blue-500/40 text-blue-300",
+              },
+              {
+                id: "Hardware",
+                label: `Hardware (${psCounts.hardware})`,
+                icon: <Cpu className="size-3 shrink-0" />,
+                cls: "bg-orange-500/20 border-orange-500/40 text-orange-300",
+              },
+              {
+                id: "open",
+                label: `Open Innovation (${psCounts.open})`,
+                icon: <span className="text-[10px]">✨</span>,
+                cls: "bg-amber-500/20 border-amber-500/40 text-amber-300",
+              },
+              {
+                id: "none",
+                label: `No PS Yet (${psCounts.none})`,
+                icon: null,
+                cls: "bg-slate-500/20 border-slate-500/40 text-slate-400",
+              },
+            ].map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => setPsCategory(f.id)}
+                className={cn(
+                  "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold border transition-all cursor-pointer",
+                  psCategory === f.id
+                    ? f.cls
+                    : "bg-transparent border-[rgba(147,197,253,0.14)] text-[#94a3b8] hover:border-[rgba(147,197,253,0.3)] hover:text-white"
+                )}
+              >
+                {f.icon}
+                {f.label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* ── Results header ───────────────────────────────────────────────── */}
@@ -309,6 +416,10 @@ export function DeptRosterView({ allProfiles = [], pairTeams = [], finalTeams = 
               in {deptLabel(dept)}
             </span>
           )}
+          {psCategory === "Software" && <span className="ml-1 text-blue-300 font-semibold">· Software PS</span>}
+          {psCategory === "Hardware" && <span className="ml-1 text-orange-300 font-semibold">· Hardware PS</span>}
+          {psCategory === "open"     && <span className="ml-1 text-amber-300 font-semibold">· Open Innovation</span>}
+          {psCategory === "none"     && <span className="ml-1 text-slate-400 font-semibold">· No PS chosen</span>}
         </p>
         <button
           type="button"
@@ -319,6 +430,72 @@ export function DeptRosterView({ allProfiles = [], pairTeams = [], finalTeams = 
           <Download className="size-3.5" />
           Export CSV
         </button>
+      </div>
+
+      {/* ── PS category summary pills ─────────────────────────────────────── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {[
+          {
+            label: "Software PS",
+            value: psCounts.software,
+            icon: <Code2 className="size-3.5 text-blue-400 shrink-0" />,
+            color: "text-blue-300",
+            bg: "border-blue-500/20 bg-blue-500/8",
+            active: psCategory === "Software",
+            id: "Software",
+          },
+          {
+            label: "Hardware PS",
+            value: psCounts.hardware,
+            icon: <Cpu className="size-3.5 text-orange-400 shrink-0" />,
+            color: "text-orange-300",
+            bg: "border-orange-500/20 bg-orange-500/8",
+            active: psCategory === "Hardware",
+            id: "Hardware",
+          },
+          {
+            label: "Open Innovation",
+            value: psCounts.open,
+            icon: <span className="text-sm shrink-0">✨</span>,
+            color: "text-amber-300",
+            bg: "border-amber-500/20 bg-amber-500/8",
+            active: psCategory === "open",
+            id: "open",
+          },
+          {
+            label: "No PS Yet",
+            value: psCounts.none,
+            icon: null,
+            color: "text-[#94a3b8]",
+            bg: "border-[rgba(147,197,253,0.10)] bg-[#0a1226]/40",
+            active: psCategory === "none",
+            id: "none",
+          },
+        ].map((s) => (
+          <button
+            key={s.id}
+            type="button"
+            onClick={() => setPsCategory(psCategory === s.id ? "" : s.id)}
+            className={cn(
+              "rounded-2xl border p-3 text-left transition-all cursor-pointer",
+              s.bg,
+              s.active && "ring-2 ring-[#c9a227]/30 scale-[1.02]"
+            )}
+          >
+            <div className="flex items-center gap-1.5 mb-1">
+              {s.icon}
+              <span className="text-[10px] font-bold uppercase tracking-wide text-[#94a3b8]">
+                {s.label}
+              </span>
+            </div>
+            <p className={cn("text-2xl font-black tabular-nums", s.color)}>{s.value}</p>
+            <p className="text-[9px] text-[#94a3b8]/60 mt-0.5">
+              {psCounts.all > 0
+                ? `${Math.round((s.value / psCounts.all) * 100)}% of ${psCounts.all}`
+                : "—"}
+            </p>
+          </button>
+        ))}
       </div>
 
       {/* ── Table ────────────────────────────────────────────────────────── */}

@@ -27,6 +27,9 @@ import {
   Sliders,
   Activity,
   Wrench,
+  ListChecks,
+  Search,
+  X,
 } from "lucide-react";
 import * as data from "@/lib/data";
 import { downloadCsv, downloadXlsx, deptToAbbr } from "@/lib/utils";
@@ -45,6 +48,180 @@ import { MonitoringView } from "./MonitoringView";
 import { MINISTRIES, OUTDATED_MINISTRIES } from "@/lib/constants";
 import { OutdatedMinistryBadge } from "@/components/common/OutdatedMinistryBadge";
 import { NewMinistryBadge } from "@/components/common/NewMinistryBadge";
+import { SIH2026_PROBLEMS } from "@/lib/sih2026Problems";
+
+// ─── Admin Final Teams View ───────────────────────────────────────────────────
+// Read-only table of all SPOC final teams, including the selected problem statement.
+function AdminFinalTeamsView({ finalTeams, onRefresh }) {
+  const [search, setSearch] = useState("");
+  const [ministryFilter, setMinistryFilter] = useState("all");
+  const [psFilter, setPsFilter] = useState("all"); // "all" | "selected" | "none"
+
+  const allMinistries = useMemo(() => {
+    const s = new Set(finalTeams.map((ft) => ft.ministry).filter(Boolean));
+    return [...s].sort();
+  }, [finalTeams]);
+
+  const psMap = useMemo(() => new Map(SIH2026_PROBLEMS.map((p) => [p.psNumber, p])), []);
+
+  const filtered = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    return finalTeams.filter((ft) => {
+      if (ministryFilter !== "all" && ft.ministry !== ministryFilter) return false;
+      if (psFilter === "selected" && !ft.selected_ps_number) return false;
+      if (psFilter === "none" && ft.selected_ps_number) return false;
+      if (needle) {
+        const hay = [ft.name, ft.ministry ?? "", ft.selected_ps_number ?? ""].join(" ").toLowerCase();
+        if (!hay.includes(needle)) return false;
+      }
+      return true;
+    });
+  }, [finalTeams, search, ministryFilter, psFilter]);
+
+  const selectedCount = finalTeams.filter((ft) => ft.selected_ps_number).length;
+
+  return (
+    <div className="space-y-4">
+      {/* Stats */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        {[
+          { label: "Total Final Teams",      value: finalTeams.length,    color: "text-white"         },
+          { label: "PS Selected",            value: selectedCount,         color: "text-violet-400"    },
+          { label: "Awaiting PS Selection",  value: finalTeams.length - selectedCount, color: "text-amber-400" },
+        ].map((s) => (
+          <div key={s.label} className="rounded-2xl border border-border/30 bg-card/40 p-4">
+            <p className={cn("text-2xl font-black", s.color)}>{s.value}</p>
+            <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wide mt-0.5">{s.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-2.5">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Search team name, ministry, PS number…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full rounded-xl border border-border/40 bg-card/40 pl-9 pr-8 py-2 text-xs text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50 transition-all"
+          />
+          {search && (
+            <button type="button" onClick={() => setSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+              <X className="size-3.5" />
+            </button>
+          )}
+        </div>
+        <select
+          value={ministryFilter}
+          onChange={(e) => setMinistryFilter(e.target.value)}
+          className="rounded-xl border border-border/40 bg-card/40 px-3 py-2 text-xs text-foreground focus:outline-none focus:border-primary/50 cursor-pointer min-w-[180px]"
+        >
+          <option value="all">All Ministries</option>
+          {allMinistries.map((m) => <option key={m} value={m}>{m}</option>)}
+        </select>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {[
+            { id: "all",      label: "All" },
+            { id: "selected", label: "✓ PS Chosen" },
+            { id: "none",     label: "No PS" },
+          ].map((f) => (
+            <button
+              key={f.id}
+              type="button"
+              onClick={() => setPsFilter(f.id)}
+              className={cn(
+                "px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer",
+                psFilter === f.id
+                  ? f.id === "selected"
+                    ? "bg-violet-500/20 border-violet-500/40 text-violet-300"
+                    : f.id === "none"
+                    ? "bg-amber-500/20 border-amber-500/40 text-amber-300"
+                    : "bg-primary/20 border-primary/40 text-primary"
+                  : "bg-card/30 border-border/30 text-muted-foreground hover:text-foreground hover:border-border/60"
+              )}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Table */}
+      {filtered.length === 0 ? (
+        <div className="py-16 text-center rounded-2xl border border-border/20 bg-card/10 text-sm text-muted-foreground">
+          No final teams match your filters.
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-border/30 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs text-left">
+              <thead>
+                <tr className="border-b border-border/30 bg-card/60 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  <th className="px-4 py-3">#</th>
+                  <th className="px-4 py-3">Team Name</th>
+                  <th className="px-4 py-3">Ministry</th>
+                  <th className="px-4 py-3">Members</th>
+                  <th className="px-4 py-3">Selected PS</th>
+                  <th className="px-4 py-3">Problem Statement Title</th>
+                  <th className="px-4 py-3">Category</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((ft, idx) => {
+                  const ps = ft.selected_ps_number ? psMap.get(ft.selected_ps_number) : null;
+                  return (
+                    <tr key={ft.id} className={cn(
+                      "border-b border-border/20 last:border-0 transition-colors hover:bg-muted/10",
+                      ps && "bg-violet-500/5"
+                    )}>
+                      <td className="px-4 py-3 text-muted-foreground tabular-nums">{idx + 1}</td>
+                      <td className="px-4 py-3 font-semibold text-foreground">{ft.name}</td>
+                      <td className="px-4 py-3 text-muted-foreground max-w-[200px]">
+                        <span className="line-clamp-2 leading-snug">{ft.ministry ?? <span className="opacity-40">—</span>}</span>
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground tabular-nums">
+                        {(ft.member_ids || []).length}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        {ft.selected_ps_number ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-extrabold font-mono px-2 py-0.5 rounded-full border border-violet-500/40 bg-violet-500/15 text-violet-300">
+                            <CheckCircle2 className="size-2.5 shrink-0" />
+                            {ft.selected_ps_number}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-amber-500/70 font-semibold">Not selected</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 max-w-[360px]">
+                        {ps ? (
+                          <span className="text-xs text-foreground leading-snug line-clamp-2">{ps.title}</span>
+                        ) : <span className="text-muted-foreground/40">—</span>}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        {ps ? (
+                          <span className={cn(
+                            "text-[10px] font-bold px-2 py-0.5 rounded-full border",
+                            ps.category === "Software"
+                              ? "border-blue-500/30 bg-blue-500/10 text-blue-300"
+                              : "border-orange-500/30 bg-orange-500/10 text-orange-300"
+                          )}>
+                            {ps.category === "Software" ? "SW" : "HW"}
+                          </span>
+                        ) : null}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function AdminPage() {
   const navigate = useNavigate();
@@ -499,6 +676,7 @@ export default function AdminPage() {
   const TABS = [
     { key: "students",      label: "Students",      shortLabel: "Students",  icon: Users,       count: isFiltered ? students.length : totalStudents },
     { key: "teams",         label: "Teams",         shortLabel: "Teams",     icon: UsersRound,  count: teams.length },
+    { key: "final-teams",   label: "Final Teams",   shortLabel: "Finals",    icon: ListChecks,  count: finalTeams.length },
     { key: "monitoring",    label: "Monitoring",    shortLabel: "Monitor",   icon: Activity },
     { key: "problems",      label: "Problems",      shortLabel: "Problems",  icon: FileText },
     { key: "timeline",      label: "Timeline",      shortLabel: "Timeline",  icon: CalendarDays },
@@ -656,6 +834,10 @@ export default function AdminPage() {
 
           {tab === "seats" && (
             <MinistrySeatsView />
+          )}
+
+          {tab === "final-teams" && (
+            <AdminFinalTeamsView finalTeams={finalTeams} onRefresh={load} />
           )}
 
           {tab === "spoc" && (

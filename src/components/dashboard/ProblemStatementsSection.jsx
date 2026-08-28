@@ -1,9 +1,15 @@
 import { useState, useMemo, useCallback } from "react";
-import { BookOpen, Filter, Search, X, ExternalLink, Cpu, Code2, Download, Presentation, Clock, CalendarDays, Building2, CheckCircle2 } from "lucide-react";
+import { BookOpen, Filter, Search, X, ExternalLink, Cpu, Code2, Download, Presentation, Clock, CalendarDays, Building2, CheckCircle2, AlertTriangle, Lock, Pencil, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SIH2026_PROBLEMS } from "@/lib/sih2026Problems";
 import { SIH2026ProblemsView } from "@/components/common/SIH2026ProblemsView";
-import { selectFinalTeamPs } from "@/lib/data";
+import { selectFinalTeamPs, submitCustomPs } from "@/lib/data";
+
+// AICTE ministry name (Open Innovation) — any ministry containing "aicte" triggers custom PS mode
+const AICTE_MINISTRY = "AICTE";
+function isOpenInnovationMinistry(ministry) {
+  return ministry?.toLowerCase().includes("aicte") ?? false;
+}
 
 // ─── Ministry-filtered sub-view ───────────────────────────────────────────────
 const THEME_COLOR = {
@@ -106,6 +112,189 @@ function resolveMinistryOrgs(ministry) {
 
 const PPTX_PATH = "/SIH2026-IDEA-Presentation-Format.pptx";
 
+// ─── Open Innovation view (AICTE) ────────────────────────────────────────────
+// For teams assigned to AICTE, there are no pre-defined problem statements.
+// Instead the team writes their own problem statement title.
+function OpenInnovationView({ ministry, lockedTitle, onSubmit, submitting }) {
+  const [draft, setDraft] = useState(lockedTitle ?? "");
+  const [showConfirm, setShowConfirm] = useState(false);
+  const charCount = draft.trim().length;
+  const isValid   = charCount >= 10 && charCount <= 500;
+
+  // If already locked, show read-only view
+  if (lockedTitle) {
+    return (
+      <div className="space-y-4">
+        {/* Ministry banner */}
+        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/8 px-5 py-3.5 flex items-center gap-3">
+          <Building2 className="size-5 text-emerald-400 shrink-0" />
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">Your Ministry</p>
+            <p className="text-sm font-extrabold text-white truncate">{ministry}</p>
+          </div>
+          <span className="ml-auto text-xs font-extrabold px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 shrink-0 flex items-center gap-1">
+            <Sparkles className="size-3 shrink-0" /> Open Innovation
+          </span>
+        </div>
+
+        {/* Confirmed custom PS */}
+        <div className="rounded-2xl border border-violet-500/40 bg-violet-500/10 px-5 py-4 flex items-start gap-3">
+          <Lock className="size-5 text-violet-400 shrink-0 mt-0.5" />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap mb-1">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-violet-400">
+                Your Team's Confirmed Problem Statement
+              </p>
+              <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-full bg-red-500/15 border border-red-500/30 text-red-300">
+                🔒 Locked
+              </span>
+            </div>
+            <span className="inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 mb-2">
+              <Sparkles className="size-3 shrink-0" /> Open Innovation · AICTE
+            </span>
+            <p className="text-sm font-semibold text-white leading-relaxed">{lockedTitle}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Ministry banner */}
+      <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/8 px-5 py-3.5 flex items-center gap-3">
+        <Building2 className="size-5 text-emerald-400 shrink-0" />
+        <div className="min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">Your Ministry</p>
+          <p className="text-sm font-extrabold text-white truncate">{ministry}</p>
+        </div>
+        <span className="ml-auto text-xs font-extrabold px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 shrink-0 flex items-center gap-1">
+          <Sparkles className="size-3 shrink-0" /> Open Innovation
+        </span>
+      </div>
+
+      {/* Explanation card */}
+      <div className="rounded-2xl border border-amber-500/30 bg-amber-500/8 px-5 py-4 space-y-2">
+        <div className="flex items-center gap-2">
+          <Sparkles className="size-4 text-amber-400 shrink-0" />
+          <p className="text-sm font-extrabold text-white">Open Innovation — Write Your Own Problem Statement</p>
+        </div>
+        <p className="text-xs text-amber-200/80 leading-relaxed">
+          AICTE falls under the <span className="font-bold text-white">Open Innovation</span> category. There are no pre-defined problem statements — your team defines its own.
+          Write a clear, meaningful title for the problem you are solving.
+        </p>
+        <p className="text-xs text-amber-200/60 leading-relaxed">
+          This will be visible to your SPOC and mentor. Once confirmed, it <span className="font-bold text-red-300">cannot be changed</span>.
+        </p>
+      </div>
+
+      {/* Input form */}
+      <div className="rounded-2xl border border-border/40 bg-card/30 p-4 space-y-3">
+        <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground">
+          Problem Statement Title <span className="text-red-400">*</span>
+        </label>
+        <textarea
+          rows={4}
+          placeholder="e.g. A smart waste management system that uses computer vision to classify and sort municipal solid waste in real time…"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          maxLength={500}
+          className="w-full rounded-xl border border-border/50 bg-card/60 px-4 py-3 text-sm text-white placeholder:text-muted-foreground/40 focus:outline-none focus:border-amber-500/50 transition-all resize-none leading-relaxed"
+        />
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <p className={cn(
+            "text-[10px] font-semibold",
+            charCount < 10 ? "text-red-400" :
+            charCount > 450 ? "text-amber-400" :
+            "text-muted-foreground"
+          )}>
+            {charCount}/500 characters
+            {charCount < 10 && charCount > 0 && " (minimum 10)"}
+          </p>
+          <button
+            type="button"
+            disabled={!isValid || submitting}
+            onClick={() => setShowConfirm(true)}
+            className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-xs transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow"
+          >
+            <Lock className="size-3.5 shrink-0" />
+            Confirm & Lock Problem Statement
+          </button>
+        </div>
+      </div>
+
+      {/* Confirmation dialog */}
+      {showConfirm && (
+        <div
+          className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+          onClick={() => setShowConfirm(false)}
+        >
+          <div
+            className="relative w-full max-w-md rounded-2xl border border-amber-500/50 bg-[#0d1421] p-6 shadow-2xl space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-start gap-3">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/15 border border-amber-500/30">
+                <AlertTriangle className="size-5 text-amber-400" />
+              </div>
+              <div>
+                <h3 className="text-base font-extrabold text-white">Confirm Open Innovation PS</h3>
+                <p className="text-xs text-amber-400 font-semibold mt-0.5">This action cannot be undone</p>
+              </div>
+            </div>
+
+            {/* Warning */}
+            <div className="rounded-xl border border-amber-500/25 bg-amber-500/8 px-4 py-3 space-y-1.5">
+              <p className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                <Lock className="size-3.5 shrink-0" /> ⚠️ Please read before confirming
+              </p>
+              <p className="text-xs text-amber-200/80 leading-relaxed">
+                Once confirmed, <span className="font-bold text-white">your entire team will be locked into this problem statement</span>. There is <span className="font-bold text-red-300">no way to change it</span> afterwards.
+              </p>
+              <p className="text-xs text-amber-200/80 leading-relaxed">
+                Make sure you have <span className="font-bold text-white">discussed and agreed with all your team members</span> before proceeding.
+              </p>
+            </div>
+
+            {/* Preview */}
+            <div className="rounded-xl border border-violet-500/30 bg-violet-500/8 px-4 py-3 space-y-1">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-violet-400">You are confirming</p>
+              <span className="inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300">
+                <Sparkles className="size-3 shrink-0" /> Open Innovation · AICTE
+              </span>
+              <p className="text-xs text-white leading-relaxed mt-1">{draft.trim()}</p>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center gap-3 pt-1">
+              <button
+                type="button"
+                onClick={() => setShowConfirm(false)}
+                className="flex-1 py-2.5 rounded-xl border border-border/50 text-xs font-bold text-muted-foreground hover:text-white hover:border-border/80 transition-all"
+              >
+                Cancel — Go Back
+              </button>
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={async () => {
+                  setShowConfirm(false);
+                  await onSubmit(draft.trim());
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+              >
+                <Lock className="size-3.5 shrink-0" />
+                Yes, Confirm & Lock
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /**
  * Shown when the participant is in a final SPOC team that has a ministry assigned.
  */
@@ -113,6 +302,9 @@ function MinistryProblemsView({ ministry, selectedPsNumber, onSelectPs, savingPs
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("all");
   const [themeFilter, setThemeFilter] = useState("all");
+  // Confirmation dialog state
+  const [pendingPs, setPendingPs] = useState(null); // the PS number waiting for confirmation
+  const isLocked = Boolean(selectedPsNumber); // once set, it's locked forever
 
   // Resolve the set of PS organization names that correspond to this ministry.
   // resolveMinistryOrgs handles acronym stripping, alias mapping, etc.
@@ -184,20 +376,25 @@ function MinistryProblemsView({ ministry, selectedPsNumber, onSelectPs, savingPs
         const selPs = SIH2026_PROBLEMS.find((p) => p.psNumber === selectedPsNumber);
         return selPs ? (
           <div className="rounded-2xl border border-violet-500/40 bg-violet-500/10 px-5 py-3.5 flex items-start gap-3">
-            <BookOpen className="size-5 text-violet-400 shrink-0 mt-0.5" />
+            <Lock className="size-5 text-violet-400 shrink-0 mt-0.5" />
             <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-violet-400 mb-0.5">Your Team's Selected Problem Statement</p>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-violet-400 mb-0.5">Your Team's Confirmed Problem Statement</p>
               <p className="text-[11px] font-extrabold text-white font-mono">{selPs.psNumber}</p>
               <p className="text-xs text-violet-200 leading-snug mt-0.5">{selPs.title}</p>
             </div>
-            <span className={cn(
-              "text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0",
-              selPs.category === "Software"
-                ? "border-blue-500/30 bg-blue-500/10 text-blue-300"
-                : "border-orange-500/30 bg-orange-500/10 text-orange-300"
-            )}>
-              {selPs.category === "Software" ? "SW" : "HW"}
-            </span>
+            <div className="flex flex-col items-end gap-1 shrink-0">
+              <span className={cn(
+                "text-[10px] font-bold px-2 py-0.5 rounded-full border",
+                selPs.category === "Software"
+                  ? "border-blue-500/30 bg-blue-500/10 text-blue-300"
+                  : "border-orange-500/30 bg-orange-500/10 text-orange-300"
+              )}>
+                {selPs.category === "Software" ? "SW" : "HW"}
+              </span>
+              <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-full bg-red-500/15 border border-red-500/30 text-red-300">
+                🔒 Locked
+              </span>
+            </div>
           </div>
         ) : null;
       })()}
@@ -334,19 +531,27 @@ function MinistryProblemsView({ ministry, selectedPsNumber, onSelectPs, savingPs
                     </td>
                     <td className="px-3 py-3 whitespace-nowrap">
                       {onSelectPs && (
-                        <button
-                          type="button"
-                          disabled={savingPs}
-                          onClick={() => onSelectPs(isSelected ? null : p.psNumber)}
-                          className={cn(
-                            "text-[10px] font-bold px-2.5 py-1 rounded-xl border transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed",
-                            isSelected
-                              ? "border-violet-500/40 bg-violet-500/15 text-violet-300 hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-300"
-                              : "border-border/30 bg-card/30 text-muted-foreground hover:border-violet-500/40 hover:bg-violet-500/10 hover:text-violet-300"
-                          )}
-                        >
-                          {isSelected ? "✓ Selected" : "Select"}
-                        </button>
+                        isLocked ? (
+                          /* PS is locked — show a muted lock icon in place of the button */
+                          isSelected ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-xl border border-violet-500/40 bg-violet-500/15 text-violet-300">
+                              <Lock className="size-3 shrink-0" /> Confirmed
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-muted-foreground/40 flex items-center gap-1">
+                              <Lock className="size-3 shrink-0" /> Locked
+                            </span>
+                          )
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={savingPs}
+                            onClick={() => setPendingPs(p.psNumber)}
+                            className="text-[10px] font-bold px-2.5 py-1 rounded-xl border transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed border-border/30 bg-card/30 text-muted-foreground hover:border-violet-500/40 hover:bg-violet-500/10 hover:text-violet-300"
+                          >
+                            Select
+                          </button>
+                        )
                       )}
                     </td>
                   </tr>
@@ -357,6 +562,91 @@ function MinistryProblemsView({ ministry, selectedPsNumber, onSelectPs, savingPs
           </div>
         </div>
       )}
+
+      {/* ── Confirmation Warning Dialog ─────────────────────────────────── */}
+      {pendingPs && (() => {
+        const ps = SIH2026_PROBLEMS.find((p) => p.psNumber === pendingPs);
+        return (
+          <div
+            className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+            onClick={() => setPendingPs(null)}
+          >
+            <div
+              className="relative w-full max-w-md rounded-2xl border border-amber-500/50 bg-[#0d1421] p-6 shadow-2xl space-y-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-start gap-3">
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/15 border border-amber-500/30">
+                  <AlertTriangle className="size-5 text-amber-400" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-white">Confirm Problem Statement</h3>
+                  <p className="text-xs text-amber-400 font-semibold mt-0.5">This action cannot be undone</p>
+                </div>
+              </div>
+
+              {/* Warning text */}
+              <div className="rounded-xl border border-amber-500/25 bg-amber-500/8 px-4 py-3 space-y-1.5">
+                <p className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                  <Lock className="size-3.5 shrink-0" />
+                  ⚠️ Please read before confirming
+                </p>
+                <p className="text-xs text-amber-200/80 leading-relaxed">
+                  Once you confirm this problem statement, <span className="font-bold text-white">your entire team will be locked into it</span>. There is <span className="font-bold text-red-300">no way to change it</span> afterwards.
+                </p>
+                <p className="text-xs text-amber-200/80 leading-relaxed">
+                  Make sure you have <span className="font-bold text-white">discussed this decision with all your team members</span> before proceeding.
+                </p>
+              </div>
+
+              {/* Selected PS preview */}
+              {ps && (
+                <div className="rounded-xl border border-violet-500/30 bg-violet-500/8 px-4 py-3 space-y-1">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-violet-400">You are confirming</p>
+                  <p className="text-sm font-extrabold text-white font-mono">{ps.psNumber}</p>
+                  <p className="text-xs text-violet-200 leading-snug">{ps.title}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className={cn(
+                      "text-[9px] font-bold px-2 py-0.5 rounded-full border",
+                      ps.category === "Software"
+                        ? "border-blue-500/30 bg-blue-500/10 text-blue-300"
+                        : "border-orange-500/30 bg-orange-500/10 text-orange-300"
+                    )}>
+                      {ps.category}
+                    </span>
+                    <span className="text-[9px] text-muted-foreground">{ps.organization}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex items-center gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setPendingPs(null)}
+                  className="flex-1 py-2.5 rounded-xl border border-border/50 text-xs font-bold text-muted-foreground hover:text-white hover:border-border/80 transition-all"
+                >
+                  Cancel — Go Back
+                </button>
+                <button
+                  type="button"
+                  disabled={savingPs}
+                  onClick={async () => {
+                    const ps = pendingPs;
+                    setPendingPs(null);
+                    await onSelectPs(ps);
+                  }}
+                  className="flex-1 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-extrabold text-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+                >
+                  <Lock className="size-3.5 shrink-0" />
+                  Yes, Confirm & Lock
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -375,22 +665,40 @@ function MinistryProblemsView({ ministry, selectedPsNumber, onSelectPs, savingPs
 export function ProblemStatementsSection({ myFinalTeam, onFinalTeamUpdated }) {
   const ministry         = myFinalTeam?.ministry ?? null;
   const selectedPsNumber = myFinalTeam?.selected_ps_number ?? null;
+  const customPsTitle    = myFinalTeam?.custom_ps_title ?? null;
   const hasMinistry      = Boolean(ministry);
-  const [savingPs, setSavingPs] = useState(false);
+  const isAicte          = isOpenInnovationMinistry(ministry);
+  const [savingPs, setSavingPs]   = useState(false);
+  const [psError, setPsError]     = useState(null);
 
   // Default to ministry tab if they have one, otherwise all-problems
   const [subTab, setSubTab] = useState(hasMinistry ? "ministry" : "all");
   const daysLeft = getDaysLeft();
 
+  // Handler for regular (non-AICTE) PS selection
   const handleSelectPs = useCallback(async (psNumber) => {
     setSavingPs(true);
+    setPsError(null);
     const { error } = await selectFinalTeamPs(psNumber);
     setSavingPs(false);
     if (error) {
-      // surface error via console; caller can add toast if needed
       console.error("[selectFinalTeamPs]", error);
+      setPsError(error);
     } else if (onFinalTeamUpdated) {
-      // re-fetch myFinalTeam so the banner + highlight update instantly
+      onFinalTeamUpdated();
+    }
+  }, [onFinalTeamUpdated]);
+
+  // Handler for AICTE open innovation custom PS submission
+  const handleSubmitCustomPs = useCallback(async (customTitle) => {
+    setSavingPs(true);
+    setPsError(null);
+    const { error } = await submitCustomPs(customTitle);
+    setSavingPs(false);
+    if (error) {
+      console.error("[submitCustomPs]", error);
+      setPsError(error);
+    } else if (onFinalTeamUpdated) {
       onFinalTeamUpdated();
     }
   }, [onFinalTeamUpdated]);
@@ -427,9 +735,26 @@ export function ProblemStatementsSection({ myFinalTeam, onFinalTeamUpdated }) {
         </a>
       </div>
 
+      {/* Error banner — shown if PS confirmation fails */}
+      {psError && (
+        <div className="rounded-xl border border-red-500/40 bg-red-500/8 px-4 py-3 flex items-start gap-2.5">
+          <AlertTriangle className="size-4 text-red-400 shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-bold text-red-300">Could not confirm problem statement</p>
+            <p className="text-xs text-red-300/70 mt-0.5">
+              {psError.includes("already confirmed") || psError.includes("locked")
+                ? "Your team has already locked in a problem statement. Refresh the page to see the latest status."
+                : psError}
+            </p>
+          </div>
+          <button type="button" onClick={() => setPsError(null)} className="text-red-400 hover:text-red-200 shrink-0">
+            <X className="size-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* Sub-tab switcher */}
-      <div className="flex items-center gap-1 bg-card/30 border border-border/40 rounded-2xl p-1">
-        <button
+      <div className="flex items-center gap-1 bg-card/30 border border-border/40 rounded-2xl p-1">        <button
           type="button"
           onClick={() => setSubTab("all")}
           className={cn(
@@ -459,10 +784,15 @@ export function ProblemStatementsSection({ myFinalTeam, onFinalTeamUpdated }) {
           )}
         >
           <Building2 className="size-3.5 shrink-0" />
-          My Ministry
+          {isAicte ? "Open Innovation" : "My Ministry"}
           {hasMinistry ? (
-            <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/20 max-w-[100px] truncate hidden sm:inline">
-              {ministry}
+            <span className={cn(
+              "text-[9px] font-extrabold px-1.5 py-0.5 rounded-full border max-w-[100px] truncate hidden sm:inline",
+              isAicte
+                ? "bg-amber-500/20 text-amber-300 border-amber-500/20"
+                : "bg-emerald-500/20 text-emerald-300 border-emerald-500/20"
+            )}>
+              {isAicte ? "AICTE" : ministry}
             </span>
           ) : (
             <span className="text-[9px] text-muted-foreground/50 hidden sm:inline">Final team only</span>
@@ -472,11 +802,19 @@ export function ProblemStatementsSection({ myFinalTeam, onFinalTeamUpdated }) {
 
       {/* Tab content */}
       {subTab === "all" && <SIH2026ProblemsView />}
-      {subTab === "ministry" && hasMinistry && (
+      {subTab === "ministry" && hasMinistry && isAicte && (
+        <OpenInnovationView
+          ministry={ministry}
+          lockedTitle={customPsTitle}
+          onSubmit={handleSubmitCustomPs}
+          submitting={savingPs}
+        />
+      )}
+      {subTab === "ministry" && hasMinistry && !isAicte && (
         <MinistryProblemsView
           ministry={ministry}
           selectedPsNumber={selectedPsNumber}
-          onSelectPs={hasMinistry ? handleSelectPs : null}
+          onSelectPs={handleSelectPs}
           savingPs={savingPs}
         />
       )}

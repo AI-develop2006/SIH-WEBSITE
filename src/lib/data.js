@@ -632,6 +632,25 @@ export async function selectFinalTeamPs(psNumber) {
   }
 }
 
+// AICTE (Open Innovation) teams use this instead of selectFinalTeamPs.
+// Submits a custom problem statement title written by the team.
+// Once confirmed it cannot be changed.
+export async function submitCustomPs(customTitle) {
+  await ensureFreshToken();
+  try {
+    const res = await fetch(`${API_BASE}/api/spoc/submit-custom-ps`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...getAuthHeader() },
+      body: JSON.stringify({ custom_title: customTitle }),
+    });
+    const json = await res.json();
+    if (!res.ok) return { data: null, error: json.error };
+    return { data: json.data, error: null };
+  } catch (err) {
+    return { data: null, error: err.message };
+  }
+}
+
 // ─── Personal Notifications ───────────────────────────────────────────────────
 
 export async function fetchNotifications() {

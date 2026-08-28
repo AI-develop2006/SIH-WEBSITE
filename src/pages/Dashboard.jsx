@@ -13,6 +13,7 @@ import {
   LogOut,
   X,
   BookOpen,
+  Lock,
 } from "lucide-react";
 import * as data from "@/lib/data";
 import { cn, computeStats } from "@/lib/utils";
@@ -31,6 +32,7 @@ import { OutdatedMinistryBadge } from "@/components/common/OutdatedMinistryBadge
 import { fetchNotifications, markNotificationRead, markAllNotificationsRead, fetchMyFinalTeam, subscribeToPairTeamEvents, subscribeToFinalTeamEvents, updateRegisterNo } from "@/lib/data";
 import { NewMinistryBadge } from "@/components/common/NewMinistryBadge";
 import { ProblemStatementsSection } from "@/components/dashboard/ProblemStatementsSection";
+import { SIH2026_PROBLEMS } from "@/lib/sih2026Problems";
 
 function ensureHttp(url) {
   if (!url) return "";
@@ -1779,9 +1781,12 @@ function FinalTeamCard({ finalTeam, currentUserId }) {
 function FinalSixTeamCard({ finalTeam, currentUserId }) {
   if (!finalTeam) return null;
 
-  const members = finalTeam.members || [];
-  const teamName = finalTeam.name ?? "Final SIH Team";
-  const ministry = finalTeam.ministry ?? null;
+  const members      = finalTeam.members || [];
+  const teamName     = finalTeam.name ?? "Final SIH Team";
+  const ministry     = finalTeam.ministry ?? null;
+  const selectedPs   = finalTeam.selected_ps_number ?? null;
+  const customPsTitle = finalTeam.custom_ps_title ?? null;
+  const isAicte      = ministry?.toLowerCase().includes("aicte") ?? false;
   const [expandedId, setExpandedId] = useState(null);
 
   function deptCode(dept) {
@@ -1861,6 +1866,48 @@ function FinalSixTeamCard({ finalTeam, currentUserId }) {
         </div>
       )}
 
+      {/* Selected PS Banner — shown when team has confirmed their problem statement */}
+      {(selectedPs || customPsTitle) && (() => {
+        const ps = selectedPs ? SIH2026_PROBLEMS.find((p) => p.psNumber === selectedPs) : null;
+        return (
+          <div className="rounded-xl border border-violet-500/40 bg-violet-500/10 px-4 py-3 flex items-start gap-3">
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-violet-500/15 border border-violet-500/30">
+              <BookOpen className="size-4 text-violet-400" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-violet-400">Confirmed Problem Statement</p>
+                <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-full bg-red-500/15 border border-red-500/30 text-red-300">
+                  🔒 Locked
+                </span>
+                {isAicte && (
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300">
+                    ✨ Open Innovation
+                  </span>
+                )}
+              </div>
+              {selectedPs && (
+                <p className="text-xs font-extrabold text-white font-mono">{selectedPs}</p>
+              )}
+              {customPsTitle && (
+                <p className="text-xs text-white leading-relaxed mt-0.5">{customPsTitle}</p>
+              )}
+              {ps && <p className="text-[11px] text-violet-200 leading-snug mt-0.5">{ps.title}</p>}
+            </div>
+            {ps && (
+              <span className={cn(
+                "text-[9px] font-bold px-2 py-0.5 rounded-full border shrink-0 self-start",
+                ps.category === "Software"
+                  ? "border-blue-500/30 bg-blue-500/10 text-blue-300"
+                  : "border-orange-500/30 bg-orange-500/10 text-orange-300"
+              )}>
+                {ps.category === "Software" ? "SW" : "HW"}
+              </span>
+            )}
+          </div>
+        );
+      })()}
+
       {/* Stats pills */}
       <div className="grid grid-cols-3 gap-2 sm:gap-3 text-center">
         <div className="rounded-xl border border-border/40 bg-muted/20 p-2.5">
@@ -1930,6 +1977,17 @@ function FinalSixTeamCard({ finalTeam, currentUserId }) {
                         )}
                         {member.assigned_skill && (
                           <span className="rounded-full bg-[#c9a227]/15 border border-[#c9a227]/30 px-1.5 py-0.5 text-[9px] font-bold text-[#e8c058]">{member.assigned_skill}</span>
+                        )}
+                        {/* Selected PS label — shown on every member card when team has confirmed */}
+                        {selectedPs && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/15 border border-violet-500/30 px-1.5 py-0.5 text-[9px] font-bold text-violet-300">
+                            🔒 {selectedPs}
+                          </span>
+                        )}
+                        {customPsTitle && !selectedPs && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.5 text-[9px] font-bold text-amber-300">
+                            ✨ Open Innovation
+                          </span>
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground mt-0.5">

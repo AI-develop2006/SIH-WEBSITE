@@ -614,6 +614,24 @@ export async function fetchMyFinalTeam() {
   }
 }
 
+// Any team member can call this to set (or clear) the problem statement
+// their final team is working on. ps_number = null clears the selection.
+export async function selectFinalTeamPs(psNumber) {
+  await ensureFreshToken();
+  try {
+    const res = await fetch(`${API_BASE}/api/spoc/select-ps`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...getAuthHeader() },
+      body: JSON.stringify({ ps_number: psNumber ?? null }),
+    });
+    const json = await res.json();
+    if (!res.ok) return { data: null, error: json.error };
+    return { data: json.data, error: null };
+  } catch (err) {
+    return { data: null, error: err.message };
+  }
+}
+
 // ─── Personal Notifications ───────────────────────────────────────────────────
 
 export async function fetchNotifications() {

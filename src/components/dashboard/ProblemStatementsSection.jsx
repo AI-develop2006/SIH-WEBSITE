@@ -1,8 +1,9 @@
-import { useState, useMemo } from "react";
-import { BookOpen, Filter, Search, X, ExternalLink, Cpu, Code2, Download, Presentation, Clock, CalendarDays, Building2 } from "lucide-react";
+import { useState, useMemo, useCallback } from "react";
+import { BookOpen, Filter, Search, X, ExternalLink, Cpu, Code2, Download, Presentation, Clock, CalendarDays, Building2, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SIH2026_PROBLEMS } from "@/lib/sih2026Problems";
 import { SIH2026ProblemsView } from "@/components/common/SIH2026ProblemsView";
+import { selectFinalTeamPs } from "@/lib/data";
 
 // ─── Ministry-filtered sub-view ───────────────────────────────────────────────
 const THEME_COLOR = {
@@ -108,7 +109,7 @@ const PPTX_PATH = "/SIH2026-IDEA-Presentation-Format.pptx";
 /**
  * Shown when the participant is in a final SPOC team that has a ministry assigned.
  */
-function MinistryProblemsView({ ministry }) {
+function MinistryProblemsView({ ministry, selectedPsNumber, onSelectPs, savingPs }) {
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("all");
   const [themeFilter, setThemeFilter] = useState("all");
@@ -177,6 +178,29 @@ function MinistryProblemsView({ ministry }) {
           {ministryProblems.length} PS
         </span>
       </div>
+
+      {/* Selected PS banner — shown when team has a chosen problem statement */}
+      {selectedPsNumber && (() => {
+        const selPs = SIH2026_PROBLEMS.find((p) => p.psNumber === selectedPsNumber);
+        return selPs ? (
+          <div className="rounded-2xl border border-violet-500/40 bg-violet-500/10 px-5 py-3.5 flex items-start gap-3">
+            <BookOpen className="size-5 text-violet-400 shrink-0 mt-0.5" />
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-violet-400 mb-0.5">Your Team's Selected Problem Statement</p>
+              <p className="text-[11px] font-extrabold text-white font-mono">{selPs.psNumber}</p>
+              <p className="text-xs text-violet-200 leading-snug mt-0.5">{selPs.title}</p>
+            </div>
+            <span className={cn(
+              "text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0",
+              selPs.category === "Software"
+                ? "border-blue-500/30 bg-blue-500/10 text-blue-300"
+                : "border-orange-500/30 bg-orange-500/10 text-orange-300"
+            )}>
+              {selPs.category === "Software" ? "SW" : "HW"}
+            </span>
+          </div>
+        ) : null;
+      })()}
 
       {/* Stat pills */}
       <div className="grid grid-cols-3 gap-2">
@@ -261,7 +285,7 @@ function MinistryProblemsView({ ministry }) {
             <table className="w-full border-collapse text-sm">
               <thead className="sticky top-0 z-10">
                 <tr>
-                  {["#", "PS No.", "Problem Statement Title", "Cat", "Theme"].map((h) => (
+                  {["#", "PS No.", "Problem Statement Title", "Cat", "Theme", ""].map((h) => (
                     <th key={h} className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap border-b border-border/40 bg-card/80">
                       {h}
                     </th>
@@ -269,11 +293,25 @@ function MinistryProblemsView({ ministry }) {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((p, idx) => (
-                  <tr key={p.psNumber} className="border-b border-border/20 last:border-0 hover:bg-muted/10 transition-colors">
+                {filtered.map((p, idx) => {
+                  const isSelected = selectedPsNumber && p.psNumber === selectedPsNumber;
+                  return (
+                  <tr key={p.psNumber} className={cn(
+                    "border-b border-border/20 last:border-0 transition-colors",
+                    isSelected
+                      ? "bg-violet-500/15 hover:bg-violet-500/20"
+                      : "hover:bg-muted/10"
+                  )}>
                     <td className="px-3 py-3 text-[10px] text-muted-foreground tabular-nums w-8">{idx + 1}</td>
                     <td className="px-3 py-3 whitespace-nowrap">
-                      <span className="text-[11px] font-extrabold text-primary font-mono">{p.psNumber}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] font-extrabold text-primary font-mono">{p.psNumber}</span>
+                        {isSelected && (
+                          <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-full bg-violet-500/20 border border-violet-500/30 text-violet-300">
+                            ✓ Selected
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-3 py-3 max-w-[420px]">
                       <span className="text-xs font-semibold text-white leading-snug line-clamp-2">{p.title}</span>
@@ -294,8 +332,26 @@ function MinistryProblemsView({ ministry }) {
                         {p.theme}
                       </span>
                     </td>
+                    <td className="px-3 py-3 whitespace-nowrap">
+                      {onSelectPs && (
+                        <button
+                          type="button"
+                          disabled={savingPs}
+                          onClick={() => onSelectPs(isSelected ? null : p.psNumber)}
+                          className={cn(
+                            "text-[10px] font-bold px-2.5 py-1 rounded-xl border transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed",
+                            isSelected
+                              ? "border-violet-500/40 bg-violet-500/15 text-violet-300 hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-300"
+                              : "border-border/30 bg-card/30 text-muted-foreground hover:border-violet-500/40 hover:bg-violet-500/10 hover:text-violet-300"
+                          )}
+                        >
+                          {isSelected ? "✓ Selected" : "Select"}
+                        </button>
+                      )}
+                    </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -316,13 +372,28 @@ function MinistryProblemsView({ ministry }) {
  * Props:
  *   myFinalTeam  – the participant's final SPOC team object (or null)
  */
-export function ProblemStatementsSection({ myFinalTeam }) {
-  const ministry = myFinalTeam?.ministry ?? null;
-  const hasMinistry = Boolean(ministry);
+export function ProblemStatementsSection({ myFinalTeam, onFinalTeamUpdated }) {
+  const ministry         = myFinalTeam?.ministry ?? null;
+  const selectedPsNumber = myFinalTeam?.selected_ps_number ?? null;
+  const hasMinistry      = Boolean(ministry);
+  const [savingPs, setSavingPs] = useState(false);
 
   // Default to ministry tab if they have one, otherwise all-problems
   const [subTab, setSubTab] = useState(hasMinistry ? "ministry" : "all");
   const daysLeft = getDaysLeft();
+
+  const handleSelectPs = useCallback(async (psNumber) => {
+    setSavingPs(true);
+    const { error } = await selectFinalTeamPs(psNumber);
+    setSavingPs(false);
+    if (error) {
+      // surface error via console; caller can add toast if needed
+      console.error("[selectFinalTeamPs]", error);
+    } else if (onFinalTeamUpdated) {
+      // re-fetch myFinalTeam so the banner + highlight update instantly
+      onFinalTeamUpdated();
+    }
+  }, [onFinalTeamUpdated]);
 
   return (
     <div className="space-y-4">
@@ -401,7 +472,14 @@ export function ProblemStatementsSection({ myFinalTeam }) {
 
       {/* Tab content */}
       {subTab === "all" && <SIH2026ProblemsView />}
-      {subTab === "ministry" && hasMinistry && <MinistryProblemsView ministry={ministry} />}
+      {subTab === "ministry" && hasMinistry && (
+        <MinistryProblemsView
+          ministry={ministry}
+          selectedPsNumber={selectedPsNumber}
+          onSelectPs={hasMinistry ? handleSelectPs : null}
+          savingPs={savingPs}
+        />
+      )}
     </div>
   );
 }

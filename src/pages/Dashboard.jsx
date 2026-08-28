@@ -226,6 +226,12 @@ export default function DashboardPage() {
   const [myFinalTeam, setMyFinalTeam] = useState(null);
   const [notifications, setNotifications] = useState([]);
 
+  // Lightweight refresh — only re-fetches the final team (used after PS selection)
+  const refreshMyFinalTeam = useCallback(async () => {
+    const res = await data.fetchMyFinalTeam();
+    if (res.data !== undefined) setMyFinalTeam(res.data ?? null);
+  }, []);
+
   const refresh = useCallback(async () => {
     if (!profile) return;
     const [announcementsRes, timelineRes, teamsRes, notifRes, finalTeamRes] = await Promise.all([
@@ -903,7 +909,7 @@ export default function DashboardPage() {
 
         {/* ── Problem Statements — full width below the grid on desktop ── */}
         <div className="mt-2">
-          <ProblemStatementsSection myFinalTeam={myFinalTeam} />
+          <ProblemStatementsSection myFinalTeam={myFinalTeam} onFinalTeamUpdated={refreshMyFinalTeam} />
         </div>
       </div>
 
@@ -1093,7 +1099,7 @@ export default function DashboardPage() {
 
         {activeTab === 'problems' && (
           <div className="animate-page-enter space-y-5 pb-4">
-            <ProblemStatementsSection myFinalTeam={myFinalTeam} />
+            <ProblemStatementsSection myFinalTeam={myFinalTeam} onFinalTeamUpdated={refreshMyFinalTeam} />
           </div>
         )}
 

@@ -2050,6 +2050,80 @@ app.get("/api/spoc/my-final-team", async (req, res) => {
   }
 });
 
+// PATCH /api/spoc/select-ps — any authenticated team member can set/clear
+// the selected_ps_number on their own final team.
+// Body: { ps_number: "SIH26042" }  (null or omit to clear)
+app.patch("/api/spoc/select-ps", async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith("Bearer ")) return res.status(401).json({ error: "Not signed in" });
+  const token = authHeader.split(" ")[1];
+
+  const { ps_number } = req.body; // null to clear
+
+  try {
+    // Resolve caller's user id
+    let userId = null;
+    if (supabase) {
+      const { data: { user }, error } = await supabase.auth.getUser(token);
+      if (error || !user) return res.status(401).json({ error: "Invalid token" });
+      userId = user.id;
+    } else {
+      return res.status(500).json({ error: "Auth not configured" });
+    }
+
+    // Find the final team this user belongs to
+    let teamId = null;
+    let teamName = null;
+    if (process.env.DATABASE_URL) {
+      const { rows } = await dbQuery(
+        `SELECT id, name FROM public.spoc_final_teams WHERE $1 = ANY(member_ids) LIMIT 1`,
+        [userId]
+      );
+      if (!rows[0]) return res.status(404).json({ error: "You are not in any final team" });
+      teamId   = rows[0].id;
+      teamName = rows[0].name;
+    } else if (supabase) {
+      const { data } = await supabase
+        .from("spoc_final_teams")
+        .select("id, name")
+        .contains("member_ids", [userId])
+        .limit(1)
+        .maybeSingle();
+      if (!data) return res.status(404).json({ error: "You are not in any final team" });
+      teamId   = data.id;
+      teamName = data.name;
+    }
+
+    // Update selected_ps_number
+    let updated = null;
+    if (process.env.DATABASE_URL) {
+      const { rows } = await dbQuery(
+        `UPDATE public.spoc_final_teams
+         SET selected_ps_number = $1, updated_at = now()
+         WHERE id = $2 RETURNING *;`,
+        [ps_number ?? null, teamId]
+      );
+      updated = rows[0];
+    } else if (supabase) {
+      const { data, error } = await supabase
+        .from("spoc_final_teams")
+        .update({ selected_ps_number: ps_number ?? null, updated_at: new Date().toISOString() })
+        .eq("id", teamId)
+        .select().single();
+      if (error) return res.status(500).json({ error: error.message });
+      updated = data;
+    }
+
+    // Broadcast so SPOC/participant dashboards refresh
+    broadcastPairTeamUpdate("ps_selected", { team_id: teamId, ps_number: ps_number ?? null });
+
+    return res.json({ data: updated });
+  } catch (err) {
+    console.error("[/api/spoc/select-ps] Error:", err.message);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 // Serve static build if present
 const distFolder = join(__dirname, "dist");
 const indexHtmlFile = join(distFolder, "index.html");

@@ -1,9 +1,9 @@
 import { useState, useMemo, useCallback } from "react";
-import { BookOpen, Filter, Search, X, ExternalLink, Cpu, Code2, Download, Presentation, Clock, CalendarDays, Building2, CheckCircle2, AlertTriangle, Lock, Pencil, Sparkles } from "lucide-react";
+import { BookOpen, Filter, Search, X, ExternalLink, Cpu, Code2, Download, Presentation, Clock, CalendarDays, Building2, CheckCircle2, AlertTriangle, Lock, Pencil, Sparkles, MessageSquare, ChevronDown, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SIH2026_PROBLEMS } from "@/lib/sih2026Problems";
 import { SIH2026ProblemsView } from "@/components/common/SIH2026ProblemsView";
-import { selectFinalTeamPs, submitCustomPs } from "@/lib/data";
+import { selectFinalTeamPs, submitCustomPs, submitPsChangeRequest, fetchMyPsChangeRequests } from "@/lib/data";
 
 // AICTE ministry name (Open Innovation) — any ministry containing "aicte" triggers custom PS mode
 const AICTE_MINISTRY = "AICTE";
@@ -115,7 +115,7 @@ const PPTX_PATH = "/SIH2026-IDEA-Presentation-Format.pptx";
 // ─── Open Innovation view (AICTE) ────────────────────────────────────────────
 // For teams assigned to AICTE, there are no pre-defined problem statements.
 // Instead the team writes their own problem statement title.
-function OpenInnovationView({ ministry, lockedTitle, onSubmit, submitting }) {
+function OpenInnovationView({ ministry, lockedTitle, onSubmit, submitting, myFinalTeam, onRequestSent }) {
   const [draft, setDraft] = useState(lockedTitle ?? "");
   const [showConfirm, setShowConfirm] = useState(false);
   const charCount = draft.trim().length;
@@ -155,6 +155,15 @@ function OpenInnovationView({ ministry, lockedTitle, onSubmit, submitting }) {
             <p className="text-sm font-semibold text-white leading-relaxed">{lockedTitle}</p>
           </div>
         </div>
+
+        {/* PS Change Request panel */}
+        {myFinalTeam && (
+          <PsChangeRequestPanel
+            myFinalTeam={myFinalTeam}
+            isAicte={true}
+            onRequestSent={onRequestSent}
+          />
+        )}
       </div>
     );
   }
@@ -298,7 +307,7 @@ function OpenInnovationView({ ministry, lockedTitle, onSubmit, submitting }) {
 /**
  * Shown when the participant is in a final SPOC team that has a ministry assigned.
  */
-function MinistryProblemsView({ ministry, selectedPsNumber, onSelectPs, savingPs }) {
+function MinistryProblemsView({ ministry, selectedPsNumber, onSelectPs, savingPs, myFinalTeam, onRequestSent }) {
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("all");
   const [themeFilter, setThemeFilter] = useState("all");
@@ -398,6 +407,15 @@ function MinistryProblemsView({ ministry, selectedPsNumber, onSelectPs, savingPs
           </div>
         ) : null;
       })()}
+
+      {/* PS Change Request panel — only when PS is locked */}
+      {selectedPsNumber && myFinalTeam && (
+        <PsChangeRequestPanel
+          myFinalTeam={myFinalTeam}
+          isAicte={false}
+          onRequestSent={onRequestSent}
+        />
+      )}
 
       {/* Stat pills */}
       <div className="grid grid-cols-3 gap-2">
@@ -651,11 +669,309 @@ function MinistryProblemsView({ ministry, selectedPsNumber, onSelectPs, savingPs
   );
 }
 
+// ─── PS Change Request Panel (participant) ────────────────────────────────────
+// Shown inside the locked PS banner when the team already has a confirmed PS.
+// Lets any team member submit a change request with a reason + new PS choice.
+function PsChangeRequestPanel({ myFinalTeam, isAicte, onRequestSent }) {
+  const [open, setOpen]             = useState(false);
+  const [reason, setReason]         = useState("");
+  const [newPsSearch, setNewPsSearch] = useState("");
+  const [selectedNewPs, setSelectedNewPs] = useState("");
+  const [newCustomTitle, setNewCustomTitle] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
+  const [requests, setRequests]     = useState(null); // null = not loaded yet
+  const [loadingRequests, setLoadingRequests] = useState(false);
+
+  const ministry     = myFinalTeam?.ministry ?? null;
+  const currentPs    = myFinalTeam?.selected_ps_number ?? null;
+  const currentCustom = myFinalTeam?.custom_ps_title ?? null;
+
+  const pendingRequest = requests?.find((r) => r.status === "pending") ?? null;
+  const latestRequest  = requests?.[0] ?? null;
+
+  // Resolve PS options for new PS picker (same ministry filtering as MinistryProblemsView)
+  const ministryProblems = useMemo(() => {
+    if (!ministry || isAicte) return [];
+    const resolvedOrgs = resolveMinistryOrgs(ministry);
+    if (resolvedOrgs.size > 0) {
+      return SIH2026_PROBLEMS.filter((p) => resolvedOrgs.has(p.organization));
+    }
+    const needle = ministry.trim().toLowerCase();
+    return SIH2026_PROBLEMS.filter((p) => p.organization.toLowerCase() === needle);
+  }, [ministry, isAicte]);
+
+  const filteredNewPs = useMemo(() => {
+    const q = newPsSearch.trim().toLowerCase();
+    const list = ministry ? ministryProblems : SIH2026_PROBLEMS;
+    if (!q) return list.slice(0, 30); // show first 30 unfiltered
+    return list.filter((p) =>
+      p.psNumber.toLowerCase().includes(q) || p.title.toLowerCase().includes(q)
+    ).slice(0, 30);
+  }, [newPsSearch, ministryProblems, ministry]);
+
+  async function loadRequests() {
+    setLoadingRequests(true);
+    const { data } = await fetchMyPsChangeRequests();
+    setRequests(data ?? []);
+    setLoadingRequests(false);
+  }
+
+  function handleOpen() {
+    setOpen(true);
+    if (requests === null) loadRequests();
+  }
+
+  const canSubmit = reason.trim().length >= 10 &&
+    (isAicte ? newCustomTitle.trim().length >= 10 : !!selectedNewPs) &&
+    !pendingRequest;
+
+  async function handleSubmit() {
+    setSubmitting(true);
+    setSubmitError(null);
+    const { error } = await submitPsChangeRequest({
+      reason:     reason.trim(),
+      new_ps:     isAicte ? undefined : (selectedNewPs || undefined),
+      new_custom: isAicte ? newCustomTitle.trim() : undefined,
+    });
+    setSubmitting(false);
+    if (error) {
+      setSubmitError(error);
+    } else {
+      setReason("");
+      setSelectedNewPs("");
+      setNewCustomTitle("");
+      setNewPsSearch("");
+      await loadRequests();
+      if (onRequestSent) onRequestSent();
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-[rgba(147,197,253,0.12)] bg-[#0a1226]/40 overflow-hidden">
+      {/* Toggle header */}
+      <button
+        type="button"
+        onClick={() => (open ? setOpen(false) : handleOpen())}
+        className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-white/[0.02] transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <MessageSquare className="size-3.5 text-[#94a3b8] shrink-0" />
+          <span className="text-xs font-bold text-[#94a3b8]">Request Problem Statement Change</span>
+          {pendingRequest && (
+            <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300">
+              Pending review
+            </span>
+          )}
+          {latestRequest?.status === "approved" && !pendingRequest && (
+            <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300">
+              ✓ Approved
+            </span>
+          )}
+          {latestRequest?.status === "rejected" && !pendingRequest && (
+            <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-full bg-red-500/15 border border-red-500/30 text-red-300">
+              Rejected
+            </span>
+          )}
+        </div>
+        <ChevronDown className={cn("size-3.5 text-[#94a3b8] transition-transform", open && "rotate-180")} />
+      </button>
+
+      {open && (
+        <div className="border-t border-[rgba(147,197,253,0.08)] px-4 pb-4 pt-3 space-y-4">
+
+          {/* Existing requests history */}
+          {loadingRequests && (
+            <p className="text-[10px] text-muted-foreground flex items-center gap-1.5">
+              <RefreshCw className="size-3 animate-spin" /> Loading request history…
+            </p>
+          )}
+          {requests && requests.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Request History</p>
+              {requests.map((r) => (
+                <div key={r.id} className={cn(
+                  "rounded-xl border px-3 py-2.5 space-y-1.5 text-xs",
+                  r.status === "pending"  ? "border-amber-500/25 bg-amber-500/5"   :
+                  r.status === "approved" ? "border-emerald-500/25 bg-emerald-500/5" :
+                                            "border-red-500/25 bg-red-500/5"
+                )}>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={cn(
+                      "text-[9px] font-extrabold px-2 py-0.5 rounded-full border",
+                      r.status === "pending"  ? "border-amber-500/30 bg-amber-500/10 text-amber-300"   :
+                      r.status === "approved" ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" :
+                                                "border-red-500/30 bg-red-500/10 text-red-300"
+                    )}>
+                      {r.status === "pending" ? "⏳ Pending" : r.status === "approved" ? "✅ Approved" : "❌ Rejected"}
+                    </span>
+                    <span className="text-[9px] text-muted-foreground">
+                      {new Date(r.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    <span className="font-semibold text-white/70">From:</span>{" "}
+                    {r.current_ps ? <span className="font-mono text-violet-300">{r.current_ps}</span> : "Custom PS"}
+                    {" → "}
+                    <span className="font-semibold text-white/70">To:</span>{" "}
+                    {r.new_ps ? <span className="font-mono text-emerald-300">{r.new_ps}</span> : "New Custom PS"}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground line-clamp-2">
+                    <span className="font-semibold text-white/70">Reason:</span> {r.reason}
+                  </p>
+                  {r.review_note && (
+                    <p className="text-[10px] text-muted-foreground">
+                      <span className="font-semibold text-white/70">SPOC note:</span> {r.review_note}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Pending block message */}
+          {pendingRequest && (
+            <div className="rounded-xl border border-amber-500/25 bg-amber-500/8 px-4 py-3">
+              <p className="text-xs font-semibold text-amber-300">
+                ⏳ You already have a pending change request. Wait for the SPOC to review it before submitting another.
+              </p>
+            </div>
+          )}
+
+          {/* New request form */}
+          {!pendingRequest && (
+            <div className="space-y-3">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">New Change Request</p>
+
+              {/* Reason textarea */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                  Reason for change <span className="text-red-400">*</span>
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="Explain why your team needs to change the problem statement (min. 10 characters)…"
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  maxLength={1000}
+                  className="w-full rounded-xl border border-border/50 bg-card/60 px-3 py-2 text-xs text-white placeholder:text-muted-foreground/40 focus:outline-none focus:border-amber-500/50 transition-all resize-none"
+                />
+                <p className={cn(
+                  "text-[9px]",
+                  reason.trim().length < 10 && reason.length > 0 ? "text-red-400" : "text-muted-foreground"
+                )}>
+                  {reason.trim().length}/1000 {reason.trim().length < 10 && reason.length > 0 && "(min. 10)"}
+                </p>
+              </div>
+
+              {/* New PS picker */}
+              {isAicte ? (
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                    New Problem Statement Title <span className="text-red-400">*</span>
+                  </label>
+                  <textarea
+                    rows={3}
+                    placeholder="Enter your new problem statement title…"
+                    value={newCustomTitle}
+                    onChange={(e) => setNewCustomTitle(e.target.value)}
+                    maxLength={500}
+                    className="w-full rounded-xl border border-border/50 bg-card/60 px-3 py-2 text-xs text-white placeholder:text-muted-foreground/40 focus:outline-none focus:border-violet-500/50 transition-all resize-none"
+                  />
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                    New Problem Statement <span className="text-red-400">*</span>
+                    {ministry && <span className="ml-1 normal-case text-[9px] text-muted-foreground/60">(filtered to your ministry)</span>}
+                  </label>
+                  {/* Search */}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3 text-muted-foreground pointer-events-none" />
+                    <input
+                      type="text"
+                      placeholder="Search PS number or title…"
+                      value={newPsSearch}
+                      onChange={(e) => setNewPsSearch(e.target.value)}
+                      className="w-full rounded-xl border border-border/50 bg-card/60 pl-8 pr-3 py-1.5 text-xs text-white placeholder:text-muted-foreground/40 focus:outline-none focus:border-violet-500/50 transition-all"
+                    />
+                  </div>
+                  {/* PS list */}
+                  <div className="max-h-40 overflow-y-auto rounded-xl border border-border/30 bg-card/20 space-y-0.5 p-1">
+                    {filteredNewPs.length === 0 ? (
+                      <p className="text-[10px] text-muted-foreground text-center py-3">No PS found</p>
+                    ) : filteredNewPs.map((p) => {
+                      const isActive = selectedNewPs === p.psNumber;
+                      const isCurrent = currentPs === p.psNumber;
+                      return (
+                        <button
+                          key={p.psNumber}
+                          type="button"
+                          disabled={isCurrent}
+                          onClick={() => setSelectedNewPs(isActive ? "" : p.psNumber)}
+                          className={cn(
+                            "w-full text-left rounded-lg px-2.5 py-1.5 transition-all text-xs",
+                            isCurrent  ? "opacity-40 cursor-not-allowed bg-transparent" :
+                            isActive   ? "bg-violet-500/20 border border-violet-500/30" :
+                                         "hover:bg-muted/20 border border-transparent"
+                          )}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-[10px] font-extrabold text-violet-300 shrink-0">{p.psNumber}</span>
+                            {isCurrent && <span className="text-[9px] text-amber-400">(current)</span>}
+                            {isActive  && <span className="text-[9px] text-emerald-400">✓ selected</span>}
+                            <span className={cn(
+                              "text-[9px] font-bold px-1.5 py-0.5 rounded-full border shrink-0 ml-auto",
+                              p.category === "Software"
+                                ? "border-blue-500/30 bg-blue-500/8 text-blue-300"
+                                : "border-orange-500/30 bg-orange-500/8 text-orange-300"
+                            )}>
+                              {p.category === "Software" ? "SW" : "HW"}
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground line-clamp-1 mt-0.5">{p.title}</p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {selectedNewPs && (
+                    <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/5 px-3 py-2">
+                      <p className="text-[10px] text-emerald-400 font-bold">Selected: {selectedNewPs}</p>
+                      <p className="text-[9px] text-muted-foreground line-clamp-1">
+                        {SIH2026_PROBLEMS.find((p) => p.psNumber === selectedNewPs)?.title}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {submitError && (
+                <div className="rounded-xl border border-red-500/30 bg-red-500/8 px-3 py-2">
+                  <p className="text-[10px] text-red-300">{submitError}</p>
+                </div>
+              )}
+
+              <button
+                type="button"
+                disabled={!canSubmit || submitting}
+                onClick={handleSubmit}
+                className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-xs transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+              >
+                {submitting ? <RefreshCw className="size-3.5 animate-spin" /> : <MessageSquare className="size-3.5" />}
+                {submitting ? "Submitting…" : "Submit Change Request"}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /**
  * ProblemStatementsSection
  *
- * Two sub-tabs:
- *  1. "All Problems" — full SIH2026ProblemsView (same as mentor/SPOC)
+ * Two sub-tabs: *  1. "All Problems" — full SIH2026ProblemsView (same as mentor/SPOC)
  *  2. "My Ministry"  — only shown when participant is in a final team with a ministry;
  *                      filters the dataset to that ministry
  *
@@ -808,6 +1124,8 @@ export function ProblemStatementsSection({ myFinalTeam, onFinalTeamUpdated }) {
           lockedTitle={customPsTitle}
           onSubmit={handleSubmitCustomPs}
           submitting={savingPs}
+          myFinalTeam={myFinalTeam}
+          onRequestSent={onFinalTeamUpdated}
         />
       )}
       {subTab === "ministry" && hasMinistry && !isAicte && (
@@ -816,6 +1134,8 @@ export function ProblemStatementsSection({ myFinalTeam, onFinalTeamUpdated }) {
           selectedPsNumber={selectedPsNumber}
           onSelectPs={handleSelectPs}
           savingPs={savingPs}
+          myFinalTeam={myFinalTeam}
+          onRequestSent={onFinalTeamUpdated}
         />
       )}
     </div>

@@ -651,8 +651,42 @@ export async function submitCustomPs(customTitle) {
   }
 }
 
-// ─── Personal Notifications ───────────────────────────────────────────────────
+// ─── PS Change Requests (Participant) ────────────────────────────────────────
 
+// Submit a request to change the locked PS.
+// payload: { reason, new_ps?, new_custom? }
+export async function submitPsChangeRequest(payload) {
+  await ensureFreshToken();
+  try {
+    const res = await fetch(`${API_BASE}/api/spoc/ps-change-request`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...getAuthHeader() },
+      body: JSON.stringify(payload),
+    });
+    const json = await res.json();
+    if (!res.ok) return { data: null, error: json.error };
+    return { data: json.data, error: null };
+  } catch (err) {
+    return { data: null, error: err.message };
+  }
+}
+
+// Fetch this team's change request history (most recent first).
+export async function fetchMyPsChangeRequests() {
+  await ensureFreshToken();
+  try {
+    const res = await fetch(`${API_BASE}/api/spoc/ps-change-request/my`, {
+      headers: { ...getAuthHeader() },
+    });
+    const json = await res.json();
+    if (!res.ok) return { data: [], error: json.error };
+    return { data: json.data ?? [], error: null };
+  } catch (err) {
+    return { data: [], error: err.message };
+  }
+}
+
+// ─── Personal Notifications ───────────────────────────────────────────────────
 export async function fetchNotifications() {
   try {
     const res = await fetch(`${API_BASE}/api/notifications`, {

@@ -7,6 +7,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
 import { DEPT_CODE } from "@/lib/constants";
+import { SIH2026_PROBLEMS } from "@/lib/sih2026Problems";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -286,13 +287,14 @@ export function MonitoringView({ profiles = [], pairTeams = [], finalTeams = [],
                 <TH>Pair Status</TH>
                 <TH>Final Team</TH>
                 <TH>Ministry (Final)</TH>
+                <TH>Selected PS</TH>
                 <TH>Final Status</TH>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="py-16 text-center text-sm text-[#94a3b8] border-b border-[rgba(147,197,253,0.06)]">
+                  <td colSpan={13} className="py-16 text-center text-sm text-[#94a3b8] border-b border-[rgba(147,197,253,0.06)]">
                     No participants match the current filters.
                   </td>
                 </tr>
@@ -302,6 +304,9 @@ export function MonitoringView({ profiles = [], pairTeams = [], finalTeams = [],
                   const isFinal    = finalMemberIds.has(p.id);
                   const pairedTeam = pairedTeamMap.get(p.id);
                   const finalTeam  = finalTeamMap.get(p.id);
+                  const selectedPs = finalTeam?.selected_ps_number ?? null;
+                  const customPs   = finalTeam?.custom_ps_title ?? null;
+                  const psInfo     = selectedPs ? SIH2026_PROBLEMS.find((ps) => ps.psNumber === selectedPs) : null;
 
                   return (
                     <tr
@@ -390,6 +395,29 @@ export function MonitoringView({ profiles = [], pairTeams = [], finalTeams = [],
                           ? <MiniTag text={finalTeam.ministry} color="emerald" />
                           : <span className="text-[10px] text-[#94a3b8]">—</span>
                         }
+                      </TD>
+
+                      {/* Selected PS */}
+                      <TD>
+                        {selectedPs ? (
+                          <div className="space-y-0.5">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full border border-violet-500/40 bg-violet-500/10 text-violet-300 whitespace-nowrap">
+                              🔒 {selectedPs}
+                            </span>
+                            {psInfo && (
+                              <p className="text-[9px] text-[#94a3b8] leading-snug line-clamp-1 max-w-[160px]">{psInfo.title}</p>
+                            )}
+                          </div>
+                        ) : customPs ? (
+                          <div className="space-y-0.5">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full border border-amber-500/40 bg-amber-500/10 text-amber-300 whitespace-nowrap">
+                              ✨ Open Innovation
+                            </span>
+                            <p className="text-[9px] text-[#94a3b8] leading-snug line-clamp-1 max-w-[160px]">{customPs}</p>
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-[#94a3b8]">Not chosen</span>
+                        )}
                       </TD>
 
                       {/* Final Status */}

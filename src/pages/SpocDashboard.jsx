@@ -38,7 +38,7 @@ function genderBadge(gender) {
 }
 
 // ─── Mini member chip ────────────────────────────────────────────────────────
-function MemberChip({ member }) {
+function MemberChip({ member, selectedPs, customPs }) {
   return (
     <div className="flex items-center gap-2 rounded-xl border border-[rgba(147,197,253,0.14)] bg-[#0a1226] px-3 py-2">
       <Avatar name={member.name} className="size-7 shrink-0" />
@@ -49,6 +49,16 @@ function MemberChip({ member }) {
           {getDeptCode(member.department)}
           {member.assigned_skill ? ` · ${member.assigned_skill}` : ""}
         </p>
+        {selectedPs && (
+          <span className="inline-flex items-center gap-1 mt-0.5 text-[9px] font-extrabold px-1.5 py-0.5 rounded-full border border-violet-500/40 bg-violet-500/10 text-violet-300">
+            🔒 {selectedPs}
+          </span>
+        )}
+        {customPs && !selectedPs && (
+          <span className="inline-flex items-center gap-1 mt-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full border border-amber-500/40 bg-amber-500/10 text-amber-300">
+            ✨ Open Innovation
+          </span>
+        )}
       </div>
       {genderBadge(member.gender)}
     </div>
@@ -99,6 +109,10 @@ function FinalTeamCard({ ft, profileMap, onEdit, onDelete, onChangeMinistry, onS
   const [psSearch, setPsSearch] = useState("");
   const [savingPs, setSavingPs] = useState(false);
 
+  const isAicte = ft.ministry?.toLowerCase().includes("aicte") ?? false;
+  const hasCustomPs = Boolean(ft.custom_ps_title);
+  const hasSelectedPs = Boolean(ft.selected_ps_number);
+
   const members = useMemo(
     () => (ft.member_ids || []).map((id) => profileMap.get(id)).filter(Boolean),
     [ft.member_ids, profileMap]
@@ -122,15 +136,15 @@ function FinalTeamCard({ ft, profileMap, onEdit, onDelete, onChangeMinistry, onS
     setShowMinistryPicker(false);
   }
 
-  // PS list filtered to this team's ministry
+  // PS list filtered to this team's ministry (not used for AICTE)
   const ministryProblems = useMemo(() => {
-    if (!ft.ministry) return SIH2026_PROBLEMS;
+    if (!ft.ministry || isAicte) return SIH2026_PROBLEMS;
     const needle = ft.ministry.trim().toLowerCase();
     return SIH2026_PROBLEMS.filter((p) =>
       p.organization.toLowerCase().includes(needle) ||
       needle.includes(p.organization.toLowerCase().replace(/\s*\([^)]*\)\s*$/, "").trim().slice(0, 12))
     );
-  }, [ft.ministry]);
+  }, [ft.ministry, isAicte]);
 
   const filteredPs = useMemo(() => {
     const n = psSearch.trim().toLowerCase();
@@ -148,6 +162,11 @@ function FinalTeamCard({ ft, profileMap, onEdit, onDelete, onChangeMinistry, onS
     setPsSearch("");
   }
 
+  // Determine the PS button label
+  const psButtonLabel = isAicte
+    ? (hasCustomPs ? "✨ Open Innovation" : "Open Innovation PS")
+    : (hasSelectedPs ? ft.selected_ps_number : "Select PS");
+
   return (
     <div className={cn(
       "rounded-2xl border p-4 space-y-3 transition-all duration-200",
@@ -161,6 +180,11 @@ function FinalTeamCard({ ft, profileMap, onEdit, onDelete, onChangeMinistry, onS
             : <AlertTriangle className="size-4 text-amber-400 shrink-0" />
           }
           <span className="text-sm font-extrabold text-white truncate">{ft.name}</span>
+          {isAicte && (
+            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 shrink-0">
+              ✨ Open Innovation
+            </span>
+          )}
         </div>
         {!confirmDelete && (
           <div className="flex items-center gap-2 shrink-0">
@@ -173,18 +197,21 @@ function FinalTeamCard({ ft, profileMap, onEdit, onDelete, onChangeMinistry, onS
               <Building2 className="size-3 shrink-0" />
               Ministry
             </Button>
-            <Button
-              variant="ghost"
-              onClick={() => { setShowPsPicker((v) => !v); setShowMinistryPicker(false); setPsSearch(""); }}
-              className={cn(
-                "text-[11px] px-3 py-1.5 hover:bg-violet-500/10",
-                ft.selected_ps_number ? "text-violet-300" : "text-[#94a3b8] hover:text-violet-300"
-              )}
-              title="Select the problem statement this team is working on"
-            >
-              <FileText className="size-3 shrink-0" />
-              {ft.selected_ps_number ? ft.selected_ps_number : "Select PS"}
-            </Button>
+            {/* AICTE teams: PS is written by the team — no picker needed from SPOC side */}
+            {!isAicte && (
+              <Button
+                variant="ghost"
+                onClick={() => { setShowPsPicker((v) => !v); setShowMinistryPicker(false); setPsSearch(""); }}
+                className={cn(
+                  "text-[11px] px-3 py-1.5 hover:bg-violet-500/10",
+                  hasSelectedPs ? "text-violet-300" : "text-[#94a3b8] hover:text-violet-300"
+                )}
+                title="Select the problem statement this team is working on"
+              >
+                <FileText className="size-3 shrink-0" />
+                {psButtonLabel}
+              </Button>
+            )}
             <Button
               variant="ghost"
               onClick={() => onEdit(ft)}
@@ -233,14 +260,45 @@ function FinalTeamCard({ ft, profileMap, onEdit, onDelete, onChangeMinistry, onS
 
       <ValidationBar members={members} />
 
-      {/* Selected PS badge — shown when a PS is chosen and picker is closed */}
-      {ft.selected_ps_number && !showPsPicker && (() => {
+      {/* AICTE custom PS badge */}
+      {isAicte && hasCustomPs && !showPsPicker && (
+        <div className="flex items-start gap-2 rounded-xl border border-amber-500/25 bg-amber-500/8 px-3 py-2">
+          <FileText className="size-3.5 text-amber-400 shrink-0 mt-0.5" />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap mb-0.5">
+              <p className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">Open Innovation Problem Statement</p>
+              <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-full bg-red-500/15 border border-red-500/30 text-red-300">
+                🔒 Locked by team
+              </span>
+            </div>
+            <p className="text-[11px] text-white leading-snug">{ft.custom_ps_title}</p>
+          </div>
+        </div>
+      )}
+
+      {/* AICTE — no PS yet */}
+      {isAicte && !hasCustomPs && (
+        <div className="flex items-center gap-2 rounded-xl border border-amber-500/15 bg-amber-500/5 px-3 py-2">
+          <FileText className="size-3.5 text-amber-400/50 shrink-0" />
+          <p className="text-[10px] text-amber-400/60 italic">
+            Team has not submitted their Open Innovation problem statement yet.
+          </p>
+        </div>
+      )}
+
+      {/* Non-AICTE: Selected PS badge */}
+      {!isAicte && hasSelectedPs && !showPsPicker && (() => {
         const ps = SIH2026_PROBLEMS.find((p) => p.psNumber === ft.selected_ps_number);
         return (
           <div className="flex items-start gap-2 rounded-xl border border-violet-500/25 bg-violet-500/8 px-3 py-2">
             <FileText className="size-3.5 text-violet-400 shrink-0 mt-0.5" />
-            <div className="min-w-0">
-              <p className="text-[10px] font-bold text-violet-400 uppercase tracking-wider">Working on</p>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                <p className="text-[10px] font-bold text-violet-400 uppercase tracking-wider">Working on</p>
+                <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-full bg-red-500/15 border border-red-500/30 text-red-300">
+                  🔒 Locked by team
+                </span>
+              </div>
               <p className="text-[11px] font-extrabold text-white font-mono">{ft.selected_ps_number}</p>
               {ps && <p className="text-[10px] text-violet-200 leading-snug line-clamp-2">{ps.title}</p>}
             </div>
@@ -375,7 +433,12 @@ function FinalTeamCard({ ft, profileMap, onEdit, onDelete, onChangeMinistry, onS
 
       <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3 mt-2">
         {members.map((m) => (
-          <MemberChip key={m.id} member={m} />
+          <MemberChip
+            key={m.id}
+            member={m}
+            selectedPs={ft.selected_ps_number ?? null}
+            customPs={ft.custom_ps_title ?? null}
+          />
         ))}
       </div>
 

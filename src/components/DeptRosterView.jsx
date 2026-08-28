@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Download, Users, CheckCircle2, UserX, Filter, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DEPT_CODE } from "@/lib/constants";
+import { SIH2026_PROBLEMS } from "@/lib/sih2026Problems";
 
 /**
  * DeptRosterView
@@ -33,6 +34,28 @@ export function DeptRosterView({ allProfiles = [], pairTeams = [], finalTeams = 
     const map = new Map(); // profileId → finalTeam name
     finalTeams.forEach((ft) => {
       (ft.member_ids || []).forEach((id) => map.set(id, ft.name));
+    });
+    return map;
+  }, [finalTeams]);
+
+  // Which profile IDs have a confirmed (locked) problem statement?
+  const selectedPsByMemberId = useMemo(() => {
+    const map = new Map(); // profileId → selected_ps_number
+    finalTeams.forEach((ft) => {
+      if (ft.selected_ps_number) {
+        (ft.member_ids || []).forEach((id) => map.set(id, ft.selected_ps_number));
+      }
+    });
+    return map;
+  }, [finalTeams]);
+
+  // Which profile IDs have a custom (Open Innovation / AICTE) problem statement?
+  const customPsByMemberId = useMemo(() => {
+    const map = new Map(); // profileId → custom_ps_title
+    finalTeams.forEach((ft) => {
+      if (ft.custom_ps_title) {
+        (ft.member_ids || []).forEach((id) => map.set(id, ft.custom_ps_title));
+      }
     });
     return map;
   }, [finalTeams]);
@@ -112,12 +135,15 @@ export function DeptRosterView({ allProfiles = [], pairTeams = [], finalTeams = 
   // ── CSV Export ────────────────────────────────────────────────────────────
   function exportCsv() {
     const rows = [
-      ["Student Name", "Register No", "Year", "Section", "Gender", "Status", "Final Team"],
+      ["Student Name", "Register No", "Year", "Section", "Gender", "Status", "Final Team", "Selected PS"],
       ...filtered.map((s) => {
-        const inFinal = finalTeamByMemberId.has(s.id);
-        const inPair  = inPairTeam.has(s.id);
+        const inFinal    = finalTeamByMemberId.has(s.id);
+        const inPair     = inPairTeam.has(s.id);
         const statusLabel = inFinal ? "In Final Team" : inPair ? "Pair Team Only" : "Profile Only";
-        const finalName   = inFinal ? finalTeamByMemberId.get(s.id) : "";
+        const finalName  = inFinal ? finalTeamByMemberId.get(s.id) : "";
+        const selectedPs = selectedPsByMemberId.get(s.id) ?? "";
+        const customPs   = customPsByMemberId.get(s.id) ?? "";
+        const psDisplay  = selectedPs || (customPs ? `Open Innovation: ${customPs}` : "");
         return [
           s.name ?? "",
           s.register_no ?? "",
@@ -126,6 +152,7 @@ export function DeptRosterView({ allProfiles = [], pairTeams = [], finalTeams = 
           s.gender ?? "",
           statusLabel,
           finalName,
+          psDisplay,
         ];
       }),
     ];
@@ -314,6 +341,7 @@ export function DeptRosterView({ allProfiles = [], pairTeams = [], finalTeams = 
                   <th className="px-4 py-3">Gender</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">Final Team</th>
+                  <th className="px-4 py-3">Selected PS</th>
                 </tr>
               </thead>
               <tbody>
@@ -347,6 +375,36 @@ export function DeptRosterView({ allProfiles = [], pairTeams = [], finalTeams = 
                       </td>
                       <td className="px-4 py-2.5 font-semibold text-emerald-300">
                         {finalName ?? <span className="text-[#94a3b8]/50">—</span>}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        {(() => {
+                          const psNum   = selectedPsByMemberId.get(s.id);
+                          const customPs = customPsByMemberId.get(s.id);
+                          if (psNum) {
+                            const psInfo = SIH2026_PROBLEMS.find((ps) => ps.psNumber === psNum);
+                            return (
+                              <div className="space-y-0.5">
+                                <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full border border-violet-500/40 bg-violet-500/10 text-violet-300 whitespace-nowrap">
+                                  🔒 {psNum}
+                                </span>
+                                {psInfo && (
+                                  <p className="text-[9px] text-[#94a3b8] leading-snug line-clamp-1 max-w-[180px]">{psInfo.title}</p>
+                                )}
+                              </div>
+                            );
+                          }
+                          if (customPs) {
+                            return (
+                              <div className="space-y-0.5">
+                                <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full border border-amber-500/40 bg-amber-500/10 text-amber-300 whitespace-nowrap">
+                                  ✨ Open Innovation
+                                </span>
+                                <p className="text-[9px] text-[#94a3b8] leading-snug line-clamp-1 max-w-[180px]">{customPs}</p>
+                              </div>
+                            );
+                          }
+                          return <span className="text-[10px] text-[#94a3b8]/50">—</span>;
+                        })()}
                       </td>
                     </tr>
                   );

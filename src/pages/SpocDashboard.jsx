@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   Shield, LogOut, Users, Building2, CheckCircle2, AlertTriangle,
   ChevronDown, ChevronUp, Plus, X, Download, Search, RefreshCw, Sparkles, Trash2,
-  ListChecks, Activity, TableProperties, BookOpen, Clock, UserX,
+  ListChecks, Activity, TableProperties, BookOpen, Clock, UserX, FileText,
 } from "lucide-react";
 import {
   getCurrentProfile, logoutSpoc, logoutAllSessions, fetchEnrichedTeams, fetchAllProfiles,
@@ -23,6 +23,7 @@ import { NewMinistryBadge } from "@/components/NewMinistryBadge";
 import { MonitoringView } from "@/components/MonitoringView";
 import { AccessLogView } from "@/components/AccessLogView";
 import { DeptRosterView } from "@/components/DeptRosterView";
+import { SIH2026_PROBLEMS } from "@/lib/sih2026Problems";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -88,12 +89,15 @@ function ValidationBar({ members }) {
 }
 
 // ─── Final team card ─────────────────────────────────────────────────────────
-function FinalTeamCard({ ft, profileMap, onEdit, onDelete, onChangeMinistry }) {
+function FinalTeamCard({ ft, profileMap, onEdit, onDelete, onChangeMinistry, onSelectPs }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showMinistryPicker, setShowMinistryPicker] = useState(false);
   const [newMinistry, setNewMinistry] = useState(ft.ministry ?? "");
   const [savingMinistry, setSavingMinistry] = useState(false);
+  const [showPsPicker, setShowPsPicker] = useState(false);
+  const [psSearch, setPsSearch] = useState("");
+  const [savingPs, setSavingPs] = useState(false);
 
   const members = useMemo(
     () => (ft.member_ids || []).map((id) => profileMap.get(id)).filter(Boolean),
@@ -118,6 +122,32 @@ function FinalTeamCard({ ft, profileMap, onEdit, onDelete, onChangeMinistry }) {
     setShowMinistryPicker(false);
   }
 
+  // PS list filtered to this team's ministry
+  const ministryProblems = useMemo(() => {
+    if (!ft.ministry) return SIH2026_PROBLEMS;
+    const needle = ft.ministry.trim().toLowerCase();
+    return SIH2026_PROBLEMS.filter((p) =>
+      p.organization.toLowerCase().includes(needle) ||
+      needle.includes(p.organization.toLowerCase().replace(/\s*\([^)]*\)\s*$/, "").trim().slice(0, 12))
+    );
+  }, [ft.ministry]);
+
+  const filteredPs = useMemo(() => {
+    const n = psSearch.trim().toLowerCase();
+    if (!n) return ministryProblems;
+    return ministryProblems.filter((p) =>
+      p.psNumber.toLowerCase().includes(n) || p.title.toLowerCase().includes(n)
+    );
+  }, [ministryProblems, psSearch]);
+
+  async function handleSelectPs(psNumber) {
+    setSavingPs(true);
+    await onSelectPs(ft.id, ft.name, psNumber === ft.selected_ps_number ? null : psNumber);
+    setSavingPs(false);
+    setShowPsPicker(false);
+    setPsSearch("");
+  }
+
   return (
     <div className={cn(
       "rounded-2xl border p-4 space-y-3 transition-all duration-200",
@@ -136,12 +166,24 @@ function FinalTeamCard({ ft, profileMap, onEdit, onDelete, onChangeMinistry }) {
           <div className="flex items-center gap-2 shrink-0">
             <Button
               variant="ghost"
-              onClick={() => { setShowMinistryPicker((v) => !v); setNewMinistry(ft.ministry ?? ""); }}
+              onClick={() => { setShowMinistryPicker((v) => !v); setShowPsPicker(false); setNewMinistry(ft.ministry ?? ""); }}
               className="text-[11px] px-3 py-1.5 text-blue-400 hover:bg-blue-500/10"
               title="Change the ministry for this final team"
             >
               <Building2 className="size-3 shrink-0" />
               Ministry
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => { setShowPsPicker((v) => !v); setShowMinistryPicker(false); setPsSearch(""); }}
+              className={cn(
+                "text-[11px] px-3 py-1.5 hover:bg-violet-500/10",
+                ft.selected_ps_number ? "text-violet-300" : "text-[#94a3b8] hover:text-violet-300"
+              )}
+              title="Select the problem statement this team is working on"
+            >
+              <FileText className="size-3 shrink-0" />
+              {ft.selected_ps_number ? ft.selected_ps_number : "Select PS"}
             </Button>
             <Button
               variant="ghost"
@@ -191,6 +233,21 @@ function FinalTeamCard({ ft, profileMap, onEdit, onDelete, onChangeMinistry }) {
 
       <ValidationBar members={members} />
 
+      {/* Selected PS badge — shown when a PS is chosen and picker is closed */}
+      {ft.selected_ps_number && !showPsPicker && (() => {
+        const ps = SIH2026_PROBLEMS.find((p) => p.psNumber === ft.selected_ps_number);
+        return (
+          <div className="flex items-start gap-2 rounded-xl border border-violet-500/25 bg-violet-500/8 px-3 py-2">
+            <FileText className="size-3.5 text-violet-400 shrink-0 mt-0.5" />
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold text-violet-400 uppercase tracking-wider">Working on</p>
+              <p className="text-[11px] font-extrabold text-white font-mono">{ft.selected_ps_number}</p>
+              {ps && <p className="text-[10px] text-violet-200 leading-snug line-clamp-2">{ps.title}</p>}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Inline ministry picker */}
       {showMinistryPicker && !confirmDelete && (
         <div className="rounded-xl border border-blue-500/30 bg-blue-500/8 px-4 py-3 space-y-2.5">
@@ -233,6 +290,89 @@ function FinalTeamCard({ ft, profileMap, onEdit, onDelete, onChangeMinistry }) {
         </div>
       )}
 
+      {/* Inline PS picker */}
+      {showPsPicker && !confirmDelete && (
+        <div className="rounded-xl border border-violet-500/30 bg-violet-500/8 px-4 py-3 space-y-2.5">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[11px] font-bold text-violet-300 flex items-center gap-1.5">
+              <FileText className="size-3.5 shrink-0" />
+              Select Problem Statement — visible to SPOC &amp; Admin
+            </p>
+            {ft.selected_ps_number && (
+              <button
+                type="button"
+                onClick={() => handleSelectPs(ft.selected_ps_number)}
+                disabled={savingPs}
+                className="text-[10px] text-red-400 hover:underline font-bold shrink-0"
+              >
+                Clear selection
+              </button>
+            )}
+          </div>
+          {/* Current selection */}
+          {ft.selected_ps_number && (() => {
+            const cur = SIH2026_PROBLEMS.find((p) => p.psNumber === ft.selected_ps_number);
+            return cur ? (
+              <div className="rounded-xl border border-violet-500/40 bg-violet-500/15 px-3 py-2">
+                <p className="text-[10px] font-bold text-violet-200 uppercase tracking-wider mb-0.5">Currently selected</p>
+                <p className="text-xs font-extrabold text-white font-mono">{cur.psNumber}</p>
+                <p className="text-[11px] text-violet-200 leading-snug line-clamp-2">{cur.title}</p>
+              </div>
+            ) : null;
+          })()}
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3 text-[#94a3b8] pointer-events-none" />
+            <input
+              type="text"
+              placeholder={`Search PS number or title${ft.ministry ? "" : " (all 226)"}…`}
+              value={psSearch}
+              onChange={(e) => setPsSearch(e.target.value)}
+              className="w-full rounded-xl border border-[rgba(147,197,253,0.18)] bg-[#050b18]/60 pl-8 pr-3 py-1.5 text-xs text-white outline-none placeholder:text-[#94a3b8]/50 focus:border-violet-400/50 transition-all"
+            />
+          </div>
+          {/* PS list */}
+          <div className="max-h-48 overflow-y-auto space-y-1 pr-1">
+            {filteredPs.length === 0 ? (
+              <p className="text-xs text-[#94a3b8] text-center py-4">No problem statements found</p>
+            ) : filteredPs.map((p) => {
+              const isSelected = ft.selected_ps_number === p.psNumber;
+              return (
+                <button
+                  key={p.psNumber}
+                  type="button"
+                  disabled={savingPs}
+                  onClick={() => handleSelectPs(p.psNumber)}
+                  className={cn(
+                    "w-full text-left rounded-xl border px-3 py-2 transition-all cursor-pointer space-y-0.5",
+                    isSelected
+                      ? "border-violet-500/50 bg-violet-500/20"
+                      : "border-[rgba(147,197,253,0.10)] bg-[#050b18]/40 hover:border-violet-500/30 hover:bg-violet-500/10"
+                  )}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-extrabold font-mono text-violet-300 shrink-0">{p.psNumber}</span>
+                    {isSelected && <CheckCircle2 className="size-3 text-violet-400 shrink-0" />}
+                    <span className={cn(
+                      "text-[9px] font-bold px-1.5 py-0.5 rounded-full border shrink-0",
+                      p.category === "Software"
+                        ? "border-blue-500/30 bg-blue-500/10 text-blue-300"
+                        : "border-orange-500/30 bg-orange-500/10 text-orange-300"
+                    )}>
+                      {p.category === "Software" ? "SW" : "HW"}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-[#94a3b8] leading-snug line-clamp-2">{p.title}</p>
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-[10px] text-[#94a3b8]">
+            {ft.ministry ? `Showing ${filteredPs.length} PS under this ministry` : `Showing ${filteredPs.length} of all 226 PS`}
+          </p>
+        </div>
+      )}
+
       <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3 mt-2">
         {members.map((m) => (
           <MemberChip key={m.id} member={m} />
@@ -254,7 +394,7 @@ function FinalTeamCard({ ft, profileMap, onEdit, onDelete, onChangeMinistry }) {
 
 // ─── Final Teams Panel ────────────────────────────────────────────────────────
 // Standalone filterable view of all created final teams, shown above the ministry accordion.
-function FinalTeamsPanel({ finalTeams, profileMap, onEdit, onDelete, onChangeMinistry }) {
+function FinalTeamsPanel({ finalTeams, profileMap, onEdit, onDelete, onChangeMinistry, onSelectPs }) {
   const [open, setOpen] = useState(true);
   const [search, setSearch] = useState("");
   const [ministryFilter, setMinistryFilter] = useState("all");
@@ -400,6 +540,7 @@ function FinalTeamsPanel({ finalTeams, profileMap, onEdit, onDelete, onChangeMin
                   onEdit={onEdit}
                   onDelete={onDelete}
                   onChangeMinistry={onChangeMinistry}
+                  onSelectPs={onSelectPs}
                 />
               ))}
             </div>
@@ -411,7 +552,7 @@ function FinalTeamsPanel({ finalTeams, profileMap, onEdit, onDelete, onChangeMin
 }
 
 // ─── Ministry accordion row ──────────────────────────────────────────────────
-function MinistryRow({ ministry, pairTeams, finalTeams, onBuildTeam, onEditTeam, onDeleteTeam, onChangeMinistryTeam, profileMap, claimedMemberIds }) {
+function MinistryRow({ ministry, pairTeams, finalTeams, onBuildTeam, onEditTeam, onDeleteTeam, onChangeMinistryTeam, onSelectPsTeam, profileMap, claimedMemberIds }) {
   const [open, setOpen] = useState(false);
   const bodyRef = useRef(null);
   const isOutdated = OUTDATED_MINISTRIES.has(ministry);
@@ -573,6 +714,7 @@ function MinistryRow({ ministry, pairTeams, finalTeams, onBuildTeam, onEditTeam,
                       onEdit={onEditTeam}
                       onDelete={onDeleteTeam}
                       onChangeMinistry={onChangeMinistryTeam}
+                      onSelectPs={onSelectPsTeam}
                     />
                   ))}
                 </div>
@@ -849,6 +991,25 @@ export default function SpocDashboard() {
       await refreshData(true); // rollback
     } else {
       toast("success", `Ministry for "${teamName}" updated to "${newMinistry}". Members notified.`);
+      refreshData(true);
+    }
+  }
+
+  async function handleSelectPsFinalTeam(id, teamName, psNumber) {
+    // Optimistic update
+    setFinalTeams((prev) =>
+      prev.map((ft) => ft.id === id ? { ...ft, selected_ps_number: psNumber || null } : ft)
+    );
+    const res = await updateFinalTeam(id, { selected_ps_number: psNumber || null });
+    if (res.error) {
+      toast("error", res.error);
+      await refreshData(true);
+    } else {
+      if (psNumber) {
+        toast("success", `"${teamName}" is now working on ${psNumber}. All members notified.`);
+      } else {
+        toast("success", `Problem statement selection cleared for "${teamName}".`);
+      }
       refreshData(true);
     }
   }
@@ -1219,6 +1380,7 @@ export default function SpocDashboard() {
             }}
             onDeleteTeam={handleDeleteFinalTeam}
             onChangeMinistryTeam={handleChangeMinistryFinalTeam}
+            onSelectPsTeam={handleSelectPsFinalTeam}
           />
         ))}
       </div>
@@ -1255,6 +1417,7 @@ export default function SpocDashboard() {
               }}
               onDelete={handleDeleteFinalTeam}
               onChangeMinistry={handleChangeMinistryFinalTeam}
+              onSelectPs={handleSelectPsFinalTeam}
             />
           )}
         </div>

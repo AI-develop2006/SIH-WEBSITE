@@ -19,6 +19,7 @@ if (existsSync(join(__dirname, ".env.local"))) {
 }
 
 import { runMigrations, dbQuery } from "./database.js";
+import { startScrapeScheduler, getProblems, scrapeAndSync } from "./sih-scraper.js";
 
 const app = express();
 const PORT = process.env.PORT || 3003;
@@ -2289,6 +2290,47 @@ app.get("*", (_req, res) => {
   `);
 });
 
+// ─── SIH Problem Statements API ───────────────────────────────────────────────
+// GET /api/problems/sih2026
+// Returns all SIH 2026 PS from the DB (with in-memory cache).
+// Used by participant/mentor, SPOC, and admin frontends.
+app.get("/api/problems/sih2026", async (_req, res) => {
+  try {
+    const problems = await getProblems(dbQuery);
+    return res.json({ data: problems, count: problems.length });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/problems/sih2026/sync-status
+// Returns info about the last scrape run.
+app.get("/api/problems/sih2026/sync-status", async (_req, res) => {
+  try {
+    let lastSync = null;
+    if (process.env.DATABASE_URL) {
+      const { rows } = await dbQuery(
+        `SELECT scraped_at, total_found, added, updated, unchanged, error, duration_ms
+         FROM public.sih_problems_sync_log
+         ORDER BY scraped_at DESC LIMIT 1`
+      );
+      lastSync = rows[0] ?? null;
+    }
+    return res.json({ data: lastSync });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/problems/sih2026/sync  (manual trigger — admin/SPOC use only)
+// Triggers an immediate scrape outside the 5-hour schedule.
+app.post("/api/problems/sih2026/sync", async (_req, res) => {
+  scrapeAndSync(dbQuery).catch((e) =>
+    console.error("[SIH scraper] Manual sync error:", e.message)
+  );
+  return res.json({ ok: true, message: "Scrape started in background" });
+});
+
 // Run migrations and then start listener
 async function startServer() {
   try {
@@ -2300,6 +2342,13 @@ async function startServer() {
   app.listen(PORT, () => {
     console.log(`Participant Mentor Backend Server running on port ${PORT}`);
   });
+
+  // Start the SIH PS scrape scheduler (initial DB load + scrape every 5 h)
+  try {
+    startScrapeScheduler(dbQuery);
+  } catch (err) {
+    console.error("[SIH scraper] Scheduler init failed:", err.message);
+  }
 }
 
 startServer();

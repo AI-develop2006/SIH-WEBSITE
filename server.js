@@ -2250,6 +2250,191 @@ app.patch("/api/spoc/submit-custom-ps", async (req, res) => {
   }
 });
 
+// ─── PS Change Requests ───────────────────────────────────────────────────────
+
+// POST /api/spoc/ps-change-request
+// Submit a request to change the team's locked problem statement.
+// Body: { reason, new_ps, new_custom }
+//   reason     – why they want to change (required, 10–1000 chars)
+//   new_ps     – new PS number (for non-AICTE teams)
+//   new_custom – new custom title (for AICTE teams)
+app.post("/api/spoc/ps-change-request", async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith("Bearer ")) return res.status(401).json({ error: "Not signed in" });
+  const token = authHeader.split(" ")[1];
+
+  const { reason, new_ps, new_custom } = req.body;
+
+  if (!reason || typeof reason !== "string" || reason.trim().length < 10) {
+    return res.status(400).json({ error: "Reason must be at least 10 characters" });
+  }
+  if (reason.trim().length > 1000) {
+    return res.status(400).json({ error: "Reason cannot exceed 1000 characters" });
+  }
+  if (!new_ps && !new_custom) {
+    return res.status(400).json({ error: "Either new_ps (PS number) or new_custom (title) is required" });
+  }
+
+  try {
+    let userId = null;
+    if (supabase) {
+      const { data: { user }, error } = await supabase.auth.getUser(token);
+      if (error || !user) return res.status(401).json({ error: "Invalid token" });
+      userId = user.id;
+    } else {
+      return res.status(500).json({ error: "Auth not configured" });
+    }
+
+    // Get the team
+    let team = null;
+    if (process.env.DATABASE_URL) {
+      const { rows } = await dbQuery(
+        `SELECT id, name, selected_ps_number, custom_ps_title FROM public.spoc_final_teams
+         WHERE $1 = ANY(member_ids) LIMIT 1`,
+        [userId]
+      );
+      if (!rows[0]) return res.status(404).json({ error: "You are not in any final team" });
+      team = rows[0];
+    } else if (supabase) {
+      const { data } = await supabase
+        .from("spoc_final_teams")
+        .select("id, name, selected_ps_number, custom_ps_title")
+        .contains("member_ids", [userId]).limit(1).maybeSingle();
+      if (!data) return res.status(404).json({ error: "You are not in any final team" });
+      team = data;
+    }
+
+    // Must have a locked PS to request a change
+    if (!team.selected_ps_number && !team.custom_ps_title) {
+      return res.status(400).json({ error: "Your team has not confirmed a problem statement yet. No change request needed." });
+    }
+
+    // Check no pending request already exists for this team
+    let existingPending = null;
+    if (process.env.DATABASE_URL) {
+      const { rows } = await dbQuery(
+        `SELECT id FROM public.ps_change_requests WHERE team_id = $1 AND status = 'pending' LIMIT 1`,
+        [team.id]
+      );
+      existingPending = rows[0] ?? null;
+    } else if (supabase) {
+      const { data } = await supabase
+        .from("ps_change_requests")
+        .select("id")
+        .eq("team_id", team.id)
+        .eq("status", "pending")
+        .limit(1).maybeSingle();
+      existingPending = data ?? null;
+    }
+    if (existingPending) {
+      return res.status(409).json({
+        error: "Your team already has a pending change request. Wait for the SPOC to review it before submitting another.",
+      });
+    }
+
+    // Insert the request
+    let created = null;
+    if (process.env.DATABASE_URL) {
+      const { rows } = await dbQuery(
+        `INSERT INTO public.ps_change_requests
+           (team_id, team_name, requested_by, current_ps, current_custom, new_ps, new_custom, reason)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         RETURNING *;`,
+        [
+          team.id,
+          team.name,
+          userId,
+          team.selected_ps_number ?? null,
+          team.custom_ps_title ?? null,
+          new_ps?.trim() ?? null,
+          new_custom?.trim() ?? null,
+          reason.trim(),
+        ]
+      );
+      created = rows[0];
+    } else if (supabase) {
+      const { data, error } = await supabase
+        .from("ps_change_requests")
+        .insert([{
+          team_id:        team.id,
+          team_name:      team.name,
+          requested_by:   userId,
+          current_ps:     team.selected_ps_number ?? null,
+          current_custom: team.custom_ps_title ?? null,
+          new_ps:         new_ps?.trim() ?? null,
+          new_custom:     new_custom?.trim() ?? null,
+          reason:         reason.trim(),
+        }])
+        .select().single();
+      if (error) return res.status(500).json({ error: error.message });
+      created = data;
+    }
+
+    // Notify SPOC via broadcast
+    broadcastPairTeamUpdate("ps_change_request", { team_id: team.id, team_name: team.name });
+
+    return res.status(201).json({ data: created });
+  } catch (err) {
+    console.error("[/api/spoc/ps-change-request] Error:", err.message);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/spoc/ps-change-request/my
+// Returns the current team's latest change request (pending or resolved).
+app.get("/api/spoc/ps-change-request/my", async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith("Bearer ")) return res.status(401).json({ error: "Not signed in" });
+  const token = authHeader.split(" ")[1];
+
+  try {
+    let userId = null;
+    if (supabase) {
+      const { data: { user }, error } = await supabase.auth.getUser(token);
+      if (error || !user) return res.status(401).json({ error: "Invalid token" });
+      userId = user.id;
+    } else {
+      return res.status(500).json({ error: "Auth not configured" });
+    }
+
+    // Find team
+    let teamId = null;
+    if (process.env.DATABASE_URL) {
+      const { rows } = await dbQuery(
+        `SELECT id FROM public.spoc_final_teams WHERE $1 = ANY(member_ids) LIMIT 1`, [userId]
+      );
+      teamId = rows[0]?.id ?? null;
+    } else if (supabase) {
+      const { data } = await supabase
+        .from("spoc_final_teams").select("id")
+        .contains("member_ids", [userId]).limit(1).maybeSingle();
+      teamId = data?.id ?? null;
+    }
+    if (!teamId) return res.json({ data: null });
+
+    let requests = [];
+    if (process.env.DATABASE_URL) {
+      const { rows } = await dbQuery(
+        `SELECT * FROM public.ps_change_requests
+         WHERE team_id = $1 ORDER BY created_at DESC LIMIT 5`,
+        [teamId]
+      );
+      requests = rows;
+    } else if (supabase) {
+      const { data } = await supabase
+        .from("ps_change_requests")
+        .select("*")
+        .eq("team_id", teamId)
+        .order("created_at", { ascending: false })
+        .limit(5);
+      requests = data ?? [];
+    }
+    return res.json({ data: requests });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 // Serve static build if present
 const distFolder = join(__dirname, "dist");
 const indexHtmlFile = join(distFolder, "index.html");

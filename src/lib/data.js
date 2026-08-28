@@ -308,3 +308,33 @@ export async function fetchAuditLog(limit = 200) {
     return { data: [], error: err.message };
   }
 }
+
+// ─── PS Change Requests (SPOC) ────────────────────────────────────────────────
+
+export async function fetchPsChangeRequests() {
+  try {
+    const res = await fetch(`${API_BASE}/api/spoc/ps-change-requests`, {
+      headers: { ...getAuthHeader() },
+    });
+    const json = await res.json();
+    if (!res.ok) return { data: [], error: json.error };
+    return { data: json.data ?? [], error: null };
+  } catch (err) {
+    return { data: [], error: err.message };
+  }
+}
+
+export async function reviewPsChangeRequest(id, action, reviewNote = "") {
+  try {
+    const res = await fetch(`${API_BASE}/api/spoc/ps-change-requests/${id}/review`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...getAuthHeader() },
+      body: JSON.stringify({ action, review_note: reviewNote }),
+    });
+    const json = await res.json();
+    if (!res.ok) return { ok: false, error: json.error };
+    return { ok: true, error: null };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}

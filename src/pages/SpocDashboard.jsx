@@ -3,13 +3,13 @@ import { useNavigate } from "react-router-dom";
 import {
   Shield, LogOut, Users, Building2, CheckCircle2, AlertTriangle,
   ChevronDown, ChevronUp, Plus, X, Download, Search, RefreshCw, Sparkles, Trash2,
-  ListChecks, Activity, TableProperties, BookOpen, Clock, UserX, FileText,
+  ListChecks, Activity, TableProperties, BookOpen, Clock, UserX, FileText, MessageSquare,
 } from "lucide-react";
 import {
   getCurrentProfile, logoutSpoc, logoutAllSessions, fetchEnrichedTeams, fetchAllProfiles,
   fetchFinalTeams, saveFinalTeam, updateFinalTeam, deleteFinalTeam,
   fetchClaimedMembers, subscribeToTeamEvents, subscribeToPairTeamEvents,
-  isMasterSession, sessionMsRemaining, SESSION_TIMEOUT_MS,
+  isMasterSession, sessionMsRemaining, SESSION_TIMEOUT_MS, fetchPsChangeRequests,
 } from "@/lib/data";
 import { useToast } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,7 @@ import { NewMinistryBadge } from "@/components/NewMinistryBadge";
 import { MonitoringView } from "@/components/MonitoringView";
 import { AccessLogView } from "@/components/AccessLogView";
 import { DeptRosterView } from "@/components/DeptRosterView";
+import { PsChangeRequestsView } from "@/components/PsChangeRequestsView";
 import { SIH2026_PROBLEMS } from "@/lib/sih2026Problems";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -851,7 +852,8 @@ export default function SpocDashboard() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("active");
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState("teams"); // "teams" | "final-teams" | "monitoring" | "dept" | "access-log"
+  const [activeTab, setActiveTab] = useState("teams"); // "teams" | "final-teams" | "monitoring" | "dept" | "ps-requests" | "access-log"
+  const [pendingPsRequests, setPendingPsRequests] = useState(0);
   const [isMaster, setIsMaster] = useState(false);
 
   // ── Session timeout state ─────────────────────────────────────────────────
@@ -867,12 +869,13 @@ export default function SpocDashboard() {
 
   // ── Load data ──────────────────────────────────────────────────────────────
   const loadAll = useCallback(async () => {
-    const [profileRes, teamsRes, finalRes, claimedRes, allProfilesRes] = await Promise.all([
+    const [profileRes, teamsRes, finalRes, claimedRes, allProfilesRes, psReqRes] = await Promise.all([
       getCurrentProfile(),
       fetchEnrichedTeams(),
       fetchFinalTeams(),
       fetchClaimedMembers(),
       fetchAllProfiles(),
+      fetchPsChangeRequests(),
     ]);
 
     if (profileRes.error || !profileRes.data) {
@@ -891,20 +894,23 @@ export default function SpocDashboard() {
     setFinalTeams(finalRes.data ?? []);
     setClaimedMemberIds(new Set(claimedRes.data ?? []));
     setAllProfiles(allProfilesRes.data ?? []);
+    setPendingPsRequests((psReqRes.data ?? []).filter((r) => r.status === "pending").length);
   }, [navigate, toast]);
 
   const refreshData = useCallback(async (silent = true) => {
     if (!silent) setRefreshing(true);
-    const [teamsRes, finalRes, claimedRes, allProfilesRes] = await Promise.all([
+    const [teamsRes, finalRes, claimedRes, allProfilesRes, psReqRes] = await Promise.all([
       fetchEnrichedTeams(),
       fetchFinalTeams(),
       fetchClaimedMembers(),
       fetchAllProfiles(),
+      fetchPsChangeRequests(),
     ]);
     if (teamsRes.data) setPairTeams(teamsRes.data);
     if (finalRes.data) setFinalTeams(finalRes.data);
     if (claimedRes.data) setClaimedMemberIds(new Set(claimedRes.data));
     if (allProfilesRes.data) setAllProfiles(allProfilesRes.data);
+    setPendingPsRequests((psReqRes.data ?? []).filter((r) => r.status === "pending").length);
     setLastRefreshed(new Date());
     if (!silent) setRefreshing(false);
   }, []);
@@ -1298,6 +1304,7 @@ export default function SpocDashboard() {
           { id: "problems",    label: "SIH 2026 Problems",   icon: BookOpen        },
           { id: "monitoring",  label: "Monitoring",          icon: Activity        },
           { id: "dept",        label: "Dept Roster",         icon: TableProperties },
+          { id: "ps-requests", label: "PS Change Requests",  icon: MessageSquare, badge: pendingPsRequests > 0 ? pendingPsRequests : null },
           ...(isMaster ? [{ id: "access-log", label: "Access Log", icon: Shield }] : []),
         ].map((t) => (
           <button
@@ -1305,7 +1312,7 @@ export default function SpocDashboard() {
             type="button"
             onClick={() => setActiveTab(t.id)}
             className={cn(
-              "flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer",
+              "flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer relative",
               activeTab === t.id
                 ? "bg-[#c9a227] text-black shadow"
                 : "text-[#94a3b8] hover:text-white hover:bg-[rgba(147,197,253,0.06)]"
@@ -1313,7 +1320,12 @@ export default function SpocDashboard() {
           >
             <t.icon className="size-3.5 shrink-0" />
             <span className="hidden sm:inline">{t.label}</span>
-            <span className="sm:hidden">{t.id === "final-teams" ? "Finals" : t.id === "access-log" ? "Log" : t.id === "problems" ? "PS" : t.label}</span>
+            <span className="sm:hidden">{t.id === "final-teams" ? "Finals" : t.id === "access-log" ? "Log" : t.id === "problems" ? "PS" : t.id === "ps-requests" ? "Requests" : t.label}</span>
+            {t.badge && (
+              <span className="absolute -top-1 -right-1 flex size-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-extrabold text-white shadow-lg">
+                {t.badge}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -1506,6 +1518,10 @@ export default function SpocDashboard() {
           pairTeams={pairTeams}
           finalTeams={finalTeams}
         />
+      )}
+
+      {activeTab === "ps-requests" && (
+        <PsChangeRequestsView />
       )}
 
       {activeTab === "access-log" && isMaster && (

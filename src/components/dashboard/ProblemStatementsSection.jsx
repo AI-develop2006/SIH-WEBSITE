@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { BookOpen, Filter, Search, X, ExternalLink, Cpu, Code2, Download, Presentation, Clock, CalendarDays, Building2, CheckCircle2, AlertTriangle, Lock, Pencil, Sparkles, MessageSquare, ChevronDown, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SIH2026_PROBLEMS } from "@/lib/sih2026Problems";
@@ -232,8 +233,9 @@ function OpenInnovationView({ ministry, lockedTitle, onSubmit, submitting, myFin
         </div>
       </div>
 
-      {/* Confirmation dialog */}
-      {showConfirm && (
+      {/* Confirmation dialog — rendered in a portal so fixed positioning is
+          never broken by an ancestor transform (e.g. page-transition animation) */}
+      {showConfirm && createPortal(
         <div
           className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
           onClick={() => setShowConfirm(false)}
@@ -299,7 +301,7 @@ function OpenInnovationView({ ministry, lockedTitle, onSubmit, submitting, myFin
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
     </div>
   );
 }
@@ -581,10 +583,12 @@ function MinistryProblemsView({ ministry, selectedPsNumber, onSelectPs, savingPs
         </div>
       )}
 
-      {/* ── Confirmation Warning Dialog ─────────────────────────────────── */}
+      {/* ── Confirmation Warning Dialog — rendered via portal so that the
+           fixed overlay is never offset by an ancestor transform
+           (e.g. the page-transition animation on <main>) ─────────────── */}
       {pendingPs && (() => {
         const ps = SIH2026_PROBLEMS.find((p) => p.psNumber === pendingPs);
-        return (
+        return createPortal(
           <div
             className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
             onClick={() => setPendingPs(null)}
@@ -663,7 +667,7 @@ function MinistryProblemsView({ ministry, selectedPsNumber, onSelectPs, savingPs
               </div>
             </div>
           </div>
-        );
+        , document.body);
       })()}
     </div>
   );

@@ -728,8 +728,24 @@ app.get("/api/spoc/final-teams", async (_req, res) => {
   }
 });
 
+// ── Master-only guard helper ──────────────────────────────────────────────────
+// Returns true if the request carries the master token.
+// Used to block all write operations for read-only (normal SPOC) sessions.
+function requireMaster(req, res) {
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.startsWith("Bearer ") ? authHeader.split(" ")[1] : null;
+  if (token !== "master") {
+    res.status(403).json({
+      error: "Read-only access — this action requires a master session. Please log in with the master password to make changes.",
+    });
+    return false;
+  }
+  return true;
+}
+
 // POST — create a new final team
 app.post("/api/spoc/final-teams", async (req, res) => {
+  if (!requireMaster(req, res)) return;
   const { name, ministry, member_ids, draft = false, selected_ps_number: initialPs } = req.body;
   if (!name?.trim()) return res.status(400).json({ error: "Team name is required" });
   if (!Array.isArray(member_ids)) return res.status(400).json({ error: "member_ids must be an array" });
@@ -825,6 +841,7 @@ app.post("/api/spoc/final-teams", async (req, res) => {
 
 // PATCH — update a final team
 app.patch("/api/spoc/final-teams/:id", async (req, res) => {
+  if (!requireMaster(req, res)) return;
   const { id } = req.params;
   const { name, ministry, member_ids, draft = false, selected_ps_number } = req.body;
   const ip = extractIp(req);
@@ -1002,6 +1019,7 @@ app.patch("/api/spoc/final-teams/:id", async (req, res) => {
 
 // DELETE — remove a final team (with member notifications + broadcast)
 app.delete("/api/spoc/final-teams/:id", async (req, res) => {
+  if (!requireMaster(req, res)) return;
   const { id } = req.params;
   const ip = extractIp(req);
   try {
@@ -1227,6 +1245,175 @@ app.get("*", (_req, res) => {
     </body>
     </html>
   `);
+});
+
+// ─── PS Change Requests (SPOC) ───────────────────────────────────────────────
+
+// GET /api/spoc/ps-change-requests
+// Returns all change requests (pending first, then by date).
+app.get("/api/spoc/ps-change-requests", async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith("Bearer ")) return res.status(401).json({ error: "Not signed in" });
+
+  try {
+    let rows = [];
+    if (DATABASE_URL) {
+      const result = await dbQuery(
+        `SELECT r.*,
+                p.name AS requester_name, p.register_no AS requester_regno, p.department AS requester_dept
+         FROM public.ps_change_requests r
+         LEFT JOIN public.profiles p ON p.id = r.requested_by
+         ORDER BY
+           CASE r.status WHEN 'pending' THEN 0 WHEN 'approved' THEN 1 ELSE 2 END,
+           r.created_at DESC`
+      );
+      rows = result.rows;
+    } else if (supabase) {
+      const { data, error } = await supabase
+        .from("ps_change_requests")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw new Error(error.message);
+      rows = data ?? [];
+    }
+    return res.json({ data: rows });
+  } catch (err) {
+    console.warn("[ps-change-requests] Error:", err.message);
+    return res.json({ data: [] });
+  }
+});
+
+// PATCH /api/spoc/ps-change-requests/:id/review
+// Approve or reject a change request.
+// Body: { action: "approve" | "reject", review_note?: string }
+// When approved: updates the team's selected_ps_number / custom_ps_title.
+app.patch("/api/spoc/ps-change-requests/:id/review", async (req, res) => {
+  if (!requireMaster(req, res)) return;
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith("Bearer ")) return res.status(401).json({ error: "Not signed in" });
+
+  const { id } = req.params;
+  const { action, review_note } = req.body;
+
+  if (!["approve", "reject"].includes(action)) {
+    return res.status(400).json({ error: "action must be 'approve' or 'reject'" });
+  }
+
+  try {
+    // Fetch the request
+    let cr = null;
+    if (DATABASE_URL) {
+      const { rows } = await dbQuery(
+        `SELECT * FROM public.ps_change_requests WHERE id = $1 LIMIT 1`, [id]
+      );
+      cr = rows[0] ?? null;
+    } else if (supabase) {
+      const { data } = await supabase
+        .from("ps_change_requests").select("*").eq("id", id).maybeSingle();
+      cr = data ?? null;
+    }
+    if (!cr) return res.status(404).json({ error: "Change request not found" });
+    if (cr.status !== "pending") {
+      return res.status(409).json({ error: `Request is already ${cr.status}` });
+    }
+
+    const newStatus    = action === "approve" ? "approved" : "rejected";
+    const reviewedAt   = new Date().toISOString();
+
+    if (DATABASE_URL) {
+      await dbQuery(
+        `UPDATE public.ps_change_requests
+         SET status = $1, review_note = $2, reviewed_at = $3
+         WHERE id = $4`,
+        [newStatus, review_note?.trim() ?? null, reviewedAt, id]
+      );
+    } else if (supabase) {
+      await supabase.from("ps_change_requests").update({
+        status: newStatus,
+        review_note: review_note?.trim() ?? null,
+        reviewed_at: reviewedAt,
+      }).eq("id", id);
+    }
+
+    // If approved → apply the new PS to the team
+    if (action === "approve") {
+      if (DATABASE_URL) {
+        await dbQuery(
+          `UPDATE public.spoc_final_teams
+           SET selected_ps_number = $1,
+               custom_ps_title    = $2,
+               updated_at         = now()
+           WHERE id = $3`,
+          [cr.new_ps ?? null, cr.new_custom ?? null, cr.team_id]
+        );
+      } else if (supabase) {
+        await supabase.from("spoc_final_teams").update({
+          selected_ps_number: cr.new_ps ?? null,
+          custom_ps_title:    cr.new_custom ?? null,
+          updated_at:         reviewedAt,
+        }).eq("id", cr.team_id);
+      }
+      broadcastUpdate("final_teams_updated", { action: "ps_change_approved", team_id: cr.team_id });
+    }
+
+    // Notify the team members
+    try {
+      let memberIds = [];
+      if (DATABASE_URL) {
+        const { rows } = await dbQuery(
+          `SELECT member_ids FROM public.spoc_final_teams WHERE id = $1`, [cr.team_id]
+        );
+        memberIds = rows[0]?.member_ids ?? [];
+      } else if (supabase) {
+        const { data } = await supabase
+          .from("spoc_final_teams").select("member_ids").eq("id", cr.team_id).maybeSingle();
+        memberIds = data?.member_ids ?? [];
+      }
+      if (memberIds.length > 0) {
+        await sendNotifications(memberIds, {
+          type:    "ps_change_request",
+          title:   action === "approve" ? "PS Change Request Approved ✅" : "PS Change Request Rejected ❌",
+          message: action === "approve"
+            ? `Your request to change problem statement has been approved. Your team is now working on ${cr.new_ps || "your updated problem statement"}.`
+            : `Your request to change problem statement has been rejected.${review_note ? ` Note: ${review_note}` : ""}`,
+          metadata: { team_id: cr.team_id, request_id: id },
+        });
+      }
+    } catch (_) { /* fire-and-forget */ }
+
+    return res.json({ ok: true, status: newStatus });
+  } catch (err) {
+    console.error("[ps-change-requests/review] Error:", err.message);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── SIH Problem Statements (read from shared DB table) ───────────────────────
+// GET /api/problems/sih2026// Reads from the sih_problems table kept current by the participant backend.
+// Falls back to an empty array if the table doesn't exist yet.
+app.get("/api/problems/sih2026", async (_req, res) => {
+  try {
+    if (DATABASE_URL) {
+      const { rows } = await dbQuery(
+        `SELECT ps_number AS "psNumber", sno, organization, title, category, theme, deadline
+         FROM public.sih_problems ORDER BY sno ASC`
+      );
+      return res.json({ data: rows, count: rows.length });
+    } else if (supabase) {
+      const { data, error } = await supabase
+        .from("sih_problems")
+        .select("ps_number, sno, organization, title, category, theme, deadline")
+        .order("sno", { ascending: true });
+      if (error) throw new Error(error.message);
+      const rows = (data ?? []).map((r) => ({ ...r, psNumber: r.ps_number }));
+      return res.json({ data: rows, count: rows.length });
+    }
+    return res.json({ data: [], count: 0 });
+  } catch (err) {
+    // Table might not exist yet — return empty so frontends fall back to static data
+    console.warn("[/api/problems/sih2026] DB read failed:", err.message);
+    return res.json({ data: [], count: 0 });
+  }
 });
 
 // ─── Start ────────────────────────────────────────────────────────────────────

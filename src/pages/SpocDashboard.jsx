@@ -4,12 +4,14 @@ import {
   Shield, LogOut, Users, Building2, CheckCircle2, AlertTriangle,
   ChevronDown, ChevronUp, Plus, X, Download, Search, RefreshCw, Sparkles, Trash2,
   ListChecks, Activity, TableProperties, BookOpen, Clock, UserX, FileText, MessageSquare,
+  HardDrive, Code2, Cpu,
 } from "lucide-react";
 import {
   getCurrentProfile, logoutSpoc, logoutAllSessions, fetchEnrichedTeams, fetchAllProfiles,
   fetchFinalTeams, saveFinalTeam, updateFinalTeam, deleteFinalTeam,
   fetchClaimedMembers, subscribeToTeamEvents, subscribeToPairTeamEvents,
   isMasterSession, sessionMsRemaining, SESSION_TIMEOUT_MS, fetchPsChangeRequests,
+  downloadTeamsXlsx,
 } from "@/lib/data";
 import { useToast } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
@@ -618,14 +620,15 @@ function FinalTeamsPanel({ finalTeams, profileMap, onEdit, onDelete, onChangeMin
 }
 
 // ─── Ministry accordion row ──────────────────────────────────────────────────
-function MinistryRow({ ministry, pairTeams, finalTeams, onBuildTeam, onEditTeam, onDeleteTeam, onChangeMinistryTeam, onSelectPsTeam, profileMap, claimedMemberIds, readOnly = false }) {
+function MinistryRow({ ministry, pairTeams, finalTeams, onBuildTeam, onEditTeam, onDeleteTeam, onChangeMinistryTeam, onSelectPsTeam, profileMap, claimedMemberIds, readOnly = false, isMaster = false }) {
   const [open, setOpen] = useState(false);
   const bodyRef = useRef(null);
   const isOutdated = OUTDATED_MINISTRIES.has(ministry);
 
   const finalsForMinistry = finalTeams.filter((ft) => ft.ministry === ministry);
   const totalPairMembers = pairTeams.reduce((s, t) => s + t.members.length, 0);
-  const canExpand = !isOutdated && pairTeams.length > 0;
+  // Only allow expanding the accordion when under maintenance (master session)
+  const canExpand = !isOutdated && pairTeams.length > 0 && isMaster;
 
   // Animate open/close with max-height
   useEffect(() => {
@@ -699,6 +702,11 @@ function MinistryRow({ ministry, pairTeams, finalTeams, onBuildTeam, onEditTeam,
             <div className={cn("transition-transform duration-200", open ? "rotate-180" : "rotate-0")}>
               <ChevronDown className="size-4 text-[#94a3b8]" />
             </div>
+          )}
+          {!canExpand && !isOutdated && pairTeams.length > 0 && (
+            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full border border-[rgba(147,197,253,0.15)] bg-[#0a1226]/60 text-[#94a3b8]/60">
+              🔒 master only
+            </span>
           )}
         </div>
       </button>
@@ -877,6 +885,13 @@ export default function SpocDashboard() {
   const [builderSourceTeams, setBuilderSourceTeams] = useState([]);
   const [editingFinalTeam, setEditingFinalTeam] = useState(null);
 
+  // Export dropdown state
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const exportMenuRef = useRef(null);
+
+  // Downloads tab state — tracks per-type loading/error
+  const [dlState, setDlState] = useState({ software: "idle", hardware: "idle", aicte: "idle" });
+
   // ── Load data ──────────────────────────────────────────────────────────────
   const loadAll = useCallback(async () => {
     const [profileRes, teamsRes, finalRes, claimedRes, allProfilesRes, psReqRes] = await Promise.all([
@@ -934,6 +949,17 @@ export default function SpocDashboard() {
       setLoading(false);
     })();
   }, [loadAll]);
+
+  // Close export dropdown on outside click
+  useEffect(() => {
+    function handleOutside(e) {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target)) {
+        setExportMenuOpen(false);
+      }
+    }
+    if (exportMenuOpen) document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [exportMenuOpen]);
 
   // ── SSE: real-time updates from other SPOC sessions (final teams) ─────────
   // Subscribes to SPOC backend SSE; refreshes data on any final-team change.
@@ -1126,215 +1152,228 @@ export default function SpocDashboard() {
     return { conflict: false };
   }
 
-  async function exportFinalTeams() {
+  // ── Export state (dropdown) — declared above near other state ────────────────
+
+  /**
+   * Export final teams to xlsx matching the software_teams / aicte_teams format:
+   *   Row 0: "SIH 2026 — Final Teams (…)"
+   *   Row 1: column headers
+   *   Per team: first-member row carries S.No + "TeamName\n[Ministry:…]\n[PS:…]"
+   *             subsequent members: null in those cells
+   *
+   * mode = "ministry"  → one sheet per ministry
+   * mode = "whole"     → single sheet, all teams sorted alphabetically
+   */
+  async function exportFinalTeams(mode = "ministry") {
     const XLSX = await import("xlsx");
+    setExportMenuOpen(false);
 
     // ── Lookups ────────────────────────────────────────────────────────────
     const psMap = new Map(SIH2026_PROBLEMS.map((p) => [p.psNumber, p]));
 
     // ── Colour palette ─────────────────────────────────────────────────────
     const C = {
-      navy:      "FF1A3A5C",
-      gold:      "FFC9A227",
-      goldDark:  "FF78350F",
-      colHeader: "FF1F2937",
-      white:     "FFFFFFFF",
-      memberEven:"FFF8FAFC",
-      memberOdd: "FFFFFFFF",
-      border:    "FFCBD5E1",
-      amber:     "FFFBBF24",
-      amberDark: "FF78350F",
-      swBg:      "FFdbeafe",
-      swFg:      "FF1e40af",
-      hwBg:      "FFffedd5",
-      hwFg:      "FF9a3412",
-      openBg:    "FFfef3c7",
-      openFg:    "FF92400e",
+      navy:       "FF1A2744",
+      gold:       "FFC9A227",
+      goldLight:  "FFFFF8E7",
+      colHeader:  "FF1F2937",
+      white:      "FFFFFFFF",
+      rowEven:    "FFF8FAFC",
+      rowOdd:     "FFFFFFFF",
+      border:     "FFCBD5E1",
+      pending:    "FFFBBF24",
+      pendingFg:  "FF78350F",
     };
 
-    const line = (rgb) => ({ style: "thin", color: { rgb } });
-    const allBorders = { top: line(C.border), bottom: line(C.border), left: line(C.border), right: line(C.border) };
+    const line   = (rgb) => ({ style: "thin", color: { rgb } });
+    const border = { top: line(C.border), bottom: line(C.border), left: line(C.border), right: line(C.border) };
 
-    const S = {
-      ministryHeader: { font: { bold: true, sz: 12, color: { rgb: C.white }   }, fill: { patternType: "solid", fgColor: { rgb: C.navy      } }, alignment: { horizontal: "left",   vertical: "center", wrapText: false }, border: allBorders },
-      teamHeader:     { font: { bold: true, sz: 11, color: { rgb: C.goldDark } }, fill: { patternType: "solid", fgColor: { rgb: C.gold      } }, alignment: { horizontal: "left",   vertical: "center" }, border: allBorders },
-      colHeader:      { font: { bold: true, sz: 10, color: { rgb: C.white }   }, fill: { patternType: "solid", fgColor: { rgb: C.colHeader  } }, alignment: { horizontal: "center", vertical: "center" }, border: allBorders },
-      memberEven:     { font: { sz: 10 }, fill: { patternType: "solid", fgColor: { rgb: C.memberEven } }, alignment: { horizontal: "left",   vertical: "center" }, border: allBorders },
-      memberOdd:      { font: { sz: 10 }, fill: { patternType: "solid", fgColor: { rgb: C.memberOdd  } }, alignment: { horizontal: "left",   vertical: "center" }, border: allBorders },
-      pending:        { font: { bold: true, sz: 10, color: { rgb: C.amberDark } }, fill: { patternType: "solid", fgColor: { rgb: C.amber  } }, alignment: { horizontal: "center", vertical: "center", wrapText: false }, border: allBorders },
-      psCell:         { font: { sz: 10 }, fill: { patternType: "solid", fgColor: { rgb: C.memberEven } }, alignment: { horizontal: "left",   vertical: "center", wrapText: true  }, border: allBorders },
-      software:       { font: { bold: true, sz: 10, color: { rgb: C.swFg   } }, fill: { patternType: "solid", fgColor: { rgb: C.swBg   } }, alignment: { horizontal: "center", vertical: "center" }, border: allBorders },
-      hardware:       { font: { bold: true, sz: 10, color: { rgb: C.hwFg   } }, fill: { patternType: "solid", fgColor: { rgb: C.hwBg   } }, alignment: { horizontal: "center", vertical: "center" }, border: allBorders },
-      openInno:       { font: { bold: true, sz: 10, color: { rgb: C.openFg } }, fill: { patternType: "solid", fgColor: { rgb: C.openBg } }, alignment: { horizontal: "center", vertical: "center" }, border: allBorders },
-      blank:          { border: allBorders },
+    // Styles
+    const titleStyle = {
+      font:      { bold: true, sz: 13, color: { rgb: C.white } },
+      fill:      { patternType: "solid", fgColor: { rgb: C.navy } },
+      alignment: { horizontal: "left", vertical: "center" },
+      border,
+    };
+    const headerStyle = {
+      font:      { bold: true, sz: 10, color: { rgb: C.white } },
+      fill:      { patternType: "solid", fgColor: { rgb: C.colHeader } },
+      alignment: { horizontal: "center", vertical: "center", wrapText: true },
+      border,
+    };
+    const rowEvenStyle = {
+      font:      { sz: 10 },
+      fill:      { patternType: "solid", fgColor: { rgb: C.rowEven } },
+      alignment: { horizontal: "left", vertical: "center", wrapText: true },
+      border,
+    };
+    const rowOddStyle = {
+      font:      { sz: 10 },
+      fill:      { patternType: "solid", fgColor: { rgb: C.rowOdd } },
+      alignment: { horizontal: "left", vertical: "center", wrapText: true },
+      border,
+    };
+    const teamNameStyle = {
+      font:      { bold: true, sz: 10 },
+      fill:      { patternType: "solid", fgColor: { rgb: C.goldLight } },
+      alignment: { horizontal: "left", vertical: "center", wrapText: true },
+      border,
+    };
+    const pendingStyle = {
+      font:      { bold: true, sz: 10, color: { rgb: C.pendingFg } },
+      fill:      { patternType: "solid", fgColor: { rgb: C.pending } },
+      alignment: { horizontal: "center", vertical: "center" },
+      border,
     };
 
-    function sc(ws, r, c, value, s) {
+    // COLUMNS (matching software_teams / aicte_teams format):
+    // 0: S.No  1: Team Name  2: Member Name  3: Register No
+    // 4: Phone  5: Dept / Year / Sec  6: Gender  7: Hindi Proficiency  8: Remarks
+    const NCOLS = 9;
+    const COL_W = [5, 38, 24, 14, 13, 42, 8, 16, 18];
+    const COL_HEADERS = [
+      "S.No", "Team Name", "Member Name", "Register No",
+      "Phone", "Department / Year / Sec", "Gender", "Hindi Proficiency", "Remarks",
+    ];
+
+    // Helper: write a cell
+    function sc(ws, r, c, value, style) {
       const ref = XLSX.utils.encode_cell({ r, c });
-      ws[ref] = { v: value ?? "", t: typeof value === "number" ? "n" : "s", s };
+      const isNum = typeof value === "number";
+      ws[ref] = { v: value ?? "", t: isNum ? "n" : "s", s: style };
     }
 
-    // COLUMNS:
-    // 0:#  1:Member Name  2:Register No  3:Department  4:Year  5:Section  6:Gender  7:Phone
-    // 8:PS Number  9:PS Title  10:Category
-    const NCOLS    = 11;
-    const COL_W    = [4, 26, 14, 36, 5, 7, 7, 13, 13, 55, 13];
-
-    // Group by ministry, sort (No Ministry last)
-    const byMin = new Map();
-    for (const ft of finalTeams) {
-      const key = ft.ministry?.trim() || "No Ministry";
-      if (!byMin.has(key)) byMin.set(key, []);
-      byMin.get(key).push(ft);
+    // Helper: build team name cell value  "TeamName\n[Ministry: X]\n[PS: Y (Cat)]"
+    function buildTeamLabel(ft) {
+      const ps     = ft.selected_ps_number ? psMap.get(ft.selected_ps_number) : null;
+      const psLine = ft.selected_ps_number
+        ? `[PS: ${ft.selected_ps_number} (${ps?.category ?? "?"})]`
+        : ft.custom_ps_title
+        ? `[PS: AICTE Open Innovation]`
+        : `[PS: Pending]`;
+      const minLine = ft.ministry ? `[Ministry: ${ft.ministry}]` : "[Ministry: —]";
+      return `${ft.name}\n${minLine}\n${psLine}`;
     }
-    const ministries = [...byMin.keys()].sort((a, b) => {
-      if (a === "No Ministry") return 1;
-      if (b === "No Ministry") return -1;
-      return a.localeCompare(b);
-    });
 
-    const wb = XLSX.utils.book_new();
+    // Helper: build one worksheet from an array of final teams
+    function buildSheet(teams, sheetTitle) {
+      const ws     = {};
+      const merges = [];
+      const rows   = [];
+      let   r      = 0;
 
-    for (const ministry of ministries) {
-      const ws      = {};
-      const merges  = [];
-      const rowMeta = [];
-      let   r       = 0;
-
-      // ── Ministry header ────────────────────────────────────────────────
-      sc(ws, r, 0, `Ministry / Organisation:  ${ministry}`, S.ministryHeader);
-      for (let c = 1; c < NCOLS; c++) sc(ws, r, c, "", S.ministryHeader);
+      // Row 0: title spanning all columns
+      sc(ws, r, 0, sheetTitle, titleStyle);
+      for (let c = 1; c < NCOLS; c++) sc(ws, r, c, "", titleStyle);
       merges.push({ s: { r, c: 0 }, e: { r, c: NCOLS - 1 } });
-      rowMeta[r] = { hpt: 22 };
+      rows[r] = { hpt: 22 };
       r++;
 
-      // blank
-      for (let c = 0; c < NCOLS; c++) sc(ws, r, c, "", S.blank);
+      // Row 1: column headers
+      COL_HEADERS.forEach((h, c) => sc(ws, r, c, h, headerStyle));
+      rows[r] = { hpt: 18 };
       r++;
 
-      let teamIdx = 0;
-      for (const ft of byMin.get(ministry)) {
-        teamIdx++;
+      let sno = 0;
+      for (const ft of teams) {
+        sno++;
+        const members  = (ft.member_ids || []).map((id) => profileMap.get(id)).filter(Boolean);
+        const teamLabel = buildTeamLabel(ft);
+        const rowCount  = Math.max(members.length, 1);
+        const baseStyle = sno % 2 === 0 ? rowEvenStyle : rowOddStyle;
 
-        // ── Resolve PS ───────────────────────────────────────────────────
-        let psNum   = "";
-        let psTitle = "";
-        let psCat   = "";
-        let isPend  = false;
-        let isOpen  = false;
+        for (let i = 0; i < rowCount; i++) {
+          const m   = members[i];
+          const rs  = baseStyle;
+          const deptStr = m
+            ? [m.department, m.year ? `Year ${m.year}` : "", m.section ? `Sec ${m.section}` : ""]
+                .filter(Boolean).join(" · ")
+            : "";
 
-        if (ft.selected_ps_number) {
-          const ps = psMap.get(ft.selected_ps_number);
-          psNum   = ft.selected_ps_number;
-          psTitle = ps?.title    ?? "";
-          psCat   = ps?.category ?? "";
-        } else if (ft.custom_ps_title) {
-          psNum   = "Open Innovation";
-          psTitle = ft.custom_ps_title;
-          psCat   = "Open Innovation";
-          isOpen  = true;
-        } else {
-          psNum   = "⏳ Pending";
-          psTitle = "Not yet selected";
-          psCat   = "⏳ Pending";
-          isPend  = true;
-        }
+          // S.No — only on first row of team
+          sc(ws, r, 0, i === 0 ? sno : null, i === 0 ? { ...rs, font: { ...rs.font, bold: true } } : rs);
 
-        // ── Team header row (cols 0–7 merged, then PS headers 8–10) ──────
-        sc(ws, r, 0, `Team ${teamIdx}:  ${ft.name}`, S.teamHeader);
-        for (let c = 1; c <= 7; c++) sc(ws, r, c, "", S.teamHeader);
-        sc(ws, r, 8,  "PS Number", S.colHeader);
-        sc(ws, r, 9,  "PS Title",  S.colHeader);
-        sc(ws, r, 10, "Category",  S.colHeader);
-        merges.push({ s: { r, c: 0 }, e: { r, c: 7 } });
-        rowMeta[r] = { hpt: 20 };
-        r++;
+          // Team Name — only on first row, merged vertically below
+          sc(ws, r, 1, i === 0 ? teamLabel : null,
+            i === 0 ? teamNameStyle : rs);
 
-        // ── Column header row ─────────────────────────────────────────────
-        ["#","Member Name","Register No","Department","Year","Section","Gender","Phone","","",""].forEach(
-          (h, c) => sc(ws, r, c, h, S.colHeader)
-        );
-        rowMeta[r] = { hpt: 16 };
-        r++;
+          // Member data
+          sc(ws, r, 2, m?.name        ?? (i === 0 ? "(no members)" : ""), rs);
+          sc(ws, r, 3, m?.register_no ?? "", rs);
+          sc(ws, r, 4, m?.phone       ?? "", rs);
+          sc(ws, r, 5, deptStr,                rs);
+          sc(ws, r, 6, m?.gender      ?? "", rs);
 
-        // ── Member rows ───────────────────────────────────────────────────
-        const members = (ft.member_ids || []).map((id) => profileMap.get(id)).filter(Boolean);
-        const psStart = r;
+          // Hindi proficiency — from languages array if available
+          const langs    = Array.isArray(m?.languages) ? m.languages : [];
+          const hindiPro = langs.includes("Hindi") ? "Yes" : "";
+          sc(ws, r, 7, hindiPro, rs);
 
-        if (members.length === 0) {
-          const rs = S.memberEven;
-          for (let c = 0; c < NCOLS; c++) sc(ws, r, c, "", rs);
-          sc(ws, r, 1, "(no members assigned)", rs);
-          sc(ws, r, 8, "", S.blank);
-          sc(ws, r, 9, "", S.blank);
-          sc(ws, r, 10, "", S.blank);
-          rowMeta[r] = { hpt: 16 };
+          // Remarks — pending PS indicator
+          const hasPending = !ft.selected_ps_number && !ft.custom_ps_title;
+          sc(ws, r, 8, i === 0 && hasPending ? "⏳ PS Pending" : "", i === 0 && hasPending ? pendingStyle : rs);
+
+          rows[r] = { hpt: 16 };
           r++;
-        } else {
-          members.forEach((m, idx) => {
-            const rs = idx % 2 === 0 ? S.memberEven : S.memberOdd;
-            sc(ws, r, 0,  idx + 1,          rs);
-            sc(ws, r, 1,  m.name        ?? "", rs);
-            sc(ws, r, 2,  m.register_no ?? "", rs);
-            sc(ws, r, 3,  m.department  ?? "", rs);
-            sc(ws, r, 4,  m.year        ?? "", rs);
-            sc(ws, r, 5,  m.section     ?? "", rs);
-            sc(ws, r, 6,  m.gender      ?? "", rs);
-            sc(ws, r, 7,  m.phone       ?? "", rs);
-            // PS cols blank except first row (merged below)
-            sc(ws, r, 8,  "", S.blank);
-            sc(ws, r, 9,  "", S.blank);
-            sc(ws, r, 10, "", S.blank);
-            rowMeta[r] = { hpt: 16 };
-            r++;
-          });
         }
 
-        const psEnd = r - 1;
-
-        // ── Write PS values at psStart row ────────────────────────────────
-        const catStyle = isPend ? S.pending : isOpen ? S.openInno
-          : psCat === "Software" ? S.software
-          : psCat === "Hardware" ? S.hardware
-          : S.memberEven;
-
-        sc(ws, psStart, 8,  psNum,   isPend ? S.pending : S.psCell);
-        sc(ws, psStart, 9,  psTitle, isPend ? S.pending : S.psCell);
-        sc(ws, psStart, 10, psCat,   catStyle);
-
-        // Merge PS columns vertically across all member rows
-        if (psEnd > psStart) {
-          merges.push({ s: { r: psStart, c: 8  }, e: { r: psEnd, c: 8  } });
-          merges.push({ s: { r: psStart, c: 9  }, e: { r: psEnd, c: 9  } });
-          merges.push({ s: { r: psStart, c: 10 }, e: { r: psEnd, c: 10 } });
+        // Merge Team Name column vertically across all member rows
+        if (rowCount > 1) {
+          merges.push({ s: { r: r - rowCount, c: 1 }, e: { r: r - 1, c: 1 } });
+          // Also merge S.No column
+          merges.push({ s: { r: r - rowCount, c: 0 }, e: { r: r - 1, c: 0 } });
+          // Also merge Remarks column
+          merges.push({ s: { r: r - rowCount, c: 8 }, e: { r: r - 1, c: 8 } });
         }
-
-        // ── Blank separator ───────────────────────────────────────────────
-        for (let c = 0; c < NCOLS; c++) sc(ws, r, c, "", S.blank);
-        r++;
       }
 
-      // ── Finalise worksheet ─────────────────────────────────────────────
       ws["!ref"]    = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: r - 1, c: NCOLS - 1 } });
       ws["!merges"] = merges;
       ws["!cols"]   = COL_W.map((wch) => ({ wch }));
-      ws["!rows"]   = rowMeta;
-
-      const sheetName = ministry
-        .replace(/[:\\/?*[\]]/g, "")
-        .replace(/\s+/g, " ")
-        .trim()
-        .slice(0, 31) || "Sheet";
-
-      XLSX.utils.book_append_sheet(wb, ws, sheetName);
+      ws["!rows"]   = rows;
+      return ws;
     }
 
-    if (ministries.length === 0) {
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["No final teams created yet."]]), "Teams");
-    }
+    const wb = XLSX.utils.book_new();
 
-    XLSX.writeFile(wb, "spoc-final-teams-by-ministry.xlsx");
+    if (mode === "ministry") {
+      // ── By Ministry: one sheet per ministry ───────────────────────────
+      const byMin = new Map();
+      for (const ft of finalTeams) {
+        const key = ft.ministry?.trim() || "No Ministry";
+        if (!byMin.has(key)) byMin.set(key, []);
+        byMin.get(key).push(ft);
+      }
+      const ministries = [...byMin.keys()].sort((a, b) => {
+        if (a === "No Ministry") return 1;
+        if (b === "No Ministry") return -1;
+        return a.localeCompare(b);
+      });
+
+      for (const ministry of ministries) {
+        const teams     = byMin.get(ministry);
+        const sheetName = ministry
+          .replace(/[:\\/?*[\]]/g, "").replace(/\s+/g, " ").trim().slice(0, 31) || "Sheet";
+        const title = `SIH 2026 — Final Teams [${ministry}]`;
+        XLSX.utils.book_append_sheet(wb, buildSheet(teams, title), sheetName);
+      }
+
+      XLSX.writeFile(wb, "spoc-final-teams-by-ministry.xlsx");
+    } else {
+      // ── As a Whole: single sheet, all teams sorted by ministry then name ─
+      const sorted = [...finalTeams].sort((a, b) => {
+        const ma = a.ministry ?? "zzz";
+        const mb = b.ministry ?? "zzz";
+        if (ma !== mb) return ma.localeCompare(mb);
+        return a.name.localeCompare(b.name);
+      });
+      const ws = buildSheet(sorted, "SIH 2026 — Final Teams (All)");
+      XLSX.utils.book_append_sheet(wb, ws, "All Final Teams");
+      XLSX.writeFile(wb, "spoc-final-teams-all.xlsx");
+    }
   }
+
+  // ── (end of export section) ─────────────────────────────────────────────────
 
   async function logout() {
     await logoutSpoc();
@@ -1405,10 +1444,50 @@ export default function SpocDashboard() {
               </span>
             )}
             {finalTeams.length > 0 && (
-              <Button variant="outline" onClick={exportFinalTeams} className="gap-1.5 text-xs px-3 py-1.5 border-[#c9a227]/30 text-[#c9a227] hover:bg-[#c9a227]/8">
-                <Download className="size-3.5" />
-                <span className="hidden sm:inline">Export</span>
-              </Button>
+              <div className="relative" ref={exportMenuRef}>
+                <Button
+                  variant="outline"
+                  onClick={() => setExportMenuOpen((v) => !v)}
+                  className="gap-1.5 text-xs px-3 py-1.5 border-[#c9a227]/30 text-[#c9a227] hover:bg-[#c9a227]/8"
+                >
+                  <Download className="size-3.5" />
+                  <span className="hidden sm:inline">Export</span>
+                  <ChevronDown className={cn("size-3 transition-transform duration-150", exportMenuOpen && "rotate-180")} />
+                </Button>
+                {exportMenuOpen && (
+                  <div className="absolute right-0 top-full mt-1.5 z-50 w-48 rounded-2xl border border-[rgba(201,162,39,0.25)] bg-[#0a1226] shadow-[0_8px_32px_rgba(0,0,0,0.4)] overflow-hidden">
+                    <div className="px-3 py-2 border-b border-[rgba(147,197,253,0.08)]">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-[#94a3b8]">Export Format</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => exportFinalTeams("ministry")}
+                      className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-[rgba(201,162,39,0.06)] transition-colors"
+                    >
+                      <div className="size-7 shrink-0 flex items-center justify-center rounded-lg bg-[#c9a227]/10 border border-[#c9a227]/20 mt-0.5">
+                        <FileText className="size-3.5 text-[#c9a227]" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-white">By Ministry</p>
+                        <p className="text-[10px] text-[#94a3b8] leading-snug">One sheet per ministry</p>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => exportFinalTeams("whole")}
+                      className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-[rgba(201,162,39,0.06)] transition-colors border-t border-[rgba(147,197,253,0.06)]"
+                    >
+                      <div className="size-7 shrink-0 flex items-center justify-center rounded-lg bg-emerald-500/10 border border-emerald-500/20 mt-0.5">
+                        <Download className="size-3.5 text-emerald-400" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-white">As a Whole</p>
+                        <p className="text-[10px] text-[#94a3b8] leading-snug">All teams in one sheet</p>
+                      </div>
+                    </button>
+                  </div>
+                )}
+              </div>
             )}
             {/* Master-only: clear all active sessions */}
             {isMaster && (
@@ -1464,6 +1543,7 @@ export default function SpocDashboard() {
           { id: "monitoring",  label: "Monitoring",          icon: Activity        },
           { id: "dept",        label: "Dept Roster",         icon: TableProperties },
           { id: "ps-requests", label: "PS Change Requests",  icon: MessageSquare, badge: pendingPsRequests > 0 ? pendingPsRequests : null },
+          { id: "downloads",   label: "Downloads",           icon: HardDrive       },
           ...(isMaster ? [{ id: "access-log", label: "Access Log", icon: Shield }] : []),
         ].map((t) => (
           <button
@@ -1479,7 +1559,7 @@ export default function SpocDashboard() {
           >
             <t.icon className="size-3.5 shrink-0" />
             <span className="hidden sm:inline">{t.label}</span>
-            <span className="sm:hidden">{t.id === "final-teams" ? "Finals" : t.id === "access-log" ? "Log" : t.id === "problems" ? "PS" : t.id === "ps-requests" ? "Requests" : t.label}</span>
+            <span className="sm:hidden">{t.id === "final-teams" ? "Finals" : t.id === "access-log" ? "Log" : t.id === "problems" ? "PS" : t.id === "ps-requests" ? "Requests" : t.id === "downloads" ? "Downloads" : t.label}</span>
             {t.badge && (
               <span className="absolute -top-1 -right-1 flex size-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-extrabold text-white shadow-lg">
                 {t.badge}
@@ -1608,6 +1688,7 @@ export default function SpocDashboard() {
             profileMap={profileMap}
             claimedMemberIds={claimedMemberIds}
             readOnly={!isMaster}
+            isMaster={isMaster}
             onBuildTeam={(min, srcTeams) => openBuilder(min, srcTeams)}
             onEditTeam={(ft) => {
               const srcTeams = byMinistry.get(ft.ministry) ?? [];
@@ -1655,6 +1736,141 @@ export default function SpocDashboard() {
 
       {activeTab === "ps-requests" && (
         <PsChangeRequestsView readOnly={!isMaster} />
+      )}
+
+      {/* ── DOWNLOADS tab ─────────────────────────────────────────────────── */}
+      {activeTab === "downloads" && (
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="rounded-2xl border border-[rgba(147,197,253,0.12)] bg-[#0a1226]/60 px-5 py-4 space-y-1">
+            <h2 className="text-sm font-extrabold text-white flex items-center gap-2">
+              <HardDrive className="size-4 text-[#c9a227]" />
+              Team Roster Downloads
+            </h2>
+            <p className="text-[11px] text-[#94a3b8]">
+              Generate and download up-to-date xlsx files directly from the live database.
+              Only teams with exactly 6 members and a confirmed PS are included.
+            </p>
+          </div>
+
+          {/* Three download cards */}
+          <div className="grid gap-4 sm:grid-cols-3">
+            {[
+              {
+                type:    "software",
+                label:   "Software Teams",
+                desc:    "All final teams working on Software category problem statements",
+                icon:    Code2,
+                accent:  "blue",
+                border:  "border-blue-500/25",
+                bg:      "bg-blue-500/5",
+                iconBg:  "bg-blue-500/10 border-blue-500/20",
+                iconClr: "text-blue-400",
+                btnClr:  "bg-blue-600 hover:bg-blue-500",
+                file:    "software_teams.xlsx",
+              },
+              {
+                type:    "hardware",
+                label:   "Hardware Teams",
+                desc:    "All final teams working on Hardware category problem statements",
+                icon:    Cpu,
+                accent:  "orange",
+                border:  "border-orange-500/25",
+                bg:      "bg-orange-500/5",
+                iconBg:  "bg-orange-500/10 border-orange-500/20",
+                iconClr: "text-orange-400",
+                btnClr:  "bg-orange-600 hover:bg-orange-500",
+                file:    "hardware_teams.xlsx",
+              },
+              {
+                type:    "aicte",
+                label:   "AICTE Teams",
+                desc:    "Open Innovation teams under AICTE with their custom problem statements",
+                icon:    Sparkles,
+                accent:  "amber",
+                border:  "border-amber-500/25",
+                bg:      "bg-amber-500/5",
+                iconBg:  "bg-amber-500/10 border-amber-500/20",
+                iconClr: "text-amber-400",
+                btnClr:  "bg-amber-600 hover:bg-amber-500",
+                file:    "aicte_teams.xlsx",
+              },
+            ].map(({ type, label, desc, icon: Icon, border, bg, iconBg, iconClr, btnClr, file }) => {
+              const state = dlState[type]; // "idle" | "loading" | "done" | "error"
+              return (
+                <div key={type} className={cn("rounded-2xl border p-5 flex flex-col gap-4 transition-all", border, bg)}>
+                  {/* Icon + label */}
+                  <div className="flex items-center gap-3">
+                    <div className={cn("flex size-10 shrink-0 items-center justify-center rounded-xl border", iconBg)}>
+                      <Icon className={cn("size-5", iconClr)} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-extrabold text-white">{label}</p>
+                      <p className="text-[10px] font-mono text-[#94a3b8]">{file}</p>
+                    </div>
+                  </div>
+
+                  {/* Description */}
+                  <p className="text-[11px] text-[#94a3b8] leading-relaxed flex-1">{desc}</p>
+
+                  {/* Status / error */}
+                  {state === "done" && (
+                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-400">
+                      <CheckCircle2 className="size-3.5 shrink-0" />
+                      Download started
+                    </div>
+                  )}
+                  {state === "error" && (
+                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-red-400">
+                      <AlertTriangle className="size-3.5 shrink-0" />
+                      No {label.toLowerCase()} found in database
+                    </div>
+                  )}
+
+                  {/* Download button */}
+                  <button
+                    type="button"
+                    disabled={state === "loading"}
+                    onClick={async () => {
+                      setDlState((s) => ({ ...s, [type]: "loading" }));
+                      const { ok, error } = await downloadTeamsXlsx(type);
+                      setDlState((s) => ({ ...s, [type]: ok ? "done" : "error" }));
+                      if (!ok) toast("error", error || `Failed to download ${file}`);
+                      // Reset status badge after 4 s
+                      setTimeout(() => setDlState((s) => ({ ...s, [type]: "idle" })), 4000);
+                    }}
+                    className={cn(
+                      "w-full flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-extrabold text-white transition-all shadow",
+                      btnClr,
+                      state === "loading" && "opacity-60 cursor-not-allowed"
+                    )}
+                  >
+                    {state === "loading" ? (
+                      <>
+                        <RefreshCw className="size-3.5 animate-spin shrink-0" />
+                        Generating…
+                      </>
+                    ) : (
+                      <>
+                        <Download className="size-3.5 shrink-0" />
+                        Download {label}
+                      </>
+                    )}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Info note */}
+          <div className="rounded-2xl border border-[rgba(147,197,253,0.08)] bg-[#0a1226]/40 px-5 py-3 flex items-start gap-3">
+            <FileText className="size-3.5 text-[#94a3b8] shrink-0 mt-0.5" />
+            <p className="text-[10px] text-[#94a3b8] leading-relaxed">
+              Each file is generated live from the database and matches the official format used for SIH 2026 submissions.
+              Only teams with <span className="text-white font-bold">exactly 6 members</span> and a <span className="text-white font-bold">confirmed problem statement</span> are included.
+            </p>
+          </div>
+        </div>
       )}
 
       {activeTab === "access-log" && isMaster && (

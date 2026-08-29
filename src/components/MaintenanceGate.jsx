@@ -11,7 +11,7 @@ import { Shield, Wrench, RefreshCw, KeyRound, Eye, EyeOff, X, Lock } from "lucid
  * whether maintenance mode is enabled. If it is, the SPOC portal is replaced
  * by a full-screen maintenance overlay.
  *
- * Hidden bypass: press Enter **three times** anywhere on the maintenance screen
+ * Hidden bypass: press Ctrl+Alt+T anywhere on the maintenance screen
  * to reveal a password prompt. Entering the master password logs in and
  * dismisses the maintenance gate.
  */
@@ -27,9 +27,6 @@ export function MaintenanceGate({ children }) {
   const [bypassLoading, setBypassLoading] = useState(false);
   const [showPwd, setShowPwd] = useState(false);
 
-  // 3-tap / 3-click detection within 5 s (works on both mobile touch and desktop)
-  const tapCountRef = useRef(0);
-  const tapTimerRef = useRef(null);
   const passwordInputRef = useRef(null);
 
   async function check() {
@@ -47,33 +44,23 @@ export function MaintenanceGate({ children }) {
 
   useEffect(() => { check(); }, []);
 
-  // Listen for 5 taps/clicks anywhere to reveal bypass panel
+  // Ctrl+Alt+T keyboard shortcut to reveal bypass panel
   useEffect(() => {
     if (status !== "maintenance") return;
 
-    function handleTap() {
+    function handleKeyDown(e) {
       if (showBypass) return;
-
-      tapCountRef.current += 1;
-
-      // Reset counter after 5 s of inactivity
-      clearTimeout(tapTimerRef.current);
-      tapTimerRef.current = setTimeout(() => {
-        tapCountRef.current = 0;
-      }, 5000);
-
-      if (tapCountRef.current >= 3) {
-        tapCountRef.current = 0;
-        clearTimeout(tapTimerRef.current);
+      // Ctrl+Alt+T (or Cmd+Alt+T on Mac)
+      if ((e.ctrlKey || e.metaKey) && e.altKey && e.key === "t") {
+        e.preventDefault();
         setShowBypass(true);
         setBypassPassword("");
         setBypassError("");
       }
     }
 
-    // pointerdown fires for both touch and mouse on all modern browsers
-    window.addEventListener("pointerdown", handleTap);
-    return () => window.removeEventListener("pointerdown", handleTap);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [status, showBypass]);
 
   // Auto-focus password input when overlay opens
@@ -189,9 +176,10 @@ export function MaintenanceGate({ children }) {
           </button>
 
           <p className="text-[10px] text-[#94a3b8]/30">SIH 2026 · SMVEC · SPOC Portal</p>
+          <p className="text-[10px] text-[#94a3b8]/20 mt-1">Press Ctrl+Alt+T for admin access</p>
         </div>
 
-        {/* ── Bypass overlay (triple-Enter to reveal) ───────────────────── */}
+        {/* ── Bypass overlay (Ctrl+Alt+T to reveal) ─────────────────────── */}
         {showBypass && (
           <div
             className="fixed inset-0 z-50 flex items-center justify-center p-6"

@@ -338,3 +338,40 @@ export async function reviewPsChangeRequest(id, action, reviewNote = "") {
     return { ok: false, error: err.message };
   }
 }
+
+/**
+ * Trigger a live xlsx download for the given team type from the backend.
+ * type = "software" | "hardware" | "aicte"
+ * Opens the file in a new window so the browser's native download kicks in.
+ */
+export async function downloadTeamsXlsx(type) {
+  try {
+    const token     = localStorage.getItem("spoc_auth_token");
+    const loginTime = localStorage.getItem("spoc_login_time");
+    const url = `${API_BASE}/api/spoc/export-teams/${type}`;
+
+    // Fetch as blob so we can honour auth headers
+    const res = await fetch(url, {
+      headers: {
+        ...(token     ? { Authorization: `Bearer ${token}` }    : {}),
+        ...(loginTime ? { "X-Login-Time": loginTime }           : {}),
+      },
+    });
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}));
+      return { ok: false, error: json.error || `HTTP ${res.status}` };
+    }
+    const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href     = blobUrl;
+    a.download = `${type}_teams.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(blobUrl);
+    return { ok: true, error: null };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}

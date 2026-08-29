@@ -24,6 +24,7 @@ import { MonitoringView } from "@/components/MonitoringView";
 import { AccessLogView } from "@/components/AccessLogView";
 import { DeptRosterView } from "@/components/DeptRosterView";
 import { PsChangeRequestsView } from "@/components/PsChangeRequestsView";
+import { FinalTeamsPsView } from "@/components/FinalTeamsPsView";
 import { SIH2026_PROBLEMS } from "@/lib/sih2026Problems";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -100,7 +101,7 @@ function ValidationBar({ members }) {
 }
 
 // ─── Final team card ─────────────────────────────────────────────────────────
-function FinalTeamCard({ ft, profileMap, onEdit, onDelete, onChangeMinistry, onSelectPs }) {
+function FinalTeamCard({ ft, profileMap, onEdit, onDelete, onChangeMinistry, onSelectPs, readOnly = false }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showMinistryPicker, setShowMinistryPicker] = useState(false);
@@ -187,7 +188,7 @@ function FinalTeamCard({ ft, profileMap, onEdit, onDelete, onChangeMinistry, onS
             </span>
           )}
         </div>
-        {!confirmDelete && (
+        {!confirmDelete && !readOnly && (
           <div className="flex items-center gap-2 shrink-0">
             <Button
               variant="ghost"
@@ -458,7 +459,7 @@ function FinalTeamCard({ ft, profileMap, onEdit, onDelete, onChangeMinistry, onS
 
 // ─── Final Teams Panel ────────────────────────────────────────────────────────
 // Standalone filterable view of all created final teams, shown above the ministry accordion.
-function FinalTeamsPanel({ finalTeams, profileMap, onEdit, onDelete, onChangeMinistry, onSelectPs }) {
+function FinalTeamsPanel({ finalTeams, profileMap, onEdit, onDelete, onChangeMinistry, onSelectPs, readOnly = false }) {
   const [open, setOpen] = useState(true);
   const [search, setSearch] = useState("");
   const [ministryFilter, setMinistryFilter] = useState("all");
@@ -601,6 +602,7 @@ function FinalTeamsPanel({ finalTeams, profileMap, onEdit, onDelete, onChangeMin
                   key={ft.id}
                   ft={ft}
                   profileMap={profileMap}
+                  readOnly={readOnly}
                   onEdit={onEdit}
                   onDelete={onDelete}
                   onChangeMinistry={onChangeMinistry}
@@ -616,7 +618,7 @@ function FinalTeamsPanel({ finalTeams, profileMap, onEdit, onDelete, onChangeMin
 }
 
 // ─── Ministry accordion row ──────────────────────────────────────────────────
-function MinistryRow({ ministry, pairTeams, finalTeams, onBuildTeam, onEditTeam, onDeleteTeam, onChangeMinistryTeam, onSelectPsTeam, profileMap, claimedMemberIds }) {
+function MinistryRow({ ministry, pairTeams, finalTeams, onBuildTeam, onEditTeam, onDeleteTeam, onChangeMinistryTeam, onSelectPsTeam, profileMap, claimedMemberIds, readOnly = false }) {
   const [open, setOpen] = useState(false);
   const bodyRef = useRef(null);
   const isOutdated = OUTDATED_MINISTRIES.has(ministry);
@@ -775,6 +777,7 @@ function MinistryRow({ ministry, pairTeams, finalTeams, onBuildTeam, onEditTeam,
                       key={ft.id}
                       ft={ft}
                       profileMap={profileMap}
+                      readOnly={readOnly}
                       onEdit={onEditTeam}
                       onDelete={onDeleteTeam}
                       onChangeMinistry={onChangeMinistryTeam}
@@ -785,15 +788,22 @@ function MinistryRow({ ministry, pairTeams, finalTeams, onBuildTeam, onEditTeam,
               </div>
             )}
 
-            {/* Build new final team button */}
-            <Button
-              variant="outline"
-              onClick={() => onBuildTeam(ministry, pairTeams)}
-              className="w-full border-[#c9a227]/30 text-[#c9a227] hover:bg-[#c9a227]/8 text-xs py-2.5"
-            >
-              <Plus className="size-3.5" />
-              Build Final Team from this Ministry
-            </Button>
+            {/* Build new final team button — master only */}
+            {!readOnly && (
+              <Button
+                variant="outline"
+                onClick={() => onBuildTeam(ministry, pairTeams)}
+                className="w-full border-[#c9a227]/30 text-[#c9a227] hover:bg-[#c9a227]/8 text-xs py-2.5"
+              >
+                <Plus className="size-3.5" />
+                Build Final Team from this Ministry
+              </Button>
+            )}
+            {readOnly && (
+              <div className="w-full text-center py-2 text-[10px] text-[#94a3b8]/50 border border-[rgba(147,197,253,0.08)] rounded-xl">
+                🔒 Log in with master password to build final teams
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -1118,74 +1128,209 @@ export default function SpocDashboard() {
 
   async function exportFinalTeams() {
     const XLSX = await import("xlsx");
-    const wb = XLSX.utils.book_new();
 
-    // Group final teams by ministry
-    const byMin = new Map();
-    for (const ft of finalTeams) {
-      const min = ft.ministry?.trim() || "No Ministry";
-      if (!byMin.has(min)) byMin.set(min, []);
-      byMin.get(min).push(ft);
+    // ── Lookups ────────────────────────────────────────────────────────────
+    const psMap = new Map(SIH2026_PROBLEMS.map((p) => [p.psNumber, p]));
+
+    // ── Colour palette ─────────────────────────────────────────────────────
+    const C = {
+      navy:      "FF1A3A5C",
+      gold:      "FFC9A227",
+      goldDark:  "FF78350F",
+      colHeader: "FF1F2937",
+      white:     "FFFFFFFF",
+      memberEven:"FFF8FAFC",
+      memberOdd: "FFFFFFFF",
+      border:    "FFCBD5E1",
+      amber:     "FFFBBF24",
+      amberDark: "FF78350F",
+      swBg:      "FFdbeafe",
+      swFg:      "FF1e40af",
+      hwBg:      "FFffedd5",
+      hwFg:      "FF9a3412",
+      openBg:    "FFfef3c7",
+      openFg:    "FF92400e",
+    };
+
+    const line = (rgb) => ({ style: "thin", color: { rgb } });
+    const allBorders = { top: line(C.border), bottom: line(C.border), left: line(C.border), right: line(C.border) };
+
+    const S = {
+      ministryHeader: { font: { bold: true, sz: 12, color: { rgb: C.white }   }, fill: { patternType: "solid", fgColor: { rgb: C.navy      } }, alignment: { horizontal: "left",   vertical: "center", wrapText: false }, border: allBorders },
+      teamHeader:     { font: { bold: true, sz: 11, color: { rgb: C.goldDark } }, fill: { patternType: "solid", fgColor: { rgb: C.gold      } }, alignment: { horizontal: "left",   vertical: "center" }, border: allBorders },
+      colHeader:      { font: { bold: true, sz: 10, color: { rgb: C.white }   }, fill: { patternType: "solid", fgColor: { rgb: C.colHeader  } }, alignment: { horizontal: "center", vertical: "center" }, border: allBorders },
+      memberEven:     { font: { sz: 10 }, fill: { patternType: "solid", fgColor: { rgb: C.memberEven } }, alignment: { horizontal: "left",   vertical: "center" }, border: allBorders },
+      memberOdd:      { font: { sz: 10 }, fill: { patternType: "solid", fgColor: { rgb: C.memberOdd  } }, alignment: { horizontal: "left",   vertical: "center" }, border: allBorders },
+      pending:        { font: { bold: true, sz: 10, color: { rgb: C.amberDark } }, fill: { patternType: "solid", fgColor: { rgb: C.amber  } }, alignment: { horizontal: "center", vertical: "center", wrapText: false }, border: allBorders },
+      psCell:         { font: { sz: 10 }, fill: { patternType: "solid", fgColor: { rgb: C.memberEven } }, alignment: { horizontal: "left",   vertical: "center", wrapText: true  }, border: allBorders },
+      software:       { font: { bold: true, sz: 10, color: { rgb: C.swFg   } }, fill: { patternType: "solid", fgColor: { rgb: C.swBg   } }, alignment: { horizontal: "center", vertical: "center" }, border: allBorders },
+      hardware:       { font: { bold: true, sz: 10, color: { rgb: C.hwFg   } }, fill: { patternType: "solid", fgColor: { rgb: C.hwBg   } }, alignment: { horizontal: "center", vertical: "center" }, border: allBorders },
+      openInno:       { font: { bold: true, sz: 10, color: { rgb: C.openFg } }, fill: { patternType: "solid", fgColor: { rgb: C.openBg } }, alignment: { horizontal: "center", vertical: "center" }, border: allBorders },
+      blank:          { border: allBorders },
+    };
+
+    function sc(ws, r, c, value, s) {
+      const ref = XLSX.utils.encode_cell({ r, c });
+      ws[ref] = { v: value ?? "", t: typeof value === "number" ? "n" : "s", s };
     }
 
-    // Sort ministries alphabetically, but put "No Ministry" last
-    const sortedMinistries = [...byMin.keys()].sort((a, b) => {
+    // COLUMNS:
+    // 0:#  1:Member Name  2:Register No  3:Department  4:Year  5:Section  6:Gender  7:Phone
+    // 8:PS Number  9:PS Title  10:Category
+    const NCOLS    = 11;
+    const COL_W    = [4, 26, 14, 36, 5, 7, 7, 13, 13, 55, 13];
+
+    // Group by ministry, sort (No Ministry last)
+    const byMin = new Map();
+    for (const ft of finalTeams) {
+      const key = ft.ministry?.trim() || "No Ministry";
+      if (!byMin.has(key)) byMin.set(key, []);
+      byMin.get(key).push(ft);
+    }
+    const ministries = [...byMin.keys()].sort((a, b) => {
       if (a === "No Ministry") return 1;
       if (b === "No Ministry") return -1;
       return a.localeCompare(b);
     });
 
-    const HEADER = ["Team Name", "Register Number", "Member Name", "Department", "Year", "Section", "Phone Number"];
+    const wb = XLSX.utils.book_new();
 
-    for (const ministry of sortedMinistries) {
-      const teams = byMin.get(ministry);
-      const aoa = [HEADER]; // array-of-arrays for the sheet
+    for (const ministry of ministries) {
+      const ws      = {};
+      const merges  = [];
+      const rowMeta = [];
+      let   r       = 0;
 
-      for (const ft of teams) {
+      // ── Ministry header ────────────────────────────────────────────────
+      sc(ws, r, 0, `Ministry / Organisation:  ${ministry}`, S.ministryHeader);
+      for (let c = 1; c < NCOLS; c++) sc(ws, r, c, "", S.ministryHeader);
+      merges.push({ s: { r, c: 0 }, e: { r, c: NCOLS - 1 } });
+      rowMeta[r] = { hpt: 22 };
+      r++;
+
+      // blank
+      for (let c = 0; c < NCOLS; c++) sc(ws, r, c, "", S.blank);
+      r++;
+
+      let teamIdx = 0;
+      for (const ft of byMin.get(ministry)) {
+        teamIdx++;
+
+        // ── Resolve PS ───────────────────────────────────────────────────
+        let psNum   = "";
+        let psTitle = "";
+        let psCat   = "";
+        let isPend  = false;
+        let isOpen  = false;
+
+        if (ft.selected_ps_number) {
+          const ps = psMap.get(ft.selected_ps_number);
+          psNum   = ft.selected_ps_number;
+          psTitle = ps?.title    ?? "";
+          psCat   = ps?.category ?? "";
+        } else if (ft.custom_ps_title) {
+          psNum   = "Open Innovation";
+          psTitle = ft.custom_ps_title;
+          psCat   = "Open Innovation";
+          isOpen  = true;
+        } else {
+          psNum   = "⏳ Pending";
+          psTitle = "Not yet selected";
+          psCat   = "⏳ Pending";
+          isPend  = true;
+        }
+
+        // ── Team header row (cols 0–7 merged, then PS headers 8–10) ──────
+        sc(ws, r, 0, `Team ${teamIdx}:  ${ft.name}`, S.teamHeader);
+        for (let c = 1; c <= 7; c++) sc(ws, r, c, "", S.teamHeader);
+        sc(ws, r, 8,  "PS Number", S.colHeader);
+        sc(ws, r, 9,  "PS Title",  S.colHeader);
+        sc(ws, r, 10, "Category",  S.colHeader);
+        merges.push({ s: { r, c: 0 }, e: { r, c: 7 } });
+        rowMeta[r] = { hpt: 20 };
+        r++;
+
+        // ── Column header row ─────────────────────────────────────────────
+        ["#","Member Name","Register No","Department","Year","Section","Gender","Phone","","",""].forEach(
+          (h, c) => sc(ws, r, c, h, S.colHeader)
+        );
+        rowMeta[r] = { hpt: 16 };
+        r++;
+
+        // ── Member rows ───────────────────────────────────────────────────
         const members = (ft.member_ids || []).map((id) => profileMap.get(id)).filter(Boolean);
+        const psStart = r;
 
-        members.forEach((m, idx) => {
-          aoa.push([
-            idx === 0 ? ft.name : "",   // Team Name only on first member row
-            m.register_no ?? "",
-            m.name ?? "",
-            m.department ?? "",
-            m.year ?? "",
-            m.section ?? "",
-            m.phone ?? "",
-          ]);
-        });
+        if (members.length === 0) {
+          const rs = S.memberEven;
+          for (let c = 0; c < NCOLS; c++) sc(ws, r, c, "", rs);
+          sc(ws, r, 1, "(no members assigned)", rs);
+          sc(ws, r, 8, "", S.blank);
+          sc(ws, r, 9, "", S.blank);
+          sc(ws, r, 10, "", S.blank);
+          rowMeta[r] = { hpt: 16 };
+          r++;
+        } else {
+          members.forEach((m, idx) => {
+            const rs = idx % 2 === 0 ? S.memberEven : S.memberOdd;
+            sc(ws, r, 0,  idx + 1,          rs);
+            sc(ws, r, 1,  m.name        ?? "", rs);
+            sc(ws, r, 2,  m.register_no ?? "", rs);
+            sc(ws, r, 3,  m.department  ?? "", rs);
+            sc(ws, r, 4,  m.year        ?? "", rs);
+            sc(ws, r, 5,  m.section     ?? "", rs);
+            sc(ws, r, 6,  m.gender      ?? "", rs);
+            sc(ws, r, 7,  m.phone       ?? "", rs);
+            // PS cols blank except first row (merged below)
+            sc(ws, r, 8,  "", S.blank);
+            sc(ws, r, 9,  "", S.blank);
+            sc(ws, r, 10, "", S.blank);
+            rowMeta[r] = { hpt: 16 };
+            r++;
+          });
+        }
 
-        // Blank separator row between teams
-        aoa.push(["", "", "", "", "", "", ""]);
+        const psEnd = r - 1;
+
+        // ── Write PS values at psStart row ────────────────────────────────
+        const catStyle = isPend ? S.pending : isOpen ? S.openInno
+          : psCat === "Software" ? S.software
+          : psCat === "Hardware" ? S.hardware
+          : S.memberEven;
+
+        sc(ws, psStart, 8,  psNum,   isPend ? S.pending : S.psCell);
+        sc(ws, psStart, 9,  psTitle, isPend ? S.pending : S.psCell);
+        sc(ws, psStart, 10, psCat,   catStyle);
+
+        // Merge PS columns vertically across all member rows
+        if (psEnd > psStart) {
+          merges.push({ s: { r: psStart, c: 8  }, e: { r: psEnd, c: 8  } });
+          merges.push({ s: { r: psStart, c: 9  }, e: { r: psEnd, c: 9  } });
+          merges.push({ s: { r: psStart, c: 10 }, e: { r: psEnd, c: 10 } });
+        }
+
+        // ── Blank separator ───────────────────────────────────────────────
+        for (let c = 0; c < NCOLS; c++) sc(ws, r, c, "", S.blank);
+        r++;
       }
 
-      const ws = XLSX.utils.aoa_to_sheet(aoa);
+      // ── Finalise worksheet ─────────────────────────────────────────────
+      ws["!ref"]    = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: r - 1, c: NCOLS - 1 } });
+      ws["!merges"] = merges;
+      ws["!cols"]   = COL_W.map((wch) => ({ wch }));
+      ws["!rows"]   = rowMeta;
 
-      // Column widths
-      ws["!cols"] = [
-        { wch: 28 }, // Team Name
-        { wch: 16 }, // Register Number
-        { wch: 28 }, // Member Name
-        { wch: 30 }, // Department
-        { wch: 8  }, // Year
-        { wch: 10 }, // Section
-        { wch: 14 }, // Phone Number
-      ];
+      const sheetName = ministry
+        .replace(/[:\\/?*[\]]/g, "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 31) || "Sheet";
 
-      // Freeze header row
-      ws["!freeze"] = { xSplit: 0, ySplit: 1, topLeftCell: "A2", activePane: "bottomLeft" };
-
-      // Bold header row
-      for (let c = 0; c < HEADER.length; c++) {
-        const cellRef = XLSX.utils.encode_cell({ r: 0, c });
-        if (!ws[cellRef]) continue;
-        ws[cellRef].s = { font: { bold: true } };
-      }
-
-      // Sheet name: Excel limits to 31 chars, strip invalid chars
-      const sheetName = ministry.replace(/[:\\/?*[\]]/g, "").slice(0, 31);
       XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    }
+
+    if (ministries.length === 0) {
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["No final teams created yet."]]), "Teams");
     }
 
     XLSX.writeFile(wb, "spoc-final-teams-by-ministry.xlsx");
@@ -1285,6 +1430,20 @@ export default function SpocDashboard() {
           </div>
         </div>
       </header>
+
+      {/* Read-only mode banner — shown for normal (non-master) sessions */}
+      {!isMaster && (
+        <div className="mb-4 flex items-center gap-3 rounded-2xl border border-[rgba(147,197,253,0.20)] bg-[#0a1226]/80 px-4 py-3">
+          <Shield className="size-4 text-[#c9a227] shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-bold text-[#e8c058]">View-only mode</p>
+            <p className="text-[10px] text-[#94a3b8] mt-0.5">
+              You are logged in as a standard SPOC viewer. All data is visible but changes are disabled.
+              Log in with the <span className="font-bold text-white">master password</span> to create teams, change ministries, or approve requests.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Session expiry warning banner */}
       {!isMaster && sessionMsLeft > 0 && sessionMsLeft < 10 * 60 * 1000 && (
@@ -1448,6 +1607,7 @@ export default function SpocDashboard() {
             finalTeams={finalTeams}
             profileMap={profileMap}
             claimedMemberIds={claimedMemberIds}
+            readOnly={!isMaster}
             onBuildTeam={(min, srcTeams) => openBuilder(min, srcTeams)}
             onEditTeam={(ft) => {
               const srcTeams = byMinistry.get(ft.ministry) ?? [];
@@ -1464,37 +1624,10 @@ export default function SpocDashboard() {
       {/* ── FINAL TEAMS tab ───────────────────────────────────────────────── */}
       {activeTab === "final-teams" && (
         <div className="space-y-5">
-          {/* Rules banner */}
-          <div className="rounded-2xl border border-[#c9a227]/20 bg-[#c9a227]/5 px-5 py-3.5">
-            <p className="text-xs font-bold text-[#e8c058] mb-1.5">Final Team Rules</p>
-            <div className="flex flex-wrap gap-x-6 gap-y-1 text-[11px] text-[#94a3b8]">
-              <span>• Exactly <strong className="text-white">6 members</strong> per final team</span>
-              <span>• Members from the <strong className="text-white">same ministry</strong></span>
-              <span>• At least <strong className="text-white">2 departments</strong> represented</span>
-              <span>• At least <strong className="text-white">2 female</strong> members</span>
-              <span>• All members must have <strong className="text-white">different skillsets</strong></span>
-            </div>
-          </div>
-
-          {finalTeams.length === 0 ? (
-            <div className="py-20 text-center rounded-2xl border border-[rgba(147,197,253,0.08)] bg-[#0a1226]/40">
-              <ListChecks className="size-10 text-[#94a3b8]/40 mx-auto mb-3" />
-              <p className="text-sm font-semibold text-[#94a3b8]">No final teams created yet.</p>
-              <p className="text-xs text-[#94a3b8]/60 mt-1">Go to <button type="button" onClick={() => setActiveTab("teams")} className="text-[#c9a227] hover:underline font-bold">Teams &amp; Ministries</button> to build final teams from pair teams.</p>
-            </div>
-          ) : (
-            <FinalTeamsPanel
-              finalTeams={finalTeams}
-              profileMap={profileMap}
-              onEdit={(ft) => {
-                const srcTeams = byMinistry.get(ft.ministry) ?? [];
-                openBuilder(ft.ministry, srcTeams, ft);
-              }}
-              onDelete={handleDeleteFinalTeam}
-              onChangeMinistry={handleChangeMinistryFinalTeam}
-              onSelectPs={handleSelectPsFinalTeam}
-            />
-          )}
+          <FinalTeamsPsView
+            finalTeams={finalTeams}
+            profileMap={profileMap}
+          />
         </div>
       )}
 
@@ -1521,7 +1654,7 @@ export default function SpocDashboard() {
       )}
 
       {activeTab === "ps-requests" && (
-        <PsChangeRequestsView />
+        <PsChangeRequestsView readOnly={!isMaster} />
       )}
 
       {activeTab === "access-log" && isMaster && (

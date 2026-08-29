@@ -1,211 +1,134 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Download, Users, CheckCircle2, UserX, Filter, X, Cpu, Code2 } from "lucide-react";
+import { Download, Users, CheckCircle2, UserX, Filter, X, Cpu, Code2, Search, Sparkles, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DEPT_CODE } from "@/lib/constants";
 import { SIH2026_PROBLEMS } from "@/lib/sih2026Problems";
 
 /**
- * DeptRosterView
+ * DeptRosterView — Team-based final teams roster
  *
- * Department-wise student roster for the SPOC portal.
+ * Each row = one final team.
+ * Members listed vertically inside the row.
+ * Columns: # | Team Name | Members | Department(s) | Year(s) | Section(s) | Ministry | Problem Statement | Category
  *
- * For each student the "Final Team" column shows:
- *   - The SPOC final team name  → if the student is in one
- *   - "—"                       → if they are only in a pair team (or no team)
- *   - "—"                       → if they have no team at all
- *
- * Columns: Student Name | Register No | Year | Section | Gender | Status | Final Team
- *
- * Filters: Department (required), Year, Section, Gender, Status
- * Export:  CSV (scoped to current filter)
+ * Filters: Ministry, PS Category, PS Status
+ * Stats:  counts by team (Software / Hardware / Open Innovation / No PS Yet)
+ * Export: CSV (team-centric)
  */
 
-// Readable dept label from full name
 function deptLabel(dept) {
   return DEPT_CODE[dept] ?? (dept ?? "Unknown").slice(0, 20);
 }
 
 export function DeptRosterView({ allProfiles = [], pairTeams = [], finalTeams = [] }) {
-  // ── Pre-compute lookup maps ──────────────────────────────────────────────
-  // Which profile IDs are in a final team, and what's the team name?
-  const finalTeamByMemberId = useMemo(() => {
-    const map = new Map(); // profileId → finalTeam name
-    finalTeams.forEach((ft) => {
-      (ft.member_ids || []).forEach((id) => map.set(id, ft.name));
-    });
-    return map;
-  }, [finalTeams]);
 
-  // Which profile IDs have a confirmed (locked) problem statement?
-  const selectedPsByMemberId = useMemo(() => {
-    const map = new Map(); // profileId → selected_ps_number
-    finalTeams.forEach((ft) => {
-      if (ft.selected_ps_number) {
-        (ft.member_ids || []).forEach((id) => map.set(id, ft.selected_ps_number));
-      }
-    });
-    return map;
-  }, [finalTeams]);
-
-  // Which profile IDs have a custom (Open Innovation / AICTE) problem statement?
-  const customPsByMemberId = useMemo(() => {
-    const map = new Map(); // profileId → custom_ps_title
-    finalTeams.forEach((ft) => {
-      if (ft.custom_ps_title) {
-        (ft.member_ids || []).forEach((id) => map.set(id, ft.custom_ps_title));
-      }
-    });
-    return map;
-  }, [finalTeams]);
-
-  // Which profile IDs are in a pair team (mentor-formed)?
-  const inPairTeam = useMemo(() => {
-    const set = new Set();
-    pairTeams.forEach((t) => t.members.forEach((m) => set.add(m.id)));
-    return set;
-  }, [pairTeams]);
-
-  // All students only
-  const students = useMemo(
-    () => allProfiles.filter((p) => p.role === "student"),
-    [allProfiles]
-  );
-
-  // Unique departments sorted
-  const departments = useMemo(() => {
-    const set = new Set(students.map((s) => s.department).filter(Boolean));
-    return [...set].sort();
-  }, [students]);
-
-  // Unique years
-  const years = useMemo(() => {
-    const set = new Set(students.map((s) => s.year).filter(Boolean));
-    return [...set].sort();
-  }, [students]);
-
-  // ── Filter state ─────────────────────────────────────────────────────────
-  const [dept, setDept]           = useState("");
-  const [year, setYear]           = useState("");
-  const [section, setSection]     = useState("");
-  const [gender, setGender]       = useState("");
-  const [status, setStatus]       = useState(""); // "" | "profile_only" | "pair_team" | "final_team"
-  const [psCategory, setPsCategory] = useState(""); // "" | "Software" | "Hardware" | "open"
-
-  // ── PS info lookup (psNumber → {category, title}) ─────────────────────────
-  const psInfoMap = useMemo(
+  // ── Pre-compute PS lookup ───────────────────────────────────────────────
+  const psMap = useMemo(
     () => new Map(SIH2026_PROBLEMS.map((p) => [p.psNumber, p])),
     []
   );
 
-  // Helper: get the PS category for a student
-  const getPsCategory = (studentId) => {
-    const psNum   = selectedPsByMemberId.get(studentId);
-    const customPs = customPsByMemberId.get(studentId);
-    if (psNum) return psInfoMap.get(psNum)?.category ?? null;
-    if (customPs) return "open"; // Open Innovation (AICTE)
-    return null;
-  };
+  // ── Profile lookup ──────────────────────────────────────────────────────
+  const profileById = useMemo(
+    () => new Map(allProfiles.map((p) => [p.id, p])),
+    [allProfiles]
+  );
 
-  // Unique sections (scoped to selected dept for relevance)
-  const sections = useMemo(() => {
-    const base = dept
-      ? students.filter((s) => s.department === dept)
-      : students;
-    const set = new Set(base.map((s) => (s.section ?? "").toUpperCase()).filter(Boolean));
-    return [...set].sort();
-  }, [students, dept]);
+  // ── Enrich final teams with resolved members and PS info ────────────────
+  const enriched = useMemo(() => finalTeams.map((ft) => {
+    const members  = (ft.member_ids || []).map((id) => profileById.get(id)).filter(Boolean);
+    let psNumber   = "";
+    let psTitle    = "";
+    let psCategory = "";
+    let psStatus   = "none"; // "software" | "hardware" | "open" | "none"
 
-  // ── Filtered rows ─────────────────────────────────────────────────────────
+    if (ft.selected_ps_number) {
+      const ps   = psMap.get(ft.selected_ps_number);
+      psNumber   = ft.selected_ps_number;
+      psTitle    = ps?.title    ?? "";
+      psCategory = ps?.category ?? "";
+      psStatus   = psCategory === "Software" ? "software" : "hardware";
+    } else if (ft.custom_ps_title) {
+      psNumber   = "Open Innovation";
+      psTitle    = ft.custom_ps_title;
+      psCategory = "Open Innovation";
+      psStatus   = "open";
+    }
+
+    return { ft, members, psNumber, psTitle, psCategory, psStatus };
+  }), [finalTeams, profileById, psMap]);
+
+  // ── Filter state ────────────────────────────────────────────────────────
+  const [ministryFilter, setMinistryFilter] = useState("all");
+  const [psFilter, setPsFilter]             = useState("");   // "" | "software" | "hardware" | "open" | "none"
+  const [search, setSearch]                 = useState("");
+
+  // Unique ministries
+  const ministries = useMemo(() => {
+    const s = new Set(finalTeams.map((ft) => ft.ministry).filter(Boolean));
+    return [...s].sort();
+  }, [finalTeams]);
+
+  // ── Filtered rows ───────────────────────────────────────────────────────
   const filtered = useMemo(() => {
-    return students.filter((s) => {
-      if (dept    && s.department !== dept) return false;
-      if (year    && s.year !== year) return false;
-      if (section && (s.section ?? "").toUpperCase() !== section) return false;
-      if (gender  && s.gender !== gender) return false;
-
-      if (status) {
-        const inFinal = finalTeamByMemberId.has(s.id);
-        const inPair  = inPairTeam.has(s.id);
-        if (status === "final_team"   && !inFinal) return false;
-        if (status === "pair_team"    && (inFinal || !inPair)) return false;
-        if (status === "profile_only" && (inFinal || inPair)) return false;
-      }
-
-      if (psCategory) {
-        const cat = getPsCategory(s.id);
-        if (psCategory === "none"     && cat !== null) return false;
-        if (psCategory !== "none"     && cat !== psCategory) return false;
-      }
-
-      return true;
-    });
-  }, [students, dept, year, section, gender, status, psCategory, finalTeamByMemberId, inPairTeam, selectedPsByMemberId, customPsByMemberId, psInfoMap]);
-
-  // ── Counts for stat chips ─────────────────────────────────────────────────
-  const counts = useMemo(() => {
-    const base = dept ? students.filter((s) => s.department === dept) : students;
-    return {
-      total:        base.length,
-      finalTeam:    base.filter((s) => finalTeamByMemberId.has(s.id)).length,
-      pairOnly:     base.filter((s) => !finalTeamByMemberId.has(s.id) && inPairTeam.has(s.id)).length,
-      profileOnly:  base.filter((s) => !finalTeamByMemberId.has(s.id) && !inPairTeam.has(s.id)).length,
-    };
-  }, [students, dept, finalTeamByMemberId, inPairTeam]);
-
-  // ── PS category counts (scoped to current dept+status filter baseline) ────
-  // Count students who have confirmed a PS of each category.
-  // Scoped to the base population (dept + status applied, psCategory NOT applied)
-  // so the chips always show meaningful counts relative to the current view.
-  const psCounts = useMemo(() => {
-    const base = students.filter((s) => {
-      if (dept   && s.department !== dept) return false;
-      if (year   && s.year !== year) return false;
-      if (section && (s.section ?? "").toUpperCase() !== section) return false;
-      if (gender && s.gender !== gender) return false;
-      if (status) {
-        const inFinal = finalTeamByMemberId.has(s.id);
-        const inPair  = inPairTeam.has(s.id);
-        if (status === "final_team"   && !inFinal) return false;
-        if (status === "pair_team"    && (inFinal || !inPair)) return false;
-        if (status === "profile_only" && (inFinal || inPair)) return false;
+    const needle = search.trim().toLowerCase();
+    return enriched.filter(({ ft, members, psNumber, psTitle, psStatus }) => {
+      if (ministryFilter !== "all" && ft.ministry !== ministryFilter) return false;
+      if (psFilter && psStatus !== psFilter) return false;
+      if (needle) {
+        const hay = [
+          ft.name,
+          ft.ministry ?? "",
+          psNumber,
+          psTitle,
+          ...members.map((m) => `${m.name ?? ""} ${m.register_no ?? ""}`),
+        ].join(" ").toLowerCase();
+        if (!hay.includes(needle)) return false;
       }
       return true;
     });
-    return {
-      all:      base.length,
-      software: base.filter((s) => getPsCategory(s.id) === "Software").length,
-      hardware: base.filter((s) => getPsCategory(s.id) === "Hardware").length,
-      open:     base.filter((s) => getPsCategory(s.id) === "open").length,
-      none:     base.filter((s) => getPsCategory(s.id) === null).length,
-    };
-  }, [students, dept, year, section, gender, status, finalTeamByMemberId, inPairTeam, selectedPsByMemberId, customPsByMemberId, psInfoMap]);
+  }, [enriched, ministryFilter, psFilter, search]);
 
-  // ── CSV Export ────────────────────────────────────────────────────────────
+  // ── Team-based counts ───────────────────────────────────────────────────
+  const counts = useMemo(() => ({
+    total:    enriched.length,
+    software: enriched.filter((e) => e.psStatus === "software").length,
+    hardware: enriched.filter((e) => e.psStatus === "hardware").length,
+    open:     enriched.filter((e) => e.psStatus === "open").length,
+    none:     enriched.filter((e) => e.psStatus === "none").length,
+  }), [enriched]);
+
+  // ── CSV Export ──────────────────────────────────────────────────────────
   function exportCsv() {
     const rows = [
-      ["Student Name", "Register No", "Year", "Section", "Gender", "Status", "Final Team", "Selected PS"],
-      ...filtered.map((s) => {
-        const inFinal    = finalTeamByMemberId.has(s.id);
-        const inPair     = inPairTeam.has(s.id);
-        const statusLabel = inFinal ? "In Final Team" : inPair ? "Pair Team Only" : "Profile Only";
-        const finalName  = inFinal ? finalTeamByMemberId.get(s.id) : "";
-        const selectedPs = selectedPsByMemberId.get(s.id) ?? "";
-        const customPs   = customPsByMemberId.get(s.id) ?? "";
-        const psDisplay  = selectedPs || (customPs ? `Open Innovation: ${customPs}` : "");
-        return [
-          s.name ?? "",
-          s.register_no ?? "",
-          s.year ?? "",
-          s.section ?? "",
-          s.gender ?? "",
-          statusLabel,
-          finalName,
-          psDisplay,
-        ];
-      }),
+      ["#", "Team Name", "Member Name", "Register No", "Gender", "Department", "Year", "Section", "Ministry", "PS Number", "PS Title", "Category"],
     ];
+
+    filtered.forEach(({ ft, members, psNumber, psTitle, psCategory }, idx) => {
+      if (members.length === 0) {
+        rows.push([idx + 1, ft.name, "(no members)", "", "", "", "", "", ft.ministry ?? "", psNumber || "Pending", psTitle || "", psCategory || "Pending"]);
+      } else {
+        members.forEach((m, mIdx) => {
+          rows.push([
+            mIdx === 0 ? idx + 1 : "",   // # only on first member row
+            mIdx === 0 ? ft.name : "",    // team name only on first member row
+            m.name        ?? "",
+            m.register_no ?? "",
+            m.gender      ?? "",
+            m.department  ?? "",
+            m.year        ?? "",
+            m.section     ?? "",
+            mIdx === 0 ? (ft.ministry ?? "") : "",
+            mIdx === 0 ? (psNumber || "Pending") : "",
+            mIdx === 0 ? (psTitle  || "")        : "",
+            mIdx === 0 ? (psCategory || "Pending") : "",
+          ]);
+        });
+      }
+      rows.push(["", "", "", "", "", "", "", "", "", "", "", ""]); // blank separator
+    });
 
     const csv = rows
       .map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","))
@@ -215,48 +138,53 @@ export function DeptRosterView({ allProfiles = [], pairTeams = [], finalTeams = 
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement("a");
     a.href     = url;
-    const deptPart = dept ? `_${deptLabel(dept)}` : "";
-    const filters  = [year, section, gender, status, psCategory].filter(Boolean).join("_");
-    a.download = `dept_roster${deptPart}${filters ? "_" + filters : ""}.csv`;
+    a.download = `final-teams-roster${ministryFilter !== "all" ? `_${ministryFilter.slice(0, 20)}` : ""}${psFilter ? `_${psFilter}` : ""}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }
 
-  // ── Status badge helper ───────────────────────────────────────────────────
-  function StatusBadge({ profileId }) {
-    const inFinal = finalTeamByMemberId.has(profileId);
-    const inPair  = inPairTeam.has(profileId);
-    if (inFinal) return (
-      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-500/40 bg-emerald-500/10 text-emerald-300">
-        <CheckCircle2 className="size-2.5 shrink-0" />Final Team
-      </span>
-    );
-    if (inPair) return (
-      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border border-blue-500/40 bg-blue-500/10 text-blue-300">
-        <Users className="size-2.5 shrink-0" />Pair Team
-      </span>
-    );
-    return (
-      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border border-slate-500/40 bg-slate-500/10 text-slate-400">
-        <UserX className="size-2.5 shrink-0" />Profile Only
-      </span>
-    );
-  }
-
-  const hasFilters = dept || year || section || gender || status || psCategory;
+  const hasFilters = ministryFilter !== "all" || psFilter || search;
 
   return (
     <div className="space-y-5">
 
+      {/* ── Stat pills (team-based) ──────────────────────────────────────── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {[
+          { id: "software", label: "Software PS",     value: counts.software, color: "text-blue-300",    bg: "border-blue-500/20 bg-blue-500/5",    icon: <Code2 className="size-3.5 text-blue-400" /> },
+          { id: "hardware", label: "Hardware PS",     value: counts.hardware, color: "text-orange-300",  bg: "border-orange-500/20 bg-orange-500/5", icon: <Cpu  className="size-3.5 text-orange-400" /> },
+          { id: "open",     label: "Open Innovation", value: counts.open,     color: "text-amber-300",   bg: "border-amber-500/20 bg-amber-500/5",   icon: <span className="text-sm">✨</span> },
+          { id: "none",     label: "No PS Yet",       value: counts.none,     color: "text-[#94a3b8]",   bg: "border-[rgba(147,197,253,0.10)] bg-[#0a1226]/40", icon: null },
+        ].map((s) => (
+          <button
+            key={s.id}
+            type="button"
+            onClick={() => setPsFilter(psFilter === s.id ? "" : s.id)}
+            className={cn(
+              "rounded-2xl border p-3 text-left transition-all cursor-pointer",
+              s.bg,
+              psFilter === s.id && "ring-2 ring-[#c9a227]/30 scale-[1.02]"
+            )}
+          >
+            <div className="flex items-center gap-1.5 mb-1">{s.icon}<span className="text-[10px] font-bold uppercase tracking-wide text-[#94a3b8]">{s.label}</span></div>
+            <p className={cn("text-2xl font-black tabular-nums", s.color)}>{s.value}</p>
+            <p className="text-[9px] text-[#94a3b8]/60 mt-0.5">
+              {counts.total > 0 ? `${Math.round((s.value / counts.total) * 100)}% of ${counts.total} teams` : "—"}
+            </p>
+          </button>
+        ))}
+      </div>
+
       {/* ── Filter bar ──────────────────────────────────────────────────── */}
-      <div className="rounded-2xl border border-[rgba(147,197,253,0.12)] bg-[#0a1226]/60 p-4 space-y-4">
+      <div className="rounded-2xl border border-[rgba(147,197,253,0.12)] bg-[#0a1226]/60 p-4 space-y-3">
         <div className="flex items-center gap-2">
           <Filter className="size-3.5 text-[#c9a227]" />
           <span className="text-xs font-bold uppercase tracking-wider text-[#94a3b8]">Filters</span>
+          <span className="text-[10px] text-[#94a3b8]/50 ml-1">— {filtered.length} of {counts.total} teams</span>
           {hasFilters && (
             <button
               type="button"
-              onClick={() => { setDept(""); setYear(""); setSection(""); setGender(""); setStatus(""); setPsCategory(""); }}
+              onClick={() => { setMinistryFilter("all"); setPsFilter(""); setSearch(""); }}
               className="ml-auto flex items-center gap-1 text-[10px] text-[#94a3b8] hover:text-white transition-colors"
             >
               <X className="size-3" /> Clear all
@@ -264,80 +192,51 @@ export function DeptRosterView({ allProfiles = [], pairTeams = [], finalTeams = 
           )}
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          {/* Department */}
-          <div className="lg:col-span-2">
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-[#94a3b8] mb-1">
-              Department
-            </label>
-            <select
-              value={dept}
-              onChange={(e) => { setDept(e.target.value); setSection(""); }}
-              className="w-full rounded-xl border border-[rgba(147,197,253,0.15)] bg-[#050b18] px-3 py-2 text-xs text-white outline-none focus:border-[#c9a227]/50 transition-all cursor-pointer"
-            >
-              <option value="">All Departments</option>
-              {departments.map((d) => (
-                <option key={d} value={d}>{deptLabel(d)} — {d}</option>
-              ))}
-            </select>
+        <div className="flex flex-col sm:flex-row gap-2.5">
+          {/* Search */}
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-[#94a3b8] pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Search team name, member, PS number…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full rounded-xl border border-[rgba(147,197,253,0.14)] bg-[#050b18]/60 pl-9 pr-8 py-2 text-xs text-white outline-none placeholder:text-[#94a3b8]/50 focus:border-[#c9a227]/50 transition-all"
+            />
+            {search && (
+              <button type="button" onClick={() => setSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#94a3b8] hover:text-white">
+                <X className="size-3.5" />
+              </button>
+            )}
           </div>
 
-          {/* Year */}
-          <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-[#94a3b8] mb-1">Year</label>
-            <select
-              value={year}
-              onChange={(e) => setYear(e.target.value)}
-              className="w-full rounded-xl border border-[rgba(147,197,253,0.15)] bg-[#050b18] px-3 py-2 text-xs text-white outline-none focus:border-[#c9a227]/50 transition-all cursor-pointer"
-            >
-              <option value="">All Years</option>
-              {years.map((y) => <option key={y} value={y}>Year {y}</option>)}
-            </select>
-          </div>
-
-          {/* Section */}
-          <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-[#94a3b8] mb-1">Section</label>
-            <select
-              value={section}
-              onChange={(e) => setSection(e.target.value)}
-              className="w-full rounded-xl border border-[rgba(147,197,253,0.15)] bg-[#050b18] px-3 py-2 text-xs text-white outline-none focus:border-[#c9a227]/50 transition-all cursor-pointer"
-            >
-              <option value="">All Sections</option>
-              {sections.map((s) => <option key={s} value={s}>Section {s}</option>)}
-            </select>
-          </div>
-
-          {/* Gender */}
-          <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-[#94a3b8] mb-1">Gender</label>
-            <select
-              value={gender}
-              onChange={(e) => setGender(e.target.value)}
-              className="w-full rounded-xl border border-[rgba(147,197,253,0.15)] bg-[#050b18] px-3 py-2 text-xs text-white outline-none focus:border-[#c9a227]/50 transition-all cursor-pointer"
-            >
-              <option value="">All Genders</option>
-              <option value="Male">Male</option>
-              <option value="Female">Female</option>
-            </select>
-          </div>
+          {/* Ministry */}
+          <select
+            value={ministryFilter}
+            onChange={(e) => setMinistryFilter(e.target.value)}
+            className="rounded-xl border border-[rgba(147,197,253,0.14)] bg-[#050b18]/60 px-3 py-2 text-xs text-white outline-none focus:border-[#c9a227]/50 transition-all cursor-pointer min-w-[180px]"
+          >
+            <option value="all">All Ministries</option>
+            {ministries.map((m) => <option key={m} value={m}>{m}</option>)}
+          </select>
         </div>
 
-        {/* Status quick-filter chips */}
-        <div className="flex flex-wrap gap-2 pt-1">
+        {/* PS status chips */}
+        <div className="flex flex-wrap gap-2">
           {[
-            { id: "",             label: `All (${counts.total})`,              cls: "bg-[#c9a227]/20 border-[#c9a227]/40 text-[#e8c058]" },
-            { id: "final_team",   label: `In Final Team (${counts.finalTeam})`,  cls: "bg-emerald-500/20 border-emerald-500/40 text-emerald-300" },
-            { id: "pair_team",    label: `Pair Team Only (${counts.pairOnly})`,  cls: "bg-blue-500/20 border-blue-500/40 text-blue-300" },
-            { id: "profile_only", label: `Profile Only (${counts.profileOnly})`, cls: "bg-slate-500/20 border-slate-500/40 text-slate-300" },
+            { id: "",         label: `All Teams (${counts.total})`,         cls: "bg-[#c9a227]/20 border-[#c9a227]/40 text-[#e8c058]" },
+            { id: "software", label: `Software (${counts.software})`,       cls: "bg-blue-500/20 border-blue-500/40 text-blue-300"    },
+            { id: "hardware", label: `Hardware (${counts.hardware})`,       cls: "bg-orange-500/20 border-orange-500/40 text-orange-300" },
+            { id: "open",     label: `Open Innovation (${counts.open})`,    cls: "bg-amber-500/20 border-amber-500/40 text-amber-300"  },
+            { id: "none",     label: `No PS Yet (${counts.none})`,          cls: "bg-slate-500/20 border-slate-500/40 text-slate-400"  },
           ].map((f) => (
             <button
               key={f.id}
               type="button"
-              onClick={() => setStatus(f.id)}
+              onClick={() => setPsFilter(f.id)}
               className={cn(
                 "px-3 py-1 rounded-full text-[10px] font-bold border transition-all cursor-pointer",
-                status === f.id
+                psFilter === f.id
                   ? f.cls
                   : "bg-transparent border-[rgba(147,197,253,0.14)] text-[#94a3b8] hover:border-[rgba(147,197,253,0.3)] hover:text-white"
               )}
@@ -346,80 +245,13 @@ export function DeptRosterView({ allProfiles = [], pairTeams = [], finalTeams = 
             </button>
           ))}
         </div>
-
-        {/* PS Category filter chips */}
-        <div className="border-t border-[rgba(147,197,253,0.08)] pt-3 space-y-2">
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#94a3b8]">PS Category</span>
-            <span className="text-[9px] text-[#94a3b8]/50">— filter by confirmed problem statement type</span>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {[
-              {
-                id: "",
-                label: `All (${psCounts.all})`,
-                icon: null,
-                cls: "bg-[#c9a227]/20 border-[#c9a227]/40 text-[#e8c058]",
-              },
-              {
-                id: "Software",
-                label: `Software (${psCounts.software})`,
-                icon: <Code2 className="size-3 shrink-0" />,
-                cls: "bg-blue-500/20 border-blue-500/40 text-blue-300",
-              },
-              {
-                id: "Hardware",
-                label: `Hardware (${psCounts.hardware})`,
-                icon: <Cpu className="size-3 shrink-0" />,
-                cls: "bg-orange-500/20 border-orange-500/40 text-orange-300",
-              },
-              {
-                id: "open",
-                label: `Open Innovation (${psCounts.open})`,
-                icon: <span className="text-[10px]">✨</span>,
-                cls: "bg-amber-500/20 border-amber-500/40 text-amber-300",
-              },
-              {
-                id: "none",
-                label: `No PS Yet (${psCounts.none})`,
-                icon: null,
-                cls: "bg-slate-500/20 border-slate-500/40 text-slate-400",
-              },
-            ].map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                onClick={() => setPsCategory(f.id)}
-                className={cn(
-                  "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold border transition-all cursor-pointer",
-                  psCategory === f.id
-                    ? f.cls
-                    : "bg-transparent border-[rgba(147,197,253,0.14)] text-[#94a3b8] hover:border-[rgba(147,197,253,0.3)] hover:text-white"
-                )}
-              >
-                {f.icon}
-                {f.label}
-              </button>
-            ))}
-          </div>
-        </div>
       </div>
 
       {/* ── Results header ───────────────────────────────────────────────── */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <p className="text-xs text-[#94a3b8]">
-          Showing{" "}
-          <span className="text-white font-bold">{filtered.length}</span> student
-          {filtered.length !== 1 ? "s" : ""}
-          {dept && (
-            <span className="ml-1 text-[#c9a227] font-semibold">
-              in {deptLabel(dept)}
-            </span>
-          )}
-          {psCategory === "Software" && <span className="ml-1 text-blue-300 font-semibold">· Software PS</span>}
-          {psCategory === "Hardware" && <span className="ml-1 text-orange-300 font-semibold">· Hardware PS</span>}
-          {psCategory === "open"     && <span className="ml-1 text-amber-300 font-semibold">· Open Innovation</span>}
-          {psCategory === "none"     && <span className="ml-1 text-slate-400 font-semibold">· No PS chosen</span>}
+          Showing <span className="text-white font-bold">{filtered.length}</span> team{filtered.length !== 1 ? "s" : ""}
+          {ministryFilter !== "all" && <span className="ml-1 text-[#c9a227] font-semibold">in {ministryFilter.slice(0, 30)}</span>}
         </p>
         <button
           type="button"
@@ -432,77 +264,11 @@ export function DeptRosterView({ allProfiles = [], pairTeams = [], finalTeams = 
         </button>
       </div>
 
-      {/* ── PS category summary pills ─────────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        {[
-          {
-            label: "Software PS",
-            value: psCounts.software,
-            icon: <Code2 className="size-3.5 text-blue-400 shrink-0" />,
-            color: "text-blue-300",
-            bg: "border-blue-500/20 bg-blue-500/8",
-            active: psCategory === "Software",
-            id: "Software",
-          },
-          {
-            label: "Hardware PS",
-            value: psCounts.hardware,
-            icon: <Cpu className="size-3.5 text-orange-400 shrink-0" />,
-            color: "text-orange-300",
-            bg: "border-orange-500/20 bg-orange-500/8",
-            active: psCategory === "Hardware",
-            id: "Hardware",
-          },
-          {
-            label: "Open Innovation",
-            value: psCounts.open,
-            icon: <span className="text-sm shrink-0">✨</span>,
-            color: "text-amber-300",
-            bg: "border-amber-500/20 bg-amber-500/8",
-            active: psCategory === "open",
-            id: "open",
-          },
-          {
-            label: "No PS Yet",
-            value: psCounts.none,
-            icon: null,
-            color: "text-[#94a3b8]",
-            bg: "border-[rgba(147,197,253,0.10)] bg-[#0a1226]/40",
-            active: psCategory === "none",
-            id: "none",
-          },
-        ].map((s) => (
-          <button
-            key={s.id}
-            type="button"
-            onClick={() => setPsCategory(psCategory === s.id ? "" : s.id)}
-            className={cn(
-              "rounded-2xl border p-3 text-left transition-all cursor-pointer",
-              s.bg,
-              s.active && "ring-2 ring-[#c9a227]/30 scale-[1.02]"
-            )}
-          >
-            <div className="flex items-center gap-1.5 mb-1">
-              {s.icon}
-              <span className="text-[10px] font-bold uppercase tracking-wide text-[#94a3b8]">
-                {s.label}
-              </span>
-            </div>
-            <p className={cn("text-2xl font-black tabular-nums", s.color)}>{s.value}</p>
-            <p className="text-[9px] text-[#94a3b8]/60 mt-0.5">
-              {psCounts.all > 0
-                ? `${Math.round((s.value / psCounts.all) * 100)}% of ${psCounts.all}`
-                : "—"}
-            </p>
-          </button>
-        ))}
-      </div>
-
       {/* ── Table ────────────────────────────────────────────────────────── */}
       {filtered.length === 0 ? (
         <div className="py-16 text-center rounded-2xl border border-[rgba(147,197,253,0.08)] bg-[#0a1226]/40">
-          <UserX className="size-8 text-[#94a3b8]/40 mx-auto mb-3" />
-          <p className="text-sm text-[#94a3b8]">No students match the selected filters.</p>
+          <Users className="size-8 text-[#94a3b8]/40 mx-auto mb-3" />
+          <p className="text-sm text-[#94a3b8]">No teams match the current filters.</p>
         </div>
       ) : (
         <div className="rounded-2xl border border-[rgba(147,197,253,0.10)] bg-[#0a1226]/60 overflow-hidden">
@@ -510,78 +276,106 @@ export function DeptRosterView({ allProfiles = [], pairTeams = [], finalTeams = 
             <table className="w-full text-xs text-left">
               <thead>
                 <tr className="border-b border-[rgba(147,197,253,0.10)] bg-[#050b18]/60 text-[10px] font-bold uppercase tracking-wider text-[#94a3b8]">
-                  <th className="px-4 py-3">#</th>
-                  <th className="px-4 py-3">Student Name</th>
-                  <th className="px-4 py-3">Register No</th>
-                  <th className="px-4 py-3">Year</th>
-                  <th className="px-4 py-3">Section</th>
-                  <th className="px-4 py-3">Gender</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Final Team</th>
-                  <th className="px-4 py-3">Selected PS</th>
+                  <th className="px-4 py-3 w-8">#</th>
+                  <th className="px-4 py-3 min-w-[140px]">Team Name</th>
+                  <th className="px-4 py-3 min-w-[320px]">Team Members · Dept · Year · Section</th>
+                  <th className="px-4 py-3 min-w-[160px]">Ministry</th>
+                  <th className="px-4 py-3 min-w-[280px]">Problem Statement</th>
+                  <th className="px-4 py-3">Category</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((s, idx) => {
-                  const finalName = finalTeamByMemberId.get(s.id);
+                {filtered.map(({ ft, members, psNumber, psTitle, psCategory, psStatus }, idx) => {
                   const isEven = idx % 2 === 0;
+
                   return (
                     <tr
-                      key={s.id}
+                      key={ft.id}
                       className={cn(
-                        "border-b border-[rgba(147,197,253,0.06)] transition-colors hover:bg-[rgba(147,197,253,0.04)]",
-                        isEven ? "bg-transparent" : "bg-[#050b18]/30"
+                        "border-b border-[rgba(147,197,253,0.06)] transition-colors hover:bg-[rgba(147,197,253,0.04)] align-top",
+                        isEven ? "bg-transparent" : "bg-[#050b18]/20"
                       )}
                     >
-                      <td className="px-4 py-2.5 text-[#94a3b8] font-mono">{idx + 1}</td>
-                      <td className="px-4 py-2.5 font-semibold text-white">{s.name ?? "—"}</td>
-                      <td className="px-4 py-2.5 font-mono text-[#94a3b8]">{s.register_no ?? "—"}</td>
-                      <td className="px-4 py-2.5 text-[#94a3b8]">{s.year ?? "—"}</td>
-                      <td className="px-4 py-2.5 text-[#94a3b8]">{s.section ?? "—"}</td>
-                      <td className="px-4 py-2.5">
-                        {s.gender === "Female" ? (
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-pink-500/15 border border-pink-500/30 text-pink-300">F</span>
-                        ) : s.gender === "Male" ? (
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/15 border border-blue-500/30 text-blue-300">M</span>
+                      {/* # */}
+                      <td className="px-4 py-3 text-[#94a3b8] font-mono tabular-nums">{idx + 1}</td>
+
+                      {/* Team Name */}
+                      <td className="px-4 py-3">
+                        <p className="font-extrabold text-white text-[11px] leading-tight">{ft.name}</p>
+                        <p className="text-[9px] text-[#94a3b8] mt-0.5">{members.length}/6 members</p>
+                      </td>
+
+                      {/* Members — each with their own dept / year / section inline */}
+                      <td className="px-4 py-3">
+                        <div className="space-y-2">
+                          {members.length === 0 ? (
+                            <span className="text-[10px] text-[#94a3b8]/40 italic">No members</span>
+                          ) : members.map((m) => (
+                            <div key={m.id} className="space-y-0.5">
+                              {/* Name row */}
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-[11px] font-semibold text-white leading-tight">{m.name ?? "—"}</span>
+                                {m.gender === "Female" && (
+                                  <span className="text-[8px] font-bold px-1 py-0 rounded-full bg-pink-500/15 border border-pink-500/25 text-pink-300">F</span>
+                                )}
+                                <span className="text-[9px] font-mono text-[#94a3b8]/70">{m.register_no ?? ""}</span>
+                              </div>
+                              {/* Dept · Year · Section */}
+                              <p className="text-[9px] text-[#94a3b8] leading-tight pl-0.5">
+                                <span className="text-[#94a3b8]/80">{deptLabel(m.department ?? "") || "—"}</span>
+                                {m.year    && <span className="before:content-['·'] before:mx-1 before:text-[#94a3b8]/40">Yr {m.year}</span>}
+                                {m.section && <span className="before:content-['·'] before:mx-1 before:text-[#94a3b8]/40">Sec {(m.section ?? "").toUpperCase()}</span>}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </td>
+
+                      {/* Ministry */}
+                      <td className="px-4 py-3 max-w-[180px]">
+                        {ft.ministry
+                          ? <span className="text-[10px] text-[#94a3b8] leading-snug line-clamp-2">{ft.ministry}</span>
+                          : <span className="text-[#94a3b8]/30 text-[10px]">—</span>}
+                      </td>
+
+                      {/* Problem Statement */}
+                      <td className="px-4 py-3 max-w-[300px]">
+                        {psStatus === "none" ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full border border-amber-500/40 bg-amber-500/15 text-amber-300">
+                            <AlertTriangle className="size-2.5 shrink-0" /> ⏳ Pending
+                          </span>
+                        ) : psStatus === "open" ? (
+                          <div className="space-y-0.5">
+                            <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-300">
+                              ✨ Open Innovation
+                            </span>
+                            <p className="text-[10px] text-white leading-snug line-clamp-2">{psTitle}</p>
+                          </div>
                         ) : (
-                          <span className="text-[#94a3b8]">—</span>
+                          <div className="space-y-0.5">
+                            <span className="text-[11px] font-extrabold font-mono text-violet-300">{psNumber}</span>
+                            <p className="text-[10px] text-[#94a3b8] leading-snug line-clamp-2">{psTitle}</p>
+                          </div>
                         )}
                       </td>
-                      <td className="px-4 py-2.5">
-                        <StatusBadge profileId={s.id} />
-                      </td>
-                      <td className="px-4 py-2.5 font-semibold text-emerald-300">
-                        {finalName ?? <span className="text-[#94a3b8]/50">—</span>}
-                      </td>
-                      <td className="px-4 py-2.5">
-                        {(() => {
-                          const psNum   = selectedPsByMemberId.get(s.id);
-                          const customPs = customPsByMemberId.get(s.id);
-                          if (psNum) {
-                            const psInfo = SIH2026_PROBLEMS.find((ps) => ps.psNumber === psNum);
-                            return (
-                              <div className="space-y-0.5">
-                                <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full border border-violet-500/40 bg-violet-500/10 text-violet-300 whitespace-nowrap">
-                                  🔒 {psNum}
-                                </span>
-                                {psInfo && (
-                                  <p className="text-[9px] text-[#94a3b8] leading-snug line-clamp-1 max-w-[180px]">{psInfo.title}</p>
-                                )}
-                              </div>
-                            );
-                          }
-                          if (customPs) {
-                            return (
-                              <div className="space-y-0.5">
-                                <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full border border-amber-500/40 bg-amber-500/10 text-amber-300 whitespace-nowrap">
-                                  ✨ Open Innovation
-                                </span>
-                                <p className="text-[9px] text-[#94a3b8] leading-snug line-clamp-1 max-w-[180px]">{customPs}</p>
-                              </div>
-                            );
-                          }
-                          return <span className="text-[10px] text-[#94a3b8]/50">—</span>;
-                        })()}
+
+                      {/* Category */}
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        {psStatus === "software" ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border border-blue-500/30 bg-blue-500/10 text-blue-300">
+                            <Code2 className="size-2.5 shrink-0" /> SW
+                          </span>
+                        ) : psStatus === "hardware" ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border border-orange-500/30 bg-orange-500/10 text-orange-300">
+                            <Cpu className="size-2.5 shrink-0" /> HW
+                          </span>
+                        ) : psStatus === "open" ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-300">
+                            ✨ Open
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-[#94a3b8]/40">—</span>
+                        )}
                       </td>
                     </tr>
                   );

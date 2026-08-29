@@ -69,7 +69,7 @@ function CustomPsCard({ title, label }) {
 }
 
 // ─── Single request card ──────────────────────────────────────────────────────
-function RequestCard({ req, onReview }) {
+function RequestCard({ req, onReview, readOnly = false }) {
   const [expanded, setExpanded] = useState(req.status === "pending");
   const [reviewing, setReviewing] = useState(false);
   const [reviewNote, setReviewNote] = useState("");
@@ -168,8 +168,8 @@ function RequestCard({ req, onReview }) {
             </p>
           )}
 
-          {/* Review actions (only for pending) */}
-          {req.status === "pending" && (
+          {/* Review actions (only for pending and master session) */}
+          {req.status === "pending" && !readOnly && (
             <div className="space-y-3 border-t border-[rgba(147,197,253,0.08)] pt-4">
               <p className="text-[10px] font-bold uppercase tracking-wider text-[#94a3b8]">Review this Request</p>
 
@@ -242,6 +242,15 @@ function RequestCard({ req, onReview }) {
               )}
             </div>
           )}
+
+          {/* Read-only notice for pending requests when not master */}
+          {req.status === "pending" && readOnly && (
+            <div className="border-t border-[rgba(147,197,253,0.08)] pt-4">
+              <p className="text-[10px] text-[#94a3b8] flex items-center gap-1.5">
+                🔒 <span>Log in with the <span className="font-bold text-white">master password</span> to approve or reject this request.</span>
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -249,7 +258,7 @@ function RequestCard({ req, onReview }) {
 }
 
 // ─── Main view ────────────────────────────────────────────────────────────────
-export function PsChangeRequestsView() {
+export function PsChangeRequestsView({ readOnly = false }) {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading]   = useState(true);
   const [search, setSearch]     = useState("");
@@ -373,7 +382,7 @@ export function PsChangeRequestsView() {
             Showing <span className="text-white font-bold">{filtered.length}</span> request{filtered.length !== 1 ? "s" : ""}
           </p>
           {filtered.map((req) => (
-            <RequestCard key={req.id} req={req} onReview={loadRequests} />
+            <RequestCard key={req.id} req={req} readOnly={readOnly} onReview={loadRequests} />
           ))}
         </div>
       )}

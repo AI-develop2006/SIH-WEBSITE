@@ -532,6 +532,8 @@ app.get("/api/spoc/final-teams", async (_req, res) => {
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
+});
+
 // 6h. Fetch SIH 2026 Problem Statements (live from DB)
 app.get("/api/problems/sih2026", async (_req, res) => {
   try {

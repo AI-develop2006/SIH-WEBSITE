@@ -142,7 +142,7 @@ export async function getProblems(dbQuery) {
 }
 
 // ── Main scrape-and-sync function ─────────────────────────────────────────────
-export async function scrapeAndSync(dbQuery) {
+export async function scrapeAndSync(dbQuery, onSyncComplete) {
   if (_scrapeRunning) {
     console.log("[SIH scraper] Already running, skipping duplicate invocation");
     return { skipped: true };
@@ -170,6 +170,14 @@ export async function scrapeAndSync(dbQuery) {
     await loadFromDb(dbQuery);
     console.log(`[SIH scraper] Cache refreshed — ${_cache?.length ?? 0} entries`);
 
+    if (typeof onSyncComplete === "function") {
+      try {
+        onSyncComplete({ total: problems.length, stats, error: null });
+      } catch (cbErr) {
+        console.warn("[SIH scraper] onSyncComplete callback error:", cbErr.message);
+      }
+    }
+
   } catch (err) {
     error = err.message;
     console.error("[SIH scraper] Error during scrape:", err.message);
@@ -196,7 +204,7 @@ export async function scrapeAndSync(dbQuery) {
 // ── Scheduler (called from server.js once on boot) ───────────────────────────
 const INTERVAL_MS = 5 * 60 * 60 * 1000; // 5 hours
 
-export function startScrapeScheduler(dbQuery) {
+export function startScrapeScheduler(dbQuery, onSyncComplete) {
   // Initial load from DB (don't wait for scrape to serve requests)
   loadFromDb(dbQuery)
     .then((rows) => console.log(`[SIH scraper] Loaded ${rows.length} problems from DB on startup`))
@@ -206,10 +214,11 @@ export function startScrapeScheduler(dbQuery) {
     });
 
   // First scrape: run 10 seconds after startup (let server fully boot first)
-  setTimeout(() => scrapeAndSync(dbQuery), 10_000);
+  setTimeout(() => scrapeAndSync(dbQuery, onSyncComplete), 10_000);
 
   // Recurring scrape every 5 hours
-  setInterval(() => scrapeAndSync(dbQuery), INTERVAL_MS);
+  setInterval(() => scrapeAndSync(dbQuery, onSyncComplete), INTERVAL_MS);
 
   console.log(`[SIH scraper] Scheduler started — scraping every ${INTERVAL_MS / 3600000}h`);
 }
+

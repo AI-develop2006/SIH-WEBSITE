@@ -2587,6 +2587,8 @@ app.get("*", (_req, res) => {
     </body>
     </html>
   `);
+});
+
 // ─── Metadata APIs (Departments, Ministries, Roles) ─────────────────────────
 app.get("/api/metadata/departments", async (_req, res) => {
   try {
@@ -2692,7 +2694,15 @@ async function startServer() {
 
   // Start the SIH PS scrape scheduler (initial DB load + scrape every 5 h)
   try {
-    startScrapeScheduler(dbQuery);
+    startScrapeScheduler(dbQuery, (info) => {
+      if (info.stats?.added > 0 || info.stats?.updated > 0) {
+        broadcastPairTeamUpdate("sih_problems_updated", {
+          added: info.stats.added,
+          updated: info.stats.updated,
+          total: info.total,
+        });
+      }
+    });
   } catch (err) {
     console.error("[SIH scraper] Scheduler init failed:", err.message);
   }

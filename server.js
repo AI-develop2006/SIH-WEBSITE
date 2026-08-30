@@ -532,6 +532,189 @@ app.get("/api/spoc/final-teams", async (_req, res) => {
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
+// 6h. Fetch SIH 2026 Problem Statements (live from DB)
+app.get("/api/problems/sih2026", async (_req, res) => {
+  try {
+    if (process.env.DATABASE_URL) {
+      const { rows } = await dbQuery(
+        `SELECT ps_number AS "psNumber", sno, organization, title, category, theme, deadline
+         FROM public.sih_problems ORDER BY sno ASC`
+      );
+      return res.json({ data: rows, count: rows.length });
+    } else if (supabase) {
+      const { data, error } = await supabase
+        .from("sih_problems")
+        .select("ps_number, sno, organization, title, category, theme, deadline")
+        .order("sno", { ascending: true });
+      if (error) throw new Error(error.message);
+      const rows = (data ?? []).map((r) => ({ ...r, psNumber: r.ps_number }));
+      return res.json({ data: rows, count: rows.length });
+    }
+    return res.json({ data: [], count: 0 });
+  } catch (err) {
+    console.warn("[/api/problems/sih2026] DB read failed:", err.message);
+    return res.json({ data: [], count: 0 });
+  }
+});
+
+// 6i. Metadata APIs (Departments, Ministries, Roles)
+app.get("/api/metadata/departments", async (_req, res) => {
+  try {
+    if (process.env.DATABASE_URL) {
+      const { rows } = await dbQuery(`SELECT id, name, code FROM public.departments ORDER BY id ASC`);
+      return res.json({ data: rows });
+    } else if (supabase) {
+      const { data, error } = await supabase.from("departments").select("id, name, code").order("id");
+      if (error) throw new Error(error.message);
+      return res.json({ data: data ?? [] });
+    }
+    return res.json({ data: [] });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/metadata/ministries", async (_req, res) => {
+  try {
+    if (process.env.DATABASE_URL) {
+      const { rows } = await dbQuery(`SELECT id, name, is_outdated AS "isOutdated", is_new AS "isNew" FROM public.ministries ORDER BY id ASC`);
+      return res.json({ data: rows });
+    } else if (supabase) {
+      const { data, error } = await supabase.from("ministries").select("id, name, is_outdated, is_new").order("id");
+      if (error) throw new Error(error.message);
+      const rows = (data ?? []).map(r => ({ ...r, isOutdated: r.is_outdated, isNew: r.is_new }));
+      return res.json({ data: rows });
+    }
+    return res.json({ data: [] });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/metadata/roles", async (_req, res) => {
+  try {
+    if (process.env.DATABASE_URL) {
+      const { rows } = await dbQuery(`SELECT id, name, category FROM public.roles ORDER BY id ASC`);
+      return res.json({ data: rows });
+    } else if (supabase) {
+      const { data, error } = await supabase.from("roles").select("id, name, category").order("id");
+      if (error) throw new Error(error.message);
+      return res.json({ data: data ?? [] });
+    }
+    return res.json({ data: [] });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// 6j. SPOC PS Change Requests (Read & Review)
+app.get("/api/spoc/ps-change-requests", async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith("Bearer ")) return res.status(401).json({ error: "Not signed in" });
+
+  try {
+    let rows = [];
+    if (process.env.DATABASE_URL) {
+      const result = await dbQuery(
+        `SELECT r.*,
+                p.name AS requester_name, p.register_no AS requester_regno, p.department AS requester_dept
+         FROM public.ps_change_requests r
+         LEFT JOIN public.profiles p ON p.id = r.requested_by
+         ORDER BY
+           CASE r.status WHEN 'pending' THEN 0 WHEN 'approved' THEN 1 ELSE 2 END,
+           r.created_at DESC`
+      );
+      rows = result.rows;
+    } else if (supabase) {
+      const { data, error } = await supabase
+        .from("ps_change_requests")
+        .select("*, profiles:requested_by(name, register_no, department)")
+        .order("created_at", { ascending: false });
+      if (error) throw new Error(error.message);
+      rows = (data ?? []).map((r) => ({
+        ...r,
+        requester_name: r.profiles?.name,
+        requester_regno: r.profiles?.register_no,
+        requester_dept: r.profiles?.department,
+      }));
+    }
+    return res.json({ data: rows });
+  } catch (err) {
+    console.warn("[ps-change-requests] Error:", err.message);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.patch("/api/spoc/ps-change-requests/:id/review", async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith("Bearer ")) return res.status(401).json({ error: "Not signed in" });
+
+  const { id } = req.params;
+  const { action, review_note } = req.body;
+
+  if (!["approve", "reject"].includes(action)) {
+    return res.status(400).json({ error: "action must be 'approve' or 'reject'" });
+  }
+
+  try {
+    let cr = null;
+    if (process.env.DATABASE_URL) {
+      const { rows } = await dbQuery(
+        `SELECT * FROM public.ps_change_requests WHERE id = $1 LIMIT 1`, [id]
+      );
+      cr = rows[0] ?? null;
+    } else if (supabase) {
+      const { data } = await supabase
+        .from("ps_change_requests").select("*").eq("id", id).maybeSingle();
+      cr = data ?? null;
+    }
+    if (!cr) return res.status(404).json({ error: "Change request not found" });
+    if (cr.status !== "pending") {
+      return res.status(409).json({ error: `Request is already ${cr.status}` });
+    }
+
+    const newStatus  = action === "approve" ? "approved" : "rejected";
+    const reviewedAt = new Date().toISOString();
+
+    if (process.env.DATABASE_URL) {
+      await dbQuery(
+        `UPDATE public.ps_change_requests
+         SET status = $1, review_note = $2, reviewed_at = $3
+         WHERE id = $4`,
+        [newStatus, review_note?.trim() ?? null, reviewedAt, id]
+      );
+    } else if (supabase) {
+      await supabase.from("ps_change_requests").update({
+        status: newStatus,
+        review_note: review_note?.trim() ?? null,
+        reviewed_at: reviewedAt,
+      }).eq("id", id);
+    }
+
+    if (action === "approve") {
+      if (process.env.DATABASE_URL) {
+        await dbQuery(
+          `UPDATE public.spoc_final_teams
+           SET selected_ps_number = $1,
+               custom_ps_title    = $2,
+               updated_at         = now()
+           WHERE id = $3`,
+          [cr.new_ps ?? null, cr.new_custom ?? null, cr.team_id]
+        );
+      } else if (supabase) {
+        await supabase.from("spoc_final_teams").update({
+          selected_ps_number: cr.new_ps ?? null,
+          custom_ps_title:    cr.new_custom ?? null,
+          updated_at:         reviewedAt,
+        }).eq("id", cr.team_id);
+      }
+    }
+
+    return res.json({ ok: true, status: newStatus });
+  } catch (err) {
+    console.error("[ps-change-requests/review] Error:", err.message);
+    return res.status(500).json({ error: err.message });
+  }
 });
 
 // 7. Fetch Problems

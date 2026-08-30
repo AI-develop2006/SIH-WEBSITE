@@ -363,10 +363,19 @@ export default function AdminPage() {
     });
 
     return () => {
-      cleanup();
       clearTimeout(debounceTimer);
+      cleanup();
     };
   }, [isAuthenticated]);
+
+  // ── Auto-refresh interval (15 seconds) to keep Admin Portal 100% in sync ──
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const interval = setInterval(() => {
+      load();
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [isAuthenticated, load]);
 
   const students = useMemo(() => {
     const list = profiles.filter((p) => p.role === "student");

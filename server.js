@@ -1530,8 +1530,8 @@ function buildTeamsSheet(ws, teams, memberMap, label, psMap = new Map()) {
 
 app.get("/api/spoc/export-teams/:type", async (req, res) => {
   const { type } = req.params;
-  if (!["software", "hardware", "aicte"].includes(type)) {
-    return res.status(400).json({ error: "type must be software, hardware, or aicte" });
+  if (!["software", "hardware", "aicte", "all"].includes(type)) {
+    return res.status(400).json({ error: "type must be software, hardware, aicte, or all" });
   }
 
   try {
@@ -1593,7 +1593,7 @@ app.get("/api/spoc/export-teams/:type", async (req, res) => {
       else software.push(team);
     }
 
-    const buckets = { software, hardware, aicte };
+    const buckets = { software, hardware, aicte, all: teams };
     const chosen  = buckets[type];
 
     if (chosen.length === 0) {
@@ -1606,9 +1606,9 @@ app.get("/api/spoc/export-teams/:type", async (req, res) => {
     wb.creator = "SIH SPOC Portal";
     wb.created = new Date();
 
-    const sheetLabels = { software: "Software", hardware: "Hardware", aicte: "AICTE — Open Innovation" };
-    const sheetNames  = { software: "Software Teams", hardware: "Hardware Teams", aicte: "AICTE Teams" };
-    const fileNames   = { software: "software_teams.xlsx", hardware: "hardware_teams.xlsx", aicte: "aicte_teams.xlsx" };
+    const sheetLabels = { software: "Software", hardware: "Hardware", aicte: "AICTE — Open Innovation", all: "All SIH Teams (Master)" };
+    const sheetNames  = { software: "Software Teams", hardware: "Hardware Teams", aicte: "AICTE Teams", all: "All Final Teams" };
+    const fileNames   = { software: "software_teams.xlsx", hardware: "hardware_teams.xlsx", aicte: "aicte_teams.xlsx", all: "all_sih_teams.xlsx" };
 
     const ws = wb.addWorksheet(sheetNames[type]);
     buildTeamsSheet(ws, chosen, memberMap, sheetLabels[type]);

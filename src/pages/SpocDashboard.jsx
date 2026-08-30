@@ -4,7 +4,7 @@ import {
   Shield, LogOut, Users, Building2, CheckCircle2, AlertTriangle,
   ChevronDown, ChevronUp, Plus, X, Download, Search, RefreshCw, Sparkles, Trash2,
   ListChecks, Activity, TableProperties, BookOpen, Clock, UserX, FileText, MessageSquare,
-  HardDrive, Code2, Cpu,
+  HardDrive, Code2, Cpu, Globe,
 } from "lucide-react";
 import {
   getCurrentProfile, logoutSpoc, logoutAllSessions, fetchEnrichedTeams, fetchAllProfiles,
@@ -1755,8 +1755,8 @@ export default function SpocDashboard() {
             </p>
           </div>
 
-          {/* Three download cards */}
-          <div className="grid gap-4 sm:grid-cols-3">
+          {/* Four download cards */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {[
               {
                 type:    "software",
@@ -1787,7 +1787,7 @@ export default function SpocDashboard() {
               {
                 type:    "aicte",
                 label:   "AICTE Teams",
-                desc:    "Open Innovation teams under AICTE with their custom problem statements",
+                desc:    "Open Innovation teams under AICTE with custom problem statements",
                 icon:    Sparkles,
                 accent:  "amber",
                 border:  "border-amber-500/25",
@@ -1796,6 +1796,19 @@ export default function SpocDashboard() {
                 iconClr: "text-amber-400",
                 btnClr:  "bg-amber-600 hover:bg-amber-500",
                 file:    "aicte_teams.xlsx",
+              },
+              {
+                type:    "all",
+                label:   "Master Roster",
+                desc:    "Consolidated roster of all Software, Hardware & AICTE final teams",
+                icon:    Globe,
+                accent:  "emerald",
+                border:  "border-emerald-500/25",
+                bg:      "bg-emerald-500/5",
+                iconBg:  "bg-emerald-500/10 border-emerald-500/20",
+                iconClr: "text-emerald-400",
+                btnClr:  "bg-emerald-600 hover:bg-emerald-500",
+                file:    "all_sih_teams.xlsx",
               },
             ].map(({ type, label, desc, icon: Icon, border, bg, iconBg, iconClr, btnClr, file }) => {
               const state = dlState[type]; // "idle" | "loading" | "done" | "error"

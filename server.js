@@ -34,11 +34,25 @@ app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 // Keeps a set of active SSE response objects. When final teams change,
 // all connected SPOC clients are notified to re-fetch.
 const sseClients = new Set();
+const PM_BACKEND_URL = process.env.PM_BACKEND_URL || "http://localhost:3003";
+
+async function notifyPairTeamUpdate(action, meta = {}) {
+  try {
+    await fetch(`${PM_BACKEND_URL}/api/internal/broadcast-pair-team-update`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, meta }),
+    });
+  } catch (_) { /* fire-and-forget */ }
+}
 
 function broadcastUpdate(event, data = {}) {
   const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
   for (const res of sseClients) {
     try { res.write(payload); } catch (_) { sseClients.delete(res); }
+  }
+  if (event === "final_teams_updated") {
+    notifyPairTeamUpdate("final_teams_updated", data);
   }
 }
 

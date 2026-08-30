@@ -48,7 +48,7 @@ import { MonitoringView } from "./MonitoringView";
 import { MINISTRIES, OUTDATED_MINISTRIES } from "@/lib/constants";
 import { OutdatedMinistryBadge } from "@/components/common/OutdatedMinistryBadge";
 import { NewMinistryBadge } from "@/components/common/NewMinistryBadge";
-import { SIH2026_PROBLEMS } from "@/lib/sih2026Problems";
+import { SIH2026_PROBLEMS, useSihPsMap } from "@/lib/sih2026Problems";
 
 // ─── Admin Final Teams View ───────────────────────────────────────────────────
 // Read-only table of all SPOC final teams, including the selected problem statement.
@@ -62,7 +62,7 @@ function AdminFinalTeamsView({ finalTeams, onRefresh }) {
     return [...s].sort();
   }, [finalTeams]);
 
-  const psMap = useMemo(() => new Map(SIH2026_PROBLEMS.map((p) => [p.psNumber, p])), []);
+  const psMap = useSihPsMap();
 
   const filtered = useMemo(() => {
     const needle = search.trim().toLowerCase();

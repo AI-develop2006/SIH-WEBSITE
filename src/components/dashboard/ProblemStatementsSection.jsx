@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { BookOpen, Filter, Search, X, ExternalLink, Cpu, Code2, Download, Presentation, Clock, CalendarDays, Building2, CheckCircle2, AlertTriangle, Lock, Pencil, Sparkles, MessageSquare, ChevronDown, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { SIH2026_PROBLEMS } from "@/lib/sih2026Problems";
+import { SIH2026_PROBLEMS, useSihProblems } from "@/lib/sih2026Problems";
 import { SIH2026ProblemsView } from "@/components/common/SIH2026ProblemsView";
 import { selectFinalTeamPs, submitCustomPs, submitPsChangeRequest, fetchMyPsChangeRequests } from "@/lib/data";
 
@@ -63,46 +63,44 @@ const SHORT_ALIAS_MAP = {
   "mospi":  "Ministry of Statistics and Programme Implementation (MoSPI)",
 };
 
-// Build a set of unique organization values in the PS dataset for O(1) lookup
-const PS_ORGS = new Set(SIH2026_PROBLEMS.map((p) => p.organization));
+// Build a set of unique organization values — updated at runtime from live data
+// Initially seeded from static array; updated by MinistryProblemsView after live fetch
+let _PS_ORGS = new Set(SIH2026_PROBLEMS.map((p) => p.organization));
 
 function stripAcronym(s) {
-  // Remove trailing " (XXX)" or " (Xxx Xxx)" abbreviations, trim
   return s.replace(/\s*\([^)]*\)\s*$/, "").trim();
 }
 
-function resolveMinistryOrgs(ministry) {
+function resolveMinistryOrgs(ministry, psOrgs = _PS_ORGS) {
   if (!ministry) return new Set();
 
   // 1. Exact match
-  if (PS_ORGS.has(ministry)) return new Set([ministry]);
+  if (psOrgs.has(ministry)) return new Set([ministry]);
 
   // 2. Strip acronym from the ministry name, check against PS orgs
   const stripped = stripAcronym(ministry);
-  if (stripped !== ministry && PS_ORGS.has(stripped)) return new Set([stripped]);
+  if (stripped !== ministry && psOrgs.has(stripped)) return new Set([stripped]);
 
   // 3. Check if any PS org, when stripped, equals the stripped ministry name
   const strippedLower = stripped.toLowerCase();
   const matched = new Set();
-  for (const org of PS_ORGS) {
+  for (const org of psOrgs) {
     if (stripAcronym(org).toLowerCase() === strippedLower) matched.add(org);
-    // Also check ministry stripped against org exact
     if (org.toLowerCase() === strippedLower) matched.add(org);
   }
   if (matched.size > 0) return matched;
 
-  // 4. Short-alias: check if the ministry string contains a known short alias
+  // 4. Short-alias
   const ministryLower = ministry.toLowerCase();
   for (const [alias, fullName] of Object.entries(SHORT_ALIAS_MAP)) {
     if (ministryLower === alias || ministryLower.includes(`(${alias})`)) {
-      if (PS_ORGS.has(fullName)) return new Set([fullName]);
-      // Check the PS set for the alias directly (e.g. "DRDO" as org)
+      if (psOrgs.has(fullName)) return new Set([fullName]);
       const aliasUpper = alias.toUpperCase();
-      if (PS_ORGS.has(aliasUpper)) return new Set([aliasUpper]);
+      if (psOrgs.has(aliasUpper)) return new Set([aliasUpper]);
     }
   }
-  // 5. The PS org itself might be a short alias that the ministry name contains
-  for (const org of PS_ORGS) {
+  // 5. substring match
+  for (const org of psOrgs) {
     const orgLower = org.toLowerCase();
     if (ministryLower.includes(orgLower) || orgLower.includes(strippedLower)) {
       matched.add(org);
@@ -317,21 +315,24 @@ function MinistryProblemsView({ ministry, selectedPsNumber, onSelectPs, savingPs
   const [pendingPs, setPendingPs] = useState(null); // the PS number waiting for confirmation
   const isLocked = Boolean(selectedPsNumber); // once set, it's locked forever
 
+  const problems = useSihProblems();
+
+  // Keep the module-level _PS_ORGS in sync with live data
+  const psOrgs = useMemo(() => {
+    const s = new Set(problems.map((p) => p.organization));
+    _PS_ORGS = s; // update module-level ref for non-hook callers
+    return s;
+  }, [problems]);
+
   // Resolve the set of PS organization names that correspond to this ministry.
-  // resolveMinistryOrgs handles acronym stripping, alias mapping, etc.
-  // Falls back to a case-insensitive exact/substring match only when the
-  // resolver returns an empty set (i.e. no known mapping found).
   const ministryProblems = useMemo(() => {
-    const resolvedOrgs = resolveMinistryOrgs(ministry);
+    const resolvedOrgs = resolveMinistryOrgs(ministry, psOrgs);
     if (resolvedOrgs.size > 0) {
-      return SIH2026_PROBLEMS.filter((p) => resolvedOrgs.has(p.organization));
+      return problems.filter((p) => resolvedOrgs.has(p.organization));
     }
-    // Fallback: plain case-insensitive exact match on organization field
     const needle = ministry.trim().toLowerCase();
-    return SIH2026_PROBLEMS.filter((p) =>
-      p.organization.toLowerCase() === needle
-    );
-  }, [ministry]);
+    return problems.filter((p) => p.organization.toLowerCase() === needle);
+  }, [ministry, problems, psOrgs]);
 
   const allThemes = useMemo(
     () => [...new Set(ministryProblems.map((p) => p.theme))].sort(),
@@ -384,7 +385,7 @@ function MinistryProblemsView({ ministry, selectedPsNumber, onSelectPs, savingPs
 
       {/* Selected PS banner — shown when team has a chosen problem statement */}
       {selectedPsNumber && (() => {
-        const selPs = SIH2026_PROBLEMS.find((p) => p.psNumber === selectedPsNumber);
+        const selPs = problems.find((p) => p.psNumber === selectedPsNumber);
         return selPs ? (
           <div className="rounded-2xl border border-violet-500/40 bg-violet-500/10 px-5 py-3.5 flex items-start gap-3">
             <Lock className="size-5 text-violet-400 shrink-0 mt-0.5" />
@@ -587,7 +588,7 @@ function MinistryProblemsView({ ministry, selectedPsNumber, onSelectPs, savingPs
            fixed overlay is never offset by an ancestor transform
            (e.g. the page-transition animation on <main>) ─────────────── */}
       {pendingPs && (() => {
-        const ps = SIH2026_PROBLEMS.find((p) => p.psNumber === pendingPs);
+        const ps = problems.find((p) => p.psNumber === pendingPs);
         return createPortal(
           <div
             className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
@@ -687,6 +688,8 @@ function PsChangeRequestPanel({ myFinalTeam, isAicte, onRequestSent }) {
   const [requests, setRequests]     = useState(null); // null = not loaded yet
   const [loadingRequests, setLoadingRequests] = useState(false);
 
+  const problems = useSihProblems();
+
   const ministry     = myFinalTeam?.ministry ?? null;
   const currentPs    = myFinalTeam?.selected_ps_number ?? null;
   const currentCustom = myFinalTeam?.custom_ps_title ?? null;
@@ -699,20 +702,20 @@ function PsChangeRequestPanel({ myFinalTeam, isAicte, onRequestSent }) {
     if (!ministry || isAicte) return [];
     const resolvedOrgs = resolveMinistryOrgs(ministry);
     if (resolvedOrgs.size > 0) {
-      return SIH2026_PROBLEMS.filter((p) => resolvedOrgs.has(p.organization));
+      return problems.filter((p) => resolvedOrgs.has(p.organization));
     }
     const needle = ministry.trim().toLowerCase();
-    return SIH2026_PROBLEMS.filter((p) => p.organization.toLowerCase() === needle);
-  }, [ministry, isAicte]);
+    return problems.filter((p) => p.organization.toLowerCase() === needle);
+  }, [ministry, isAicte, problems]);
 
   const filteredNewPs = useMemo(() => {
     const q = newPsSearch.trim().toLowerCase();
-    const list = ministry ? ministryProblems : SIH2026_PROBLEMS;
+    const list = ministry ? ministryProblems : problems;
     if (!q) return list.slice(0, 30); // show first 30 unfiltered
     return list.filter((p) =>
       p.psNumber.toLowerCase().includes(q) || p.title.toLowerCase().includes(q)
     ).slice(0, 30);
-  }, [newPsSearch, ministryProblems, ministry]);
+  }, [newPsSearch, ministryProblems, ministry, problems]);
 
   async function loadRequests() {
     setLoadingRequests(true);
@@ -942,7 +945,7 @@ function PsChangeRequestPanel({ myFinalTeam, isAicte, onRequestSent }) {
                     <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/5 px-3 py-2">
                       <p className="text-[10px] text-emerald-400 font-bold">Selected: {selectedNewPs}</p>
                       <p className="text-[9px] text-muted-foreground line-clamp-1">
-                        {SIH2026_PROBLEMS.find((p) => p.psNumber === selectedNewPs)?.title}
+                        {problems.find((p) => p.psNumber === selectedNewPs)?.title}
                       </p>
                     </div>
                   )}

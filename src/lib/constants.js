@@ -177,3 +177,52 @@ export const NEW_MINISTRIES = new Set([
  * Use this everywhere instead of MINISTRIES.length for display purposes.
  */
 export const ACTIVE_MINISTRIES_COUNT = MINISTRIES.length - OUTDATED_MINISTRIES.size;
+
+// ─── Live Database Hooks for Metadata ─────────────────────────────────────────
+import { useState, useEffect } from "react";
+import { fetchDepartments, fetchMinistries, fetchRoles } from "./data.js";
+
+export function useDepartments() {
+  const [departments, setDepartments] = useState(DEPARTMENTS);
+  useEffect(() => {
+    fetchDepartments().then(({ data }) => {
+      if (data && data.length > 0) {
+        setDepartments(data.map((d) => d.name));
+      }
+    });
+  }, []);
+  return departments;
+}
+
+export function useMinistries() {
+  const [ministries, setMinistries] = useState(MINISTRIES);
+  useEffect(() => {
+    fetchMinistries().then(({ data }) => {
+      if (data && data.length > 0) {
+        setMinistries(data.map((m) => m.name));
+      }
+    });
+  }, []);
+  return ministries;
+}
+
+export function useRoles() {
+  const [roles, setRoles] = useState({
+    hardware: HARDWARE_ROLES,
+    software: SOFTWARE_ROLES,
+    other: OTHER_ROLES,
+  });
+  useEffect(() => {
+    fetchRoles().then(({ data }) => {
+      if (data && data.length > 0) {
+        setRoles({
+          hardware: data.filter((r) => r.category === "Hardware").map((r) => r.name),
+          software: data.filter((r) => r.category === "Software").map((r) => r.name),
+          other: data.filter((r) => r.category === "Other").map((r) => r.name),
+        });
+      }
+    });
+  }, []);
+  return roles;
+}
+

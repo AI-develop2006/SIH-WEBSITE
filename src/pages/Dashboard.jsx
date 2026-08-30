@@ -32,7 +32,7 @@ import { OutdatedMinistryBadge } from "@/components/common/OutdatedMinistryBadge
 import { fetchNotifications, markNotificationRead, markAllNotificationsRead, fetchMyFinalTeam, subscribeToPairTeamEvents, subscribeToFinalTeamEvents, updateRegisterNo } from "@/lib/data";
 import { NewMinistryBadge } from "@/components/common/NewMinistryBadge";
 import { ProblemStatementsSection } from "@/components/dashboard/ProblemStatementsSection";
-import { SIH2026_PROBLEMS } from "@/lib/sih2026Problems";
+import { SIH2026_PROBLEMS, useSihProblems } from "@/lib/sih2026Problems";
 
 function ensureHttp(url) {
   if (!url) return "";
@@ -1779,6 +1779,8 @@ function FinalTeamCard({ finalTeam, currentUserId }) {
 
 // ─── Final Six-Member Team Card (SPOC-built) ──────────────────────────────────
 function FinalSixTeamCard({ finalTeam, currentUserId }) {
+  const problems = useSihProblems();
+
   if (!finalTeam) return null;
 
   const members      = finalTeam.members || [];
@@ -1868,7 +1870,7 @@ function FinalSixTeamCard({ finalTeam, currentUserId }) {
 
       {/* Selected PS Banner — shown when team has confirmed their problem statement */}
       {(selectedPs || customPsTitle) && (() => {
-        const ps = selectedPs ? SIH2026_PROBLEMS.find((p) => p.psNumber === selectedPs) : null;
+        const ps = selectedPs ? problems.find((p) => p.psNumber === selectedPs) : null;
         return (
           <div className="rounded-xl border border-violet-500/40 bg-violet-500/10 px-4 py-3 flex items-start gap-3">
             <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-violet-500/15 border border-violet-500/30">

@@ -1271,15 +1271,20 @@ app.get("/api/spoc/ps-change-requests", async (req, res) => {
     } else if (supabase) {
       const { data, error } = await supabase
         .from("ps_change_requests")
-        .select("*")
+        .select("*, profiles:requested_by(name, register_no, department)")
         .order("created_at", { ascending: false });
       if (error) throw new Error(error.message);
-      rows = data ?? [];
+      rows = (data ?? []).map((r) => ({
+        ...r,
+        requester_name: r.profiles?.name,
+        requester_regno: r.profiles?.register_no,
+        requester_dept: r.profiles?.department,
+      }));
     }
     return res.json({ data: rows });
   } catch (err) {
     console.warn("[ps-change-requests] Error:", err.message);
-    return res.json({ data: [] });
+    return res.status(500).json({ error: err.message });
   }
 });
 
@@ -1386,6 +1391,54 @@ app.patch("/api/spoc/ps-change-requests/:id/review", async (req, res) => {
     console.error("[ps-change-requests/review] Error:", err.message);
     return res.status(500).json({ error: err.message });
   }
+// ─── Metadata APIs (Departments, Ministries, Roles) ─────────────────────────
+app.get("/api/metadata/departments", async (_req, res) => {
+  try {
+    if (DATABASE_URL) {
+      const { rows } = await dbQuery(`SELECT id, name, code FROM public.departments ORDER BY id ASC`);
+      return res.json({ data: rows });
+    } else if (supabase) {
+      const { data, error } = await supabase.from("departments").select("id, name, code").order("id");
+      if (error) throw new Error(error.message);
+      return res.json({ data: data ?? [] });
+    }
+    return res.json({ data: [] });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/metadata/ministries", async (_req, res) => {
+  try {
+    if (DATABASE_URL) {
+      const { rows } = await dbQuery(`SELECT id, name, is_outdated AS "isOutdated", is_new AS "isNew" FROM public.ministries ORDER BY id ASC`);
+      return res.json({ data: rows });
+    } else if (supabase) {
+      const { data, error } = await supabase.from("ministries").select("id, name, is_outdated, is_new").order("id");
+      if (error) throw new Error(error.message);
+      const rows = (data ?? []).map(r => ({ ...r, isOutdated: r.is_outdated, isNew: r.is_new }));
+      return res.json({ data: rows });
+    }
+    return res.json({ data: [] });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/metadata/roles", async (_req, res) => {
+  try {
+    if (DATABASE_URL) {
+      const { rows } = await dbQuery(`SELECT id, name, category FROM public.roles ORDER BY id ASC`);
+      return res.json({ data: rows });
+    } else if (supabase) {
+      const { data, error } = await supabase.from("roles").select("id, name, category").order("id");
+      if (error) throw new Error(error.message);
+      return res.json({ data: data ?? [] });
+    }
+    return res.json({ data: [] });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
 });
 
 // ─── SIH Problem Statements (read from shared DB table) ───────────────────────
@@ -1434,7 +1487,7 @@ const PS_CATEGORY_MAP = {
   SIH26033:"Software",SIH26034:"Software",SIH26035:"Software",SIH26036:"Software",
   SIH26037:"Hardware",SIH26038:"Hardware",SIH26039:"Software",SIH26040:"Software",
   SIH26041:"Software",SIH26042:"Software",SIH26043:"Software",SIH26044:"Hardware",
-  SIH26045:"Hardware",SIH26046:"Hardware",SIH26047:"Software",SIH26048:"Software",
+  SIH26045:"Software",SIH26046:"Software",SIH26047:"Software",SIH26048:"Software",
   SIH26049:"Software",SIH26050:"Software",SIH26051:"Software",SIH26052:"Software",
   SIH26053:"Software",SIH26054:"Software",SIH26055:"Software",SIH26056:"Software",
   SIH26057:"Software",SIH26058:"Software",SIH26059:"Software",SIH26060:"Software",
@@ -1483,10 +1536,13 @@ const PS_CATEGORY_MAP = {
   SIH26229:"Software",
 };
 
-const XLSX_COL_HEADERS = ["S.No","Team Name","Member Name","Register No","Phone","Department / Year / Sec","Gender","Hindi Proficiency","Remarks"];
-const XLSX_COL_WIDTHS  = [6, 38, 28, 16, 14, 42, 10, 20, 30];
+const XLSX_COL_HEADERS = [
+  "S.No", "Team Name", "Team Members", "Register No", "Year", "Section",
+  "Department", "Ministry", "PS Number", "Phone", "Gender", "Category",
+];
+const XLSX_COL_WIDTHS = [5, 28, 28, 16, 6, 8, 38, 34, 38, 14, 8, 18];
 
-function buildTeamsSheet(ws, teams, memberMap, label) {
+function buildTeamsSheet(ws, teams, memberMap, label, psMap = new Map()) {
   const ExcelJS = ws.workbook.creator ? ws : null; void ExcelJS;
 
   // Title row
@@ -1504,7 +1560,7 @@ function buildTeamsSheet(ws, teams, memberMap, label) {
   hdrRow.eachCell((cell) => {
     cell.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1F3864" } };
     cell.font      = { bold: true, color: { argb: "FFFFFFFF" }, size: 11 };
-    cell.border    = { top: { style: "thin" }, left: { style: "thin" }, bottom: { style: "thin" }, right: { style: "thin" } };
+    cell.border    = { top: { style: "thin", color: { argb: "FF4472C4" } }, left: { style: "thin", color: { argb: "FF4472C4" } }, bottom: { style: "thin", color: { argb: "FF4472C4" } }, right: { style: "thin", color: { argb: "FF4472C4" } } };
     cell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
   });
   hdrRow.height = 22;
@@ -1513,28 +1569,21 @@ function buildTeamsSheet(ws, teams, memberMap, label) {
 
   let rowIdx = 3;
   let sno    = 1;
+  const bdr  = { top: { style: "thin", color: { argb: "FFBFBFBF" } }, left: { style: "thin", color: { argb: "FFBFBFBF" } }, bottom: { style: "thin", color: { argb: "FFBFBFBF" } }, right: { style: "thin", color: { argb: "FFBFBFBF" } } };
 
   for (const team of teams) {
-    const members = (team.member_ids ?? []).map((id) => memberMap[id]).filter(Boolean);
-    const isAicte = (team.ministry ?? "").toLowerCase().includes("aicte");
-    const psInfo  = team.selected_ps_number
-      ? `${team.selected_ps_number} (${PS_CATEGORY_MAP[team.selected_ps_number] ?? "?"})`
-      : isAicte
-      ? "AICTE Open Innovation"
-      : "Open Innovation";
-
+    const members  = (team.member_ids ?? []).map((id) => memberMap[id]).filter(Boolean);
     const numRows  = Math.max(members.length, 1);
     const startRow = rowIdx;
     const endRow   = rowIdx + numRows - 1;
     const bgArgb   = sno % 2 === 0 ? "FFF2F2F2" : "FFFFFFFF";
-    const bdr      = { top: { style: "thin", color: { argb: "FFBFBFBF" } }, left: { style: "thin", color: { argb: "FFBFBFBF" } }, bottom: { style: "thin", color: { argb: "FFBFBFBF" } }, right: { style: "thin", color: { argb: "FFBFBFBF" } } };
 
-    const mergeCols = [1, 2, 8, 9];
+    // Merge team-level columns: 1=S.No, 2=Team Name, 8=Ministry, 9=PS Number, 12=Category
     if (numRows > 1) {
-      for (const col of mergeCols) ws.mergeCells(startRow, col, endRow, col);
+      for (const col of [1, 2, 8, 9, 12]) ws.mergeCells(startRow, col, endRow, col);
     }
 
-    // S.No cell
+    // Col 1 — S.No
     const snoCell = ws.getCell(startRow, 1);
     snoCell.value     = sno++;
     snoCell.font      = { bold: true };
@@ -1542,48 +1591,89 @@ function buildTeamsSheet(ws, teams, memberMap, label) {
     snoCell.alignment = { vertical: "middle", horizontal: "center" };
     snoCell.border    = bdr;
 
-    // Team name cell
+    // Col 2 — Team Name
     const nameCell = ws.getCell(startRow, 2);
-    nameCell.value     = `${team.team_name}\n[Ministry: ${team.ministry ?? "—"}]\n[PS: ${psInfo}]`;
+    nameCell.value     = team.team_name ?? team.name ?? "";
     nameCell.font      = { bold: true };
-    nameCell.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFF8E7" } };
+    nameCell.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: bgArgb } };
     nameCell.alignment = { vertical: "middle", horizontal: "left", wrapText: true };
     nameCell.border    = bdr;
 
-    // Hindi / Remarks (team-level, merged)
-    for (const col of [8, 9]) {
-      const c = ws.getCell(startRow, col);
-      c.value  = "";
-      c.fill   = { type: "pattern", pattern: "solid", fgColor: { argb: bgArgb } };
-      c.border = bdr;
-      c.alignment = { vertical: "middle", horizontal: "left" };
-    }
+    // Col 8 — Ministry
+    const minCell = ws.getCell(startRow, 8);
+    minCell.value     = team.ministry ?? "";
+    minCell.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: bgArgb } };
+    minCell.alignment = { vertical: "middle", horizontal: "left", wrapText: true };
+    minCell.border    = bdr;
 
-    // Member rows
+    // Col 9 — PS Number + PS Title description
+    const psCell  = ws.getCell(startRow, 9);
+    const psLabel = team.custom_ps_title ? "Open Innovation" : (team.selected_ps_number ?? "Pending");
+    const psRecord = team.selected_ps_number ? psMap.get(team.selected_ps_number) : null;
+    const psTitle = team.custom_ps_title || psRecord?.title || "";
+
+    if (psTitle) {
+      psCell.value = { richText: [
+        { text: psLabel, font: { bold: true, size: 10 } },
+        { text: "\n" + psTitle, font: { bold: false, size: 9, italic: true, color: { argb: "FF444444" } } },
+      ]};
+    } else {
+      psCell.value = psLabel;
+    }
+    psCell.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: bgArgb } };
+    psCell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
+    psCell.font      = { bold: psLabel !== "Pending" };
+    psCell.border    = bdr;
+
+    // Col 12 — Category
+    const catCell = ws.getCell(startRow, 12);
+    const category = team.category || (psRecord?.category) || (team.ministry?.toLowerCase().includes("aicte") ? "Open Innovation" : "Pending");
+    catCell.value     = category;
+    catCell.font      = { bold: true };
+    catCell.fill      = {
+      type: "pattern", pattern: "solid",
+      fgColor: { argb:
+        category === "Software"        ? "FFDBEAFE" :
+        category === "Hardware"        ? "FFFFEDD5" :
+        category === "Open Innovation" ? "FFFEF3C7" : "FFF3F4F6" },
+    };
+    catCell.alignment = { vertical: "middle", horizontal: "center" };
+    catCell.border    = bdr;
+
+    // Member rows — cols 3, 4, 5, 6, 7, 10, 11
     if (members.length === 0) {
-      for (let c = 3; c <= 7; c++) {
-        const cell = ws.getCell(startRow, c);
-        cell.value = c === 3 ? "(no member data)" : "";
+      const emptyVals = ["(no member data)", "", "", "", "", "", ""];
+      const emptyCols = [3, 4, 5, 6, 7, 10, 11];
+      emptyCols.forEach((col, ci) => {
+        const cell = ws.getCell(startRow, col);
+        cell.value = emptyVals[ci];
         cell.fill  = { type: "pattern", pattern: "solid", fgColor: { argb: bgArgb } };
         cell.border = bdr;
-        cell.alignment = { vertical: "middle", horizontal: "left" };
-      }
+        cell.alignment = { vertical: "middle" };
+      });
       ws.getRow(startRow).height = 48;
       rowIdx++;
     } else {
       members.forEach((m, mi) => {
         const r = startRow + mi;
-        const deptStr = [m.department, m.year ? `Year ${m.year}` : null, m.section ? `Sec ${m.section}` : null]
-          .filter(Boolean).join(" · ");
-        const vals = [m.name ?? "—", m.register_no ?? "—", m.phone ?? "—", deptStr || "—", m.gender ?? "—"];
-        vals.forEach((v, ci) => {
-          const cell = ws.getCell(r, ci + 3);
-          cell.value = v;
+        const cells = [
+          [3,  m.name],        // Team Members
+          [4,  m.register_no], // Register No
+          [5,  m.year],        // Year
+          [6,  m.section],     // Section
+          [7,  m.department],  // Department
+          [10, m.phone],       // Phone
+          [11, m.gender],      // Gender
+        ];
+        cells.forEach(([col, val]) => {
+          const cell = ws.getCell(r, col);
+          cell.value = val ?? "";
           cell.fill  = { type: "pattern", pattern: "solid", fgColor: { argb: bgArgb } };
           cell.border = bdr;
-          cell.alignment = { vertical: "middle", horizontal: "left", wrapText: ci === 3 };
+          const alignHoriz = [5, 6, 11].includes(col) ? "center" : "left";
+          cell.alignment = { vertical: "middle", horizontal: alignHoriz, wrapText: col === 7 };
         });
-        ws.getRow(r).height = 20;
+        ws.getRow(r).height = 18;
       });
       rowIdx += numRows;
     }

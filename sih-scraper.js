@@ -30,25 +30,9 @@ let _scrapeRunning = false;
 
 const CACHE_TTL_MS = 5 * 60 * 60 * 1000; // 5 hours
 
-// ── Fallback: parse existing static JS file ───────────────────────────────────
+// ── Fallback: return empty array if static JS or DB is empty ────────────────
 function loadFallbackJs() {
-  try {
-    const src = readFileSync(FALLBACK_JS, "utf8");
-    const match = src.match(/export const SIH2026_PROBLEMS\s*=\s*\[(.+?)\];/s);
-    if (!match) return [];
-    const records = [];
-    for (const obj of match[1].matchAll(/\{([^}]+)\}/g)) {
-      const rec = {};
-      for (const kv of obj[1].matchAll(/(\w+)\s*:\s*(?:"((?:[^"\\]|\\.)*)"|(\d+))/g)) {
-        rec[kv[1]] = kv[2] !== undefined ? kv[2] : parseInt(kv[3], 10);
-      }
-      if (rec.psNumber) records.push(rec);
-    }
-    console.log(`[SIH scraper] Fallback: loaded ${records.length} entries from static JS`);
-    return records;
-  } catch {
-    return [];
-  }
+  return [];
 }
 
 // ── Run Python scraper, return list of PS objects ─────────────────────────────

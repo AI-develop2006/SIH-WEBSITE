@@ -141,7 +141,7 @@ app.get(["/health", "/api/health"], (_req, res) => {
 // Notifies the mentor/participant backend to push a `pair_teams_updated` SSE
 // event to all connected mentor and participant clients. Fire-and-forget —
 // a failure here never blocks the admin operation.
-const PM_BACKEND_URL = process.env.PM_BACKEND_URL || null;
+const PM_BACKEND_URL = process.env.PM_BACKEND_URL || "http://localhost:3003";
 const INTERNAL_BROADCAST_SECRET = process.env.INTERNAL_BROADCAST_SECRET || null;
 
 async function notifyPairTeamUpdate(action, meta = {}) {

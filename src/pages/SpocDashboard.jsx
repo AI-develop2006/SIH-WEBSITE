@@ -811,7 +811,7 @@ function MinistryRow({ ministry, pairTeams, finalTeams, onBuildTeam, onEditTeam,
             )}
             {readOnly && (
               <div className="w-full text-center py-2 text-[10px] text-[#94a3b8]/50 border border-[rgba(147,197,253,0.08)] rounded-xl">
-                🔒 Log in with master password to build final teams
+                🔒 Log in with admin credentials to build final teams
               </div>
             )}
           </div>
@@ -1520,7 +1520,7 @@ export default function SpocDashboard() {
             <p className="text-xs font-bold text-[#e8c058]">View-only mode</p>
             <p className="text-[10px] text-[#94a3b8] mt-0.5">
               You are logged in as a standard SPOC viewer. All data is visible but changes are disabled.
-              Log in with the <span className="font-bold text-white">master password</span> to create teams, change ministries, or approve requests.
+              Log in with <span className="font-bold text-white">admin credentials</span> to create teams, change ministries, or approve requests.
             </p>
           </div>
         </div>

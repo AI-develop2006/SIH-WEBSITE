@@ -44,16 +44,13 @@ export function MaintenanceGate({ children }) {
 
   useEffect(() => { check(); }, []);
 
-  // Ctrl+Alt+T keyboard shortcut to reveal bypass panel
+  // Ctrl+Alt+T (or Cmd+Alt+T) keyboard shortcut to reveal bypass panel
   useEffect(() => {
-    if (status !== "maintenance") return;
-
     function handleKeyDown(e) {
-      if (showBypass) return;
-      // Ctrl+Alt+T (or Cmd+Alt+T on Mac)
-      if ((e.ctrlKey || e.metaKey) && e.altKey && e.key === "t") {
+      const isKeyT = e.key?.toLowerCase() === "t" || e.code === "KeyT";
+      if ((e.ctrlKey || e.metaKey) && e.altKey && isKeyT) {
         e.preventDefault();
-        setShowBypass(true);
+        setShowBypass((prev) => !prev);
         setBypassPassword("");
         setBypassError("");
       }
@@ -61,7 +58,7 @@ export function MaintenanceGate({ children }) {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [status, showBypass]);
+  }, []);
 
   // Auto-focus password input when overlay opens
   useEffect(() => {
@@ -176,7 +173,6 @@ export function MaintenanceGate({ children }) {
           </button>
 
           <p className="text-[10px] text-[#94a3b8]/30">SIH 2026 · SMVEC · SPOC Portal</p>
-          <p className="text-[10px] text-[#94a3b8]/20 mt-1">Press Ctrl+Alt+T for admin access</p>
         </div>
 
         {/* ── Bypass overlay (Ctrl+Alt+T to reveal) ─────────────────────── */}
@@ -210,9 +206,9 @@ export function MaintenanceGate({ children }) {
 
               {/* Title */}
               <div className="text-center space-y-1">
-                <h2 className="text-lg font-extrabold text-white">Admin Access</h2>
+                <h2 className="text-lg font-extrabold text-white">Admin Verification</h2>
                 <p className="text-xs text-[#94a3b8]">
-                  Enter the master password to bypass maintenance mode.
+                  Enter authorization key to proceed.
                 </p>
               </div>
 

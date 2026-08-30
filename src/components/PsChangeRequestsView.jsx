@@ -248,7 +248,7 @@ function RequestCard({ req, onReview, readOnly = false }) {
           {req.status === "pending" && readOnly && (
             <div className="border-t border-[rgba(147,197,253,0.08)] pt-4">
               <p className="text-[10px] text-[#94a3b8] flex items-center gap-1.5">
-                🔒 <span>Log in with the <span className="font-bold text-white">master password</span> to approve or reject this request.</span>
+                🔒 <span>Log in with <span className="font-bold text-white">admin credentials</span> to approve or reject this request.</span>
               </p>
             </div>
           )}

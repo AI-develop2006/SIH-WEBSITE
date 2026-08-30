@@ -317,10 +317,10 @@ export async function fetchPsChangeRequests() {
       headers: { ...getAuthHeader() },
     });
     const json = await res.json();
-    if (!res.ok) return { data: [], error: json.error };
+    if (!res.ok) return { data: null, error: json.error || `HTTP ${res.status}` };
     return { data: json.data ?? [], error: null };
   } catch (err) {
-    return { data: [], error: err.message };
+    return { data: null, error: err.message };
   }
 }
 
@@ -375,3 +375,50 @@ export async function downloadTeamsXlsx(type) {
     return { ok: false, error: err.message };
   }
 }
+
+// ─── SIH 2026 Problem Statements (live from DB) ───────────────────────────────
+export async function fetchSihProblems() {
+  try {
+    const res  = await fetch(`${API_BASE}/api/problems/sih2026`);
+    const json = await res.json();
+    if (!res.ok || !json.data?.length) return { data: null, error: json.error };
+    return { data: json.data, error: null };
+  } catch (err) {
+    return { data: null, error: err.message };
+  }
+}
+
+// ─── Metadata APIs (live from DB) ─────────────────────────────────────────────
+export async function fetchDepartments() {
+  try {
+    const res  = await fetch(`${API_BASE}/api/metadata/departments`);
+    const json = await res.json();
+    if (!res.ok || !json.data?.length) return { data: null, error: json.error };
+    return { data: json.data, error: null };
+  } catch (err) {
+    return { data: null, error: err.message };
+  }
+}
+
+export async function fetchMinistries() {
+  try {
+    const res  = await fetch(`${API_BASE}/api/metadata/ministries`);
+    const json = await res.json();
+    if (!res.ok || !json.data?.length) return { data: null, error: json.error };
+    return { data: json.data, error: null };
+  } catch (err) {
+    return { data: null, error: err.message };
+  }
+}
+
+export async function fetchRoles() {
+  try {
+    const res  = await fetch(`${API_BASE}/api/metadata/roles`);
+    const json = await res.json();
+    if (!res.ok || !json.data?.length) return { data: null, error: json.error };
+    return { data: json.data, error: null };
+  } catch (err) {
+    return { data: null, error: err.message };
+  }
+}
+

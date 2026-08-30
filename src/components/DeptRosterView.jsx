@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { Download, Users, CheckCircle2, UserX, Filter, X, Cpu, Code2, Search, Sparkles, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DEPT_CODE } from "@/lib/constants";
-import { SIH2026_PROBLEMS } from "@/lib/sih2026Problems";
+import { useSihPsMap } from "@/lib/sih2026Problems";
 
 /**
  * DeptRosterView — Team-based final teams roster
@@ -25,10 +25,7 @@ function deptLabel(dept) {
 export function DeptRosterView({ allProfiles = [], pairTeams = [], finalTeams = [] }) {
 
   // ── Pre-compute PS lookup ───────────────────────────────────────────────
-  const psMap = useMemo(
-    () => new Map(SIH2026_PROBLEMS.map((p) => [p.psNumber, p])),
-    []
-  );
+  const psMap = useSihPsMap();
 
   // ── Profile lookup ──────────────────────────────────────────────────────
   const profileById = useMemo(

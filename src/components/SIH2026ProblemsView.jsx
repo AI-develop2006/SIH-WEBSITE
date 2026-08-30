@@ -1,11 +1,10 @@
 import { useMemo, useState } from "react";
 import { Search, X, ExternalLink, Cpu, Code2, BookOpen, Clock, CalendarDays, Download, Presentation } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { SIH2026_PROBLEMS } from "@/lib/sih2026Problems";
+import { SIH2026_PROBLEMS, useSihProblems } from "@/lib/sih2026Problems";
 
 // ─── Derived constants ────────────────────────────────────────────────────────
-const ALL_ORGS   = [...new Set(SIH2026_PROBLEMS.map((p) => p.organization))].sort();
-const ALL_THEMES = [...new Set(SIH2026_PROBLEMS.map((p) => p.theme))].sort();
+// ALL_ORGS and ALL_THEMES are computed inside the component from live data
 
 // Deadline helpers
 const DEADLINE = new Date("2026-09-20T23:59:59");
@@ -46,14 +45,18 @@ function themeBadge(theme) {
 const PPTX_PATH = "/SIH2026-IDEA-Presentation-Format.pptx";
 
 export function SIH2026ProblemsView() {
+  const problems = useSihProblems();
   const [search, setSearch]           = useState("");
   const [orgFilter, setOrgFilter]     = useState("all");
   const [themeFilter, setThemeFilter] = useState("all");
   const [catFilter, setCatFilter]     = useState("all");
 
+  const ALL_ORGS   = useMemo(() => [...new Set(problems.map((p) => p.organization))].sort(), [problems]);
+  const ALL_THEMES = useMemo(() => [...new Set(problems.map((p) => p.theme))].sort(), [problems]);
+
   const filtered = useMemo(() => {
     const needle = search.trim().toLowerCase();
-    return SIH2026_PROBLEMS.filter((p) => {
+    return problems.filter((p) => {
       if (orgFilter   !== "all" && p.organization !== orgFilter)   return false;
       if (themeFilter !== "all" && p.theme        !== themeFilter)  return false;
       if (catFilter   !== "all" && p.category     !== catFilter)    return false;
@@ -164,7 +167,7 @@ export function SIH2026ProblemsView() {
           { label: "Showing",  value: filtered.length,         color: "text-white"      },
           { label: "Software", value: softwareCount,           color: "text-blue-300"   },
           { label: "Hardware", value: hardwareCount,           color: "text-orange-300" },
-          { label: "Total",    value: SIH2026_PROBLEMS.length, color: "text-[#e8c058]"  },
+          { label: "Total",    value: problems.length, color: "text-[#e8c058]"  },
         ].map((s) => (
           <div key={s.label} className="rounded-2xl border border-[rgba(147,197,253,0.10)] bg-[#0a1226]/60 p-3">
             <p className={cn("text-2xl font-black tabular-nums", s.color)}>{s.value}</p>
@@ -226,9 +229,9 @@ export function SIH2026ProblemsView() {
               onChange={(e) => setOrgFilter(e.target.value)}
               className="w-full rounded-xl border border-[rgba(147,197,253,0.14)] bg-[#050b18]/60 px-3 py-2 text-xs text-white outline-none focus:border-[#c9a227]/50 transition-all cursor-pointer"
             >
-              <option value="all">All Organisations ({SIH2026_PROBLEMS.length})</option>
+              <option value="all">All Organisations ({problems.length})</option>
               {ALL_ORGS.map((org) => {
-                const count = SIH2026_PROBLEMS.filter((p) => p.organization === org).length;
+                const count = problems.filter((p) => p.organization === org).length;
                 return <option key={org} value={org}>{org} ({count})</option>;
               })}
             </select>
@@ -242,7 +245,7 @@ export function SIH2026ProblemsView() {
             >
               <option value="all">All Themes</option>
               {ALL_THEMES.map((t) => {
-                const count = SIH2026_PROBLEMS.filter((p) => p.theme === t).length;
+                const count = problems.filter((p) => p.theme === t).length;
                 return <option key={t} value={t}>{t} ({count})</option>;
               })}
             </select>
@@ -252,7 +255,7 @@ export function SIH2026ProblemsView() {
         {hasFilters && (
           <div className="flex items-center justify-between gap-2 border-t border-[rgba(147,197,253,0.10)] pt-2">
             <p className="text-[10px] text-[#94a3b8]">
-              Showing <span className="text-white font-bold">{filtered.length}</span> of {SIH2026_PROBLEMS.length}
+              Showing <span className="text-white font-bold">{filtered.length}</span> of {problems.length}
             </p>
             <button type="button" onClick={clearAll} className="text-xs text-red-400 hover:underline font-semibold flex items-center gap-1 cursor-pointer">
               <X className="size-3" /> Clear filters

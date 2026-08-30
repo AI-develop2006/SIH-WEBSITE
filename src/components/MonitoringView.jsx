@@ -7,7 +7,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
 import { DEPT_CODE } from "@/lib/constants";
-import { SIH2026_PROBLEMS } from "@/lib/sih2026Problems";
+import { useSihPsMap } from "@/lib/sih2026Problems";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -79,6 +79,9 @@ export function MonitoringView({ profiles = [], pairTeams = [], finalTeams = [],
   const [deptFilter, setDeptFilter] = useState("");
   const [yearFilter, setYearFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+
+  // ── PS lookup ─────────────────────────────────────────────────────────────
+  const psMap = useSihPsMap();
 
   // ── Lookups ───────────────────────────────────────────────────────────────
   const pairedMemberIds = useMemo(() => {
@@ -306,7 +309,7 @@ export function MonitoringView({ profiles = [], pairTeams = [], finalTeams = [],
                   const finalTeam  = finalTeamMap.get(p.id);
                   const selectedPs = finalTeam?.selected_ps_number ?? null;
                   const customPs   = finalTeam?.custom_ps_title ?? null;
-                  const psInfo     = selectedPs ? SIH2026_PROBLEMS.find((ps) => ps.psNumber === selectedPs) : null;
+                  const psInfo     = selectedPs ? psMap.get(selectedPs) : null;
 
                   return (
                     <tr

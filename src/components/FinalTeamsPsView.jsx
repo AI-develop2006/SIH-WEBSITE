@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { Search, X, CheckCircle2, AlertTriangle, Download, Code2, Cpu, Sparkles, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { SIH2026_PROBLEMS } from "@/lib/sih2026Problems";
+import { useSihPsMap } from "@/lib/sih2026Problems";
 
 /**
  * FinalTeamsPsView
@@ -22,10 +22,7 @@ export function FinalTeamsPsView({ finalTeams = [], profileMap = new Map() }) {
   const [catFilter, setCatFilter]       = useState("all"); // "all"|"Software"|"Hardware"
 
   // ── Pre-computed lookups ──────────────────────────────────────────────────
-  const psMap = useMemo(
-    () => new Map(SIH2026_PROBLEMS.map((p) => [p.psNumber, p])),
-    []
-  );
+  const psMap = useSihPsMap();
 
   const allMinistries = useMemo(() => {
     const s = new Set(finalTeams.map((ft) => ft.ministry).filter(Boolean));

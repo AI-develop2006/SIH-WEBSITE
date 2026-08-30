@@ -6,7 +6,7 @@ import {
   RefreshCw, AlertTriangle, ChevronDown, ChevronUp, FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { SIH2026_PROBLEMS } from "@/lib/sih2026Problems";
+import { useSihProblems } from "@/lib/sih2026Problems";
 import { fetchPsChangeRequests, reviewPsChangeRequest } from "@/lib/data";
 import { useToast } from "@/components/ui/toast";
 
@@ -31,7 +31,8 @@ function StatusBadge({ status }) {
 }
 
 function PsCard({ psNumber, label }) {
-  const ps = psNumber ? SIH2026_PROBLEMS.find((p) => p.psNumber === psNumber) : null;
+  const problems = useSihProblems();
+  const ps = psNumber ? problems.find((p) => p.psNumber === psNumber) : null;
   return (
     <div className="rounded-xl border border-[rgba(147,197,253,0.12)] bg-[#050b18]/60 px-3 py-2.5 space-y-0.5 min-w-0">
       <p className="text-[9px] font-bold uppercase tracking-wider text-[#94a3b8]">{label}</p>
@@ -263,13 +264,18 @@ export function PsChangeRequestsView({ readOnly = false }) {
   const [loading, setLoading]   = useState(true);
   const [search, setSearch]     = useState("");
   const [statusFilter, setStatusFilter] = useState("pending");
+  const toast = useToast();
 
   const loadRequests = useCallback(async () => {
     setLoading(true);
-    const { data } = await fetchPsChangeRequests();
-    setRequests(data ?? []);
+    const { data, error } = await fetchPsChangeRequests();
+    if (error) {
+      toast("error", `Failed to load change requests: ${error}`);
+    } else {
+      setRequests(data ?? []);
+    }
     setLoading(false);
-  }, []);
+  }, [toast]);
 
   useEffect(() => { loadRequests(); }, [loadRequests]);
 

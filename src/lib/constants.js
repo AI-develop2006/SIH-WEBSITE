@@ -122,3 +122,20 @@ export const NEW_MINISTRIES = new Set([
  * Use this everywhere instead of MINISTRIES.length for display purposes.
  */
 export const ACTIVE_MINISTRIES_COUNT = MINISTRIES.length - OUTDATED_MINISTRIES.size;
+
+// ─── Live Database Hooks for Metadata ─────────────────────────────────────────
+import { useState, useEffect } from "react";
+import { fetchMinistries } from "./data.js";
+
+export function useMinistries() {
+  const [ministries, setMinistries] = useState(MINISTRIES);
+  useEffect(() => {
+    fetchMinistries().then(({ data }) => {
+      if (data && data.length > 0) {
+        setMinistries(data.map((m) => m.name));
+      }
+    });
+  }, []);
+  return ministries;
+}
+

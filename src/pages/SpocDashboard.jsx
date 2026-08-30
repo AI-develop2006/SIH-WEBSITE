@@ -27,7 +27,7 @@ import { AccessLogView } from "@/components/AccessLogView";
 import { DeptRosterView } from "@/components/DeptRosterView";
 import { PsChangeRequestsView } from "@/components/PsChangeRequestsView";
 import { FinalTeamsPsView } from "@/components/FinalTeamsPsView";
-import { SIH2026_PROBLEMS } from "@/lib/sih2026Problems";
+import { SIH2026_PROBLEMS, useSihProblems, useSihPsMap } from "@/lib/sih2026Problems";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -113,6 +113,8 @@ function FinalTeamCard({ ft, profileMap, onEdit, onDelete, onChangeMinistry, onS
   const [psSearch, setPsSearch] = useState("");
   const [savingPs, setSavingPs] = useState(false);
 
+  const problems = useSihProblems();
+
   const isAicte = ft.ministry?.toLowerCase().includes("aicte") ?? false;
   const hasCustomPs = Boolean(ft.custom_ps_title);
   const hasSelectedPs = Boolean(ft.selected_ps_number);
@@ -142,13 +144,13 @@ function FinalTeamCard({ ft, profileMap, onEdit, onDelete, onChangeMinistry, onS
 
   // PS list filtered to this team's ministry (not used for AICTE)
   const ministryProblems = useMemo(() => {
-    if (!ft.ministry || isAicte) return SIH2026_PROBLEMS;
+    if (!ft.ministry || isAicte) return problems;
     const needle = ft.ministry.trim().toLowerCase();
-    return SIH2026_PROBLEMS.filter((p) =>
+    return problems.filter((p) =>
       p.organization.toLowerCase().includes(needle) ||
       needle.includes(p.organization.toLowerCase().replace(/\s*\([^)]*\)\s*$/, "").trim().slice(0, 12))
     );
-  }, [ft.ministry, isAicte]);
+  }, [ft.ministry, isAicte, problems]);
 
   const filteredPs = useMemo(() => {
     const n = psSearch.trim().toLowerCase();
@@ -292,7 +294,7 @@ function FinalTeamCard({ ft, profileMap, onEdit, onDelete, onChangeMinistry, onS
 
       {/* Non-AICTE: Selected PS badge */}
       {!isAicte && hasSelectedPs && !showPsPicker && (() => {
-        const ps = SIH2026_PROBLEMS.find((p) => p.psNumber === ft.selected_ps_number);
+        const ps = problems.find((p) => p.psNumber === ft.selected_ps_number);
         return (
           <div className="flex items-start gap-2 rounded-xl border border-violet-500/25 bg-violet-500/8 px-3 py-2">
             <FileText className="size-3.5 text-violet-400 shrink-0 mt-0.5" />
@@ -373,7 +375,7 @@ function FinalTeamCard({ ft, profileMap, onEdit, onDelete, onChangeMinistry, onS
           </div>
           {/* Current selection */}
           {ft.selected_ps_number && (() => {
-            const cur = SIH2026_PROBLEMS.find((p) => p.psNumber === ft.selected_ps_number);
+            const cur = problems.find((p) => p.psNumber === ft.selected_ps_number);
             return cur ? (
               <div className="rounded-xl border border-violet-500/40 bg-violet-500/15 px-3 py-2">
                 <p className="text-[10px] font-bold text-violet-200 uppercase tracking-wider mb-0.5">Currently selected</p>
@@ -1012,6 +1014,8 @@ export default function SpocDashboard() {
     return () => clearInterval(interval);
   }, [isMaster, navigate, toast]);
 
+  const sihPsMap = useSihPsMap();
+
   // ── Derived state ──────────────────────────────────────────────────────────
   const profileMap = useMemo(() => {
     const map = new Map();
@@ -1169,7 +1173,7 @@ export default function SpocDashboard() {
     setExportMenuOpen(false);
 
     // ── Lookups ────────────────────────────────────────────────────────────
-    const psMap = new Map(SIH2026_PROBLEMS.map((p) => [p.psNumber, p]));
+    const psMap = sihPsMap;
 
     // ── Colour palette ─────────────────────────────────────────────────────
     const C = {
@@ -1226,14 +1230,14 @@ export default function SpocDashboard() {
       border,
     };
 
-    // COLUMNS (matching software_teams / aicte_teams format):
-    // 0: S.No  1: Team Name  2: Member Name  3: Register No
-    // 4: Phone  5: Dept / Year / Sec  6: Gender  7: Hindi Proficiency  8: Remarks
-    const NCOLS = 9;
-    const COL_W = [5, 38, 24, 14, 13, 42, 8, 16, 18];
+    // COLUMNS (matching institutional specification & picture format):
+    // 0: S.No  1: Team Name  2: Team Members  3: Register No  4: Year  5: Section
+    // 6: Department  7: Ministry  8: PS Number  9: Phone  10: Gender  11: Category
+    const NCOLS = 12;
+    const COL_W = [5, 28, 28, 16, 6, 8, 38, 34, 38, 14, 8, 18];
     const COL_HEADERS = [
-      "S.No", "Team Name", "Member Name", "Register No",
-      "Phone", "Department / Year / Sec", "Gender", "Hindi Proficiency", "Remarks",
+      "S.No", "Team Name", "Team Members", "Register No", "Year", "Section",
+      "Department", "Ministry", "PS Number", "Phone", "Gender", "Category",
     ];
 
     // Helper: write a cell
@@ -1241,18 +1245,6 @@ export default function SpocDashboard() {
       const ref = XLSX.utils.encode_cell({ r, c });
       const isNum = typeof value === "number";
       ws[ref] = { v: value ?? "", t: isNum ? "n" : "s", s: style };
-    }
-
-    // Helper: build team name cell value  "TeamName\n[Ministry: X]\n[PS: Y (Cat)]"
-    function buildTeamLabel(ft) {
-      const ps     = ft.selected_ps_number ? psMap.get(ft.selected_ps_number) : null;
-      const psLine = ft.selected_ps_number
-        ? `[PS: ${ft.selected_ps_number} (${ps?.category ?? "?"})]`
-        : ft.custom_ps_title
-        ? `[PS: AICTE Open Innovation]`
-        : `[PS: Pending]`;
-      const minLine = ft.ministry ? `[Ministry: ${ft.ministry}]` : "[Ministry: —]";
-      return `${ft.name}\n${minLine}\n${psLine}`;
     }
 
     // Helper: build one worksheet from an array of final teams
@@ -1277,53 +1269,63 @@ export default function SpocDashboard() {
       let sno = 0;
       for (const ft of teams) {
         sno++;
-        const members  = (ft.member_ids || []).map((id) => profileMap.get(id)).filter(Boolean);
-        const teamLabel = buildTeamLabel(ft);
+        const members   = (ft.member_ids || []).map((id) => profileMap.get(id)).filter(Boolean);
         const rowCount  = Math.max(members.length, 1);
         const baseStyle = sno % 2 === 0 ? rowEvenStyle : rowOddStyle;
 
-        for (let i = 0; i < rowCount; i++) {
-          const m   = members[i];
-          const rs  = baseStyle;
-          const deptStr = m
-            ? [m.department, m.year ? `Year ${m.year}` : "", m.section ? `Sec ${m.section}` : ""]
-                .filter(Boolean).join(" · ")
-            : "";
+        const psRecord = ft.selected_ps_number ? psMap.get(ft.selected_ps_number) : null;
+        const psLabel  = ft.custom_ps_title ? "Open Innovation" : (ft.selected_ps_number ?? "Pending");
+        const psTitle  = ft.custom_ps_title || psRecord?.title || "";
+        const psText   = psTitle ? `${psLabel}\n${psTitle}` : psLabel;
+        const category = ft.category || psRecord?.category || (ft.ministry?.toLowerCase().includes("aicte") ? "Open Innovation" : "Pending");
 
-          // S.No — only on first row of team
+        for (let i = 0; i < rowCount; i++) {
+          const m  = members[i];
+          const rs = baseStyle;
+
+          // 0: S.No (first row only)
           sc(ws, r, 0, i === 0 ? sno : null, i === 0 ? { ...rs, font: { ...rs.font, bold: true } } : rs);
 
-          // Team Name — only on first row, merged vertically below
-          sc(ws, r, 1, i === 0 ? teamLabel : null,
-            i === 0 ? teamNameStyle : rs);
+          // 1: Team Name (first row only)
+          sc(ws, r, 1, i === 0 ? (ft.name || "") : null, i === 0 ? teamNameStyle : rs);
 
           // Member data
-          sc(ws, r, 2, m?.name        ?? (i === 0 ? "(no members)" : ""), rs);
+          // 2: Team Members
+          sc(ws, r, 2, m?.name ?? (i === 0 ? "(no members)" : ""), rs);
+          // 3: Register No
           sc(ws, r, 3, m?.register_no ?? "", rs);
-          sc(ws, r, 4, m?.phone       ?? "", rs);
-          sc(ws, r, 5, deptStr,                rs);
-          sc(ws, r, 6, m?.gender      ?? "", rs);
+          // 4: Year
+          sc(ws, r, 4, m?.year ?? "", rs);
+          // 5: Section
+          sc(ws, r, 5, m?.section ?? "", rs);
+          // 6: Department
+          sc(ws, r, 6, m?.department ?? "", rs);
 
-          // Hindi proficiency — from languages array if available
-          const langs    = Array.isArray(m?.languages) ? m.languages : [];
-          const hindiPro = langs.includes("Hindi") ? "Yes" : "";
-          sc(ws, r, 7, hindiPro, rs);
+          // 7: Ministry (first row only)
+          sc(ws, r, 7, i === 0 ? (ft.ministry ?? "") : null, rs);
 
-          // Remarks — pending PS indicator
-          const hasPending = !ft.selected_ps_number && !ft.custom_ps_title;
-          sc(ws, r, 8, i === 0 && hasPending ? "⏳ PS Pending" : "", i === 0 && hasPending ? pendingStyle : rs);
+          // 8: PS Number (first row only)
+          sc(ws, r, 8, i === 0 ? psText : null, rs);
+
+          // 9: Phone
+          sc(ws, r, 9, m?.phone ?? "", rs);
+          // 10: Gender
+          sc(ws, r, 10, m?.gender ?? "", rs);
+
+          // 11: Category (first row only)
+          sc(ws, r, 11, i === 0 ? category : null, i === 0 ? { ...rs, font: { ...rs.font, bold: true } } : rs);
 
           rows[r] = { hpt: 16 };
           r++;
         }
 
-        // Merge Team Name column vertically across all member rows
+        // Merge team-level columns vertically across all member rows: 0 (S.No), 1 (Team Name), 7 (Ministry), 8 (PS Number), 11 (Category)
         if (rowCount > 1) {
-          merges.push({ s: { r: r - rowCount, c: 1 }, e: { r: r - 1, c: 1 } });
-          // Also merge S.No column
           merges.push({ s: { r: r - rowCount, c: 0 }, e: { r: r - 1, c: 0 } });
-          // Also merge Remarks column
+          merges.push({ s: { r: r - rowCount, c: 1 }, e: { r: r - 1, c: 1 } });
+          merges.push({ s: { r: r - rowCount, c: 7 }, e: { r: r - 1, c: 7 } });
           merges.push({ s: { r: r - rowCount, c: 8 }, e: { r: r - 1, c: 8 } });
+          merges.push({ s: { r: r - rowCount, c: 11 }, e: { r: r - 1, c: 11 } });
         }
       }
 

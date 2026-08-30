@@ -35,6 +35,13 @@ async function _ensureLive() {
   return _fetchPromise;
 }
 
+export async function refreshSihProblems() {
+  _liveProblems = null;
+  _fetchPromise = null;
+  return _ensureLive();
+}
+
+
 /**
  * React hook — returns live problem statements and team assignment data directly from the DB.
  */

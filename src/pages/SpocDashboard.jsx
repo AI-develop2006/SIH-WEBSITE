@@ -1600,7 +1600,7 @@ export default function SpocDashboard() {
           >
             <t.icon className="size-3.5 shrink-0" />
             <span className="hidden sm:inline">{t.label}</span>
-            <span className="sm:hidden">{t.id === "final-teams" ? "Finals" : t.id === "access-log" ? "Log" : t.id === "problems" ? "PS" : t.id === "ps-requests" ? "Requests" : t.id === "downloads" ? "Downloads" : t.label}</span>
+            <span className="sm:hidden">{t.id === "final-teams" ? "Finals" : t.id === "access-log" ? "Master" : t.id === "problems" ? "PS" : t.id === "ps-requests" ? "Requests" : t.id === "downloads" ? "Downloads" : t.label}</span>
             {t.badge && (
               <span className="absolute -top-1 -right-1 flex size-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-extrabold text-white shadow-lg">
                 {t.badge}
@@ -1818,89 +1818,99 @@ export default function SpocDashboard() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {[
               {
-                type:    "software",
-                label:   "Software Teams",
-                desc:    "All final teams working on Software category problem statements",
-                icon:    Code2,
-                accent:  "blue",
-                border:  "border-blue-500/25",
-                bg:      "bg-blue-500/5",
-                iconBg:  "bg-blue-500/10 border-blue-500/20",
-                iconClr: "text-blue-400",
-                btnClr:  "bg-blue-600 hover:bg-blue-500",
-                file:    "software_teams.xlsx",
+                type:     "software",
+                label:    "Software Teams",
+                desc:     "All final teams working on Software category problem statements",
+                icon:     Code2,
+                accent:   "blue",
+                border:   "border-blue-500/25",
+                bg:       "bg-blue-500/5",
+                iconBg:   "bg-blue-500/10 border-blue-500/20",
+                iconClr:  "text-blue-400",
+                btnClr:   "bg-blue-600 hover:bg-blue-500",
+                pdfFile:  "software_teams.pdf",
+                docxFile: "software_teams.xlsx",
+                isRoster: true,
               },
               {
-                type:    "hardware",
-                label:   "Hardware Teams",
-                desc:    "All final teams working on Hardware category problem statements",
-                icon:    Cpu,
-                accent:  "orange",
-                border:  "border-orange-500/25",
-                bg:      "bg-orange-500/5",
-                iconBg:  "bg-orange-500/10 border-orange-500/20",
-                iconClr: "text-orange-400",
-                btnClr:  "bg-orange-600 hover:bg-orange-500",
-                file:    "hardware_teams.xlsx",
+                type:     "hardware",
+                label:    "Hardware Teams",
+                desc:     "All final teams working on Hardware category problem statements",
+                icon:     Cpu,
+                accent:   "orange",
+                border:   "border-orange-500/25",
+                bg:       "bg-orange-500/5",
+                iconBg:   "bg-orange-500/10 border-orange-500/20",
+                iconClr:  "text-orange-400",
+                btnClr:   "bg-orange-600 hover:bg-orange-500",
+                pdfFile:  "hardware_teams.pdf",
+                docxFile: "hardware_teams.xlsx",
+                isRoster: true,
               },
               {
-                type:    "aicte",
-                label:   "AICTE Teams",
-                desc:    "Open Innovation teams under AICTE with custom problem statements",
-                icon:    Sparkles,
-                accent:  "amber",
-                border:  "border-amber-500/25",
-                bg:      "bg-amber-500/5",
-                iconBg:  "bg-amber-500/10 border-amber-500/20",
-                iconClr: "text-amber-400",
-                btnClr:  "bg-amber-600 hover:bg-amber-500",
-                file:    "aicte_teams.xlsx",
+                type:     "aicte",
+                label:    "AICTE Teams",
+                desc:     "Open Innovation teams under AICTE with custom problem statements",
+                icon:     Sparkles,
+                accent:   "amber",
+                border:   "border-amber-500/25",
+                bg:       "bg-amber-500/5",
+                iconBg:   "bg-amber-500/10 border-amber-500/20",
+                iconClr:  "text-amber-400",
+                btnClr:   "bg-amber-600 hover:bg-amber-500",
+                pdfFile:  "aicte_teams.pdf",
+                docxFile: "aicte_teams.xlsx",
+                isRoster: true,
               },
               {
-                type:    "all",
-                label:   "Master Roster",
-                desc:    "Consolidated roster of all Software, Hardware & AICTE final teams",
-                icon:    Globe,
-                accent:  "emerald",
-                border:  "border-emerald-500/25",
-                bg:      "bg-emerald-500/5",
-                iconBg:  "bg-emerald-500/10 border-emerald-500/20",
-                iconClr: "text-emerald-400",
-                btnClr:  "bg-emerald-600 hover:bg-emerald-500",
-                file:    "all_sih_teams.xlsx",
+                type:     "all",
+                label:    "Master Roster",
+                desc:     "Consolidated roster of all Software, Hardware & AICTE final teams",
+                icon:     Globe,
+                accent:   "emerald",
+                border:   "border-emerald-500/25",
+                bg:       "bg-emerald-500/5",
+                iconBg:   "bg-emerald-500/10 border-emerald-500/20",
+                iconClr:  "text-emerald-400",
+                btnClr:   "bg-emerald-600 hover:bg-emerald-500",
+                pdfFile:  "final_teams_all.pdf",
+                docxFile: "all_sih_teams.xlsx",
+                isRoster: true,
               },
               {
-                type:    "software_refinery",
-                label:   "Software Refinery",
-                desc:    "Software Room Allotment document containing room and venue allocations",
-                icon:    FileText,
-                accent:  "violet",
-                border:  "border-violet-500/25",
-                bg:      "bg-violet-500/5",
-                iconBg:  "bg-violet-500/10 border-violet-500/20",
-                iconClr: "text-violet-400",
-                btnClr:  "bg-violet-600 hover:bg-violet-500",
-                file:    "Software_Room_Allotment.docx",
-                isDoc:   true,
+                type:     "software_refinery",
+                label:    "Software Refinery",
+                desc:     "Software Room Allotment document containing room and venue allocations",
+                icon:     FileText,
+                accent:   "violet",
+                border:   "border-violet-500/25",
+                bg:       "bg-violet-500/5",
+                iconBg:   "bg-violet-500/10 border-violet-500/20",
+                iconClr:  "text-violet-400",
+                btnClr:   "bg-violet-600 hover:bg-violet-500",
+                pdfFile:  "Software_Room_Allotment.pdf",
+                docxFile: "Software_Room_Allotment.docx",
+                isDoc:    true,
               },
               {
-                type:    "hardware_refinery",
-                label:   "Hardware Refinery",
-                desc:    "Hardware Room Allotment document containing room and venue allocations",
-                icon:    FileText,
-                accent:  "cyan",
-                border:  "border-cyan-500/25",
-                bg:      "bg-cyan-500/5",
-                iconBg:  "bg-cyan-500/10 border-cyan-500/20",
-                iconClr: "text-cyan-400",
-                btnClr:  "bg-cyan-600 hover:bg-cyan-500",
-                file:    "Hardware_Room_Allotment.docx",
-                isDoc:   true,
+                type:     "hardware_refinery",
+                label:    "Hardware Refinery",
+                desc:     "Hardware Room Allotment document containing room and venue allocations",
+                icon:     FileText,
+                accent:   "cyan",
+                border:   "border-cyan-500/25",
+                bg:       "bg-cyan-500/5",
+                iconBg:   "bg-cyan-500/10 border-cyan-500/20",
+                iconClr:  "text-cyan-400",
+                btnClr:   "bg-cyan-600 hover:bg-cyan-500",
+                pdfFile:  "Hardware_Room_Allotment.pdf",
+                docxFile: "Hardware_Room_Allotment.docx",
+                isDoc:    true,
               },
-            ].map(({ type, label, desc, icon: Icon, border, bg, iconBg, iconClr, btnClr, file, isDoc }) => {
+            ].map(({ type, label, desc, icon: Icon, border, bg, iconBg, iconClr, btnClr, pdfFile, docxFile, isRoster, isDoc }) => {
               const state = dlState[type]; // "idle" | "loading" | "done" | "error"
               return (
-                <div key={type} className={cn("rounded-2xl border p-5 flex flex-col gap-4 transition-all", border, bg)}>
+                <div key={type} className={cn("rounded-2xl border p-5 flex flex-col gap-3.5 transition-all", border, bg)}>
                   {/* Icon + label */}
                   <div className="flex items-center gap-3">
                     <div className={cn("flex size-10 shrink-0 items-center justify-center rounded-xl border", iconBg)}>
@@ -1908,7 +1918,9 @@ export default function SpocDashboard() {
                     </div>
                     <div className="min-w-0">
                       <p className="text-sm font-extrabold text-white">{label}</p>
-                      <p className="text-[10px] font-mono text-[#94a3b8] truncate max-w-[180px]">{file}</p>
+                      <p className="text-[10px] font-mono text-[#94a3b8] truncate max-w-[180px]">
+                        Formats: PDF & {docxFile.endsWith(".xlsx") ? "XLSX" : "DOCX"}
+                      </p>
                     </div>
                   </div>
 
@@ -1925,46 +1937,64 @@ export default function SpocDashboard() {
                   {state === "error" && (
                     <div className="flex items-center gap-1.5 text-[10px] font-bold text-red-400">
                       <AlertTriangle className="size-3.5 shrink-0" />
-                      Failed to download {label.toLowerCase()}
+                      Failed to download document
                     </div>
                   )}
 
-                  {/* Download button */}
-                  <button
-                    type="button"
-                    disabled={state === "loading"}
-                    onClick={async () => {
-                      setDlState((s) => ({ ...s, [type]: "loading" }));
-                      let res;
-                      if (isDoc) {
-                        res = await downloadRefineryDoc(file);
-                      } else {
-                        res = await downloadTeamsXlsx(type);
-                      }
-                      const { ok, error } = res;
-                      setDlState((s) => ({ ...s, [type]: ok ? "done" : "error" }));
-                      if (!ok) toast("error", error || `Failed to download ${file}`);
-                      // Reset status badge after 4 s
-                      setTimeout(() => setDlState((s) => ({ ...s, [type]: "idle" })), 4000);
-                    }}
-                    className={cn(
-                      "w-full flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-extrabold text-white transition-all shadow",
-                      btnClr,
-                      state === "loading" && "opacity-60 cursor-not-allowed"
-                    )}
-                  >
-                    {state === "loading" ? (
-                      <>
-                        <RefreshCw className="size-3.5 animate-spin shrink-0" />
-                        Downloading…
-                      </>
-                    ) : (
-                      <>
-                        <Download className="size-3.5 shrink-0" />
-                        Download {label}
-                      </>
-                    )}
-                  </button>
+                  {/* Dual Format Download Buttons: PDF & DOCX/XLSX */}
+                  <div className="grid grid-cols-2 gap-2 mt-1">
+                    {/* PDF Button */}
+                    <button
+                      type="button"
+                      disabled={state === "loading"}
+                      onClick={async () => {
+                        setDlState((s) => ({ ...s, [type]: "loading" }));
+                        const { ok, error } = await downloadRefineryDoc(pdfFile);
+                        setDlState((s) => ({ ...s, [type]: ok ? "done" : "error" }));
+                        if (!ok) toast("error", error || `Failed to download ${pdfFile}`);
+                        setTimeout(() => setDlState((s) => ({ ...s, [type]: "idle" })), 4000);
+                      }}
+                      className="flex items-center justify-center gap-1.5 rounded-xl border border-red-500/30 bg-red-500/15 hover:bg-red-500/25 px-3 py-2 text-xs font-extrabold text-red-300 transition-all cursor-pointer shadow-sm disabled:opacity-50"
+                    >
+                      <FileText className="size-3.5 shrink-0 text-red-400" />
+                      PDF
+                    </button>
+
+                    {/* DOCX / XLSX Button */}
+                    <button
+                      type="button"
+                      disabled={state === "loading"}
+                      onClick={async () => {
+                        setDlState((s) => ({ ...s, [type]: "loading" }));
+                        let res;
+                        if (isDoc) {
+                          res = await downloadRefineryDoc(docxFile);
+                        } else {
+                          res = await downloadTeamsXlsx(type);
+                        }
+                        const { ok, error } = res;
+                        setDlState((s) => ({ ...s, [type]: ok ? "done" : "error" }));
+                        if (!ok) toast("error", error || `Failed to download ${docxFile}`);
+                        setTimeout(() => setDlState((s) => ({ ...s, [type]: "idle" })), 4000);
+                      }}
+                      className={cn(
+                        "flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-extrabold text-white transition-all cursor-pointer shadow-sm disabled:opacity-50",
+                        btnClr
+                      )}
+                    >
+                      {docxFile.endsWith(".xlsx") ? (
+                        <>
+                          <HardDrive className="size-3.5 shrink-0" />
+                          XLSX
+                        </>
+                      ) : (
+                        <>
+                          <Download className="size-3.5 shrink-0" />
+                          DOCX
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
               );
             })}

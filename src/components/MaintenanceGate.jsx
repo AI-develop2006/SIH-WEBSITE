@@ -44,6 +44,33 @@ export function MaintenanceGate({ children }) {
 
   useEffect(() => { check(); }, []);
 
+  // Triple-click / triple-tap on maintenance screen to reveal master admin bypass (ideal for mobile view)
+  const [clickCount, setClickCount] = useState(0);
+  const clickTimerRef = useRef(null);
+
+  function handleMaintenanceClick(e) {
+    if (e.target.closest("button") || e.target.closest("input")) return;
+    // Triple-tap bypass is restricted to mobile view (< 640px). Desktop view uses Ctrl+Alt+T.
+    const isMobileView = typeof window !== "undefined" && window.innerWidth < 640;
+    if (!isMobileView) return;
+
+    setClickCount((prev) => {
+      const next = prev + 1;
+      if (next >= 3) {
+        setShowBypass(true);
+        setBypassPassword("");
+        setBypassError("");
+        return 0;
+      }
+      return next;
+    });
+
+    if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
+    clickTimerRef.current = setTimeout(() => {
+      setClickCount(0);
+    }, 1500);
+  }
+
   // Ctrl+Alt+T (or Cmd+Alt+T) keyboard shortcut to reveal bypass panel
   useEffect(() => {
     function handleKeyDown(e) {
@@ -111,7 +138,10 @@ export function MaintenanceGate({ children }) {
   // ── Maintenance screen ────────────────────────────────────────────────────
   if (status === "maintenance") {
     return (
-      <div className="relative flex min-h-screen items-center justify-center bg-[#050b18] p-6 overflow-hidden">
+      <div
+        onClick={handleMaintenanceClick}
+        className="relative flex min-h-screen items-center justify-center bg-[#050b18] p-6 overflow-hidden select-none cursor-pointer"
+      >
 
         {/* ── Ambient glow blobs ─────────────────────────────────────────── */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden">

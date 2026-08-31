@@ -1626,6 +1626,25 @@ app.get("/api/spoc/export-teams/:type", async (req, res) => {
   }
 });
 
+// GET /api/spoc/download-document/:docName
+app.get("/api/spoc/download-document/:docName", (req, res) => {
+  const { docName } = req.params;
+  const allowedDocs = ["Software_Room_Allotment.docx", "Hardware_Room_Allotment.docx", "xglsr_Software_Room_Allotment.docx"];
+  if (!allowedDocs.includes(docName)) {
+    return res.status(400).json({ error: "Invalid document requested" });
+  }
+
+  const publicPath = join(__dirname, "../frontend/public", docName);
+  const rootPath = join(__dirname, "../../", docName);
+  const targetPath = fsExists(publicPath) ? publicPath : fsExists(rootPath) ? rootPath : null;
+
+  if (!targetPath) {
+    return res.status(404).json({ error: `File ${docName} not found` });
+  }
+
+  res.download(targetPath, docName);
+});
+
 // ─── Fallback / Root health page ─────────────────────────────────────────────
 app.get("*", (_req, res) => {
   const dbStatus = DATABASE_URL ? "PostgreSQL (direct)" : supabase ? "Supabase client" : "⚠ Not configured";

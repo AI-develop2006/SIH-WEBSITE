@@ -1,4 +1,5 @@
 import express from "express";
+import "express-async-errors";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { existsSync } from "node:fs";
@@ -417,7 +418,7 @@ app.post("/api/auth/reset-password", async (req, res) => {
 // 5. Profile: Ensure Profile Row
 app.post("/api/profiles/ensure", async (req, res) => {
   if (!supabase) return res.status(500).json({ error: "Supabase client not configured" });
-  const { uid, meta } = req.body;
+  const { uid, meta = {} } = req.body || {};
 
   const { error } = await supabase.from("profiles").upsert(
     {
@@ -2678,6 +2679,15 @@ app.post("/api/problems/sih2026/sync", async (_req, res) => {
     console.error("[SIH scraper] Manual sync error:", e.message)
   );
   return res.json({ ok: true, message: "Scrape started in background" });
+});
+
+// Centralized Error Handler Middleware
+app.use((err, req, res, next) => {
+  console.error("[Express Error Handler]", err);
+  if (res.headersSent) {
+    return next(err);
+  }
+  return res.status(err.status || 500).json({ error: err.message || "Internal Server Error" });
 });
 
 // Run migrations and then start listener

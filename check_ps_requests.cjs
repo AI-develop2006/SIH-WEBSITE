@@ -1,8 +1,13 @@
 const pg = require('pg');
+require('dotenv').config();
 
-const connectionString = "postgresql://postgres.dhwosgynnnqepvelmjqj:sihsmvec%40123@aws-1-ap-northeast-1.pooler.supabase.com:5432/postgres";
+const connectionString = process.env.DATABASE_URL;
 
 async function checkPsRequests() {
+  if (!connectionString) {
+    console.error("Error: DATABASE_URL environment variable is not defined.");
+    return;
+  }
   const client = new pg.Client({ connectionString, ssl: { rejectUnauthorized: false } });
   try {
     await client.connect();

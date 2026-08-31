@@ -138,6 +138,19 @@ export async function fetchFinalTeams() {
   }
 }
 
+export async function fetchCompleteTeamsStats() {
+  try {
+    const res = await fetch(`${API_BASE}/api/spoc/complete-teams-stats`, {
+      headers: { ...getAuthHeader() },
+    });
+    const json = await res.json();
+    if (!res.ok) return { data: null, error: json.error };
+    return { data: json.data ?? null, error: null };
+  } catch (err) {
+    return { data: null, error: err.message };
+  }
+}
+
 export async function saveFinalTeam(payload) {
   // payload: { name, ministry, member_ids: string[] }
   try {

@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Shield, LogOut, Users, Building2, CheckCircle2, AlertTriangle,
+  Shield, LogOut, Users, Building2, CheckCircle2, AlertTriangle, ShieldCheck, UserCheck,
   ChevronDown, ChevronUp, Plus, X, Download, Search, RefreshCw, Sparkles, Trash2,
   ListChecks, Activity, TableProperties, BookOpen, Clock, UserX, FileText, MessageSquare,
   HardDrive, Code2, Cpu, Globe,
 } from "lucide-react";
 import {
   getCurrentProfile, logoutSpoc, logoutAllSessions, fetchEnrichedTeams, fetchAllProfiles,
-  fetchFinalTeams, saveFinalTeam, updateFinalTeam, deleteFinalTeam,
+  fetchFinalTeams, saveFinalTeam, updateFinalTeam, deleteFinalTeam, fetchCompleteTeamsStats,
   fetchClaimedMembers, subscribeToTeamEvents, subscribeToPairTeamEvents,
   isMasterSession, sessionMsRemaining, SESSION_TIMEOUT_MS, fetchPsChangeRequests,
   downloadTeamsXlsx, downloadRefineryDoc,
@@ -1027,9 +1027,42 @@ export default function SpocDashboard() {
   // ── Derived state ──────────────────────────────────────────────────────────
   const profileMap = useMemo(() => {
     const map = new Map();
+    (allProfiles || []).forEach((p) => map.set(p.id, p));
     pairTeams.forEach((t) => t.members.forEach((m) => map.set(m.id, m)));
     return map;
-  }, [pairTeams]);
+  }, [allProfiles, pairTeams]);
+
+  // Consider ONLY complete 6-member teams statistics
+  const completeTeamsStats = useMemo(() => {
+    const completeTeams = finalTeams.filter(
+      (ft) => Array.isArray(ft.member_ids) && ft.member_ids.length === 6
+    );
+
+    let boysCount = 0;
+    let girlsCount = 0;
+    let totalStudents = 0;
+
+    completeTeams.forEach((ft) => {
+      (ft.member_ids || []).forEach((id) => {
+        totalStudents++;
+        const p = profileMap.get(id);
+        if (p) {
+          if (p.gender === "Female") {
+            girlsCount++;
+          } else if (p.gender === "Male") {
+            boysCount++;
+          }
+        }
+      });
+    });
+
+    return {
+      completeTeamsCount: completeTeams.length,
+      boysCount,
+      girlsCount,
+      totalStudents,
+    };
+  }, [finalTeams, profileMap]);
 
   const byMinistry = useMemo(() => {
     const map = new Map();
@@ -1053,8 +1086,17 @@ export default function SpocDashboard() {
       const members = (ft.member_ids || []).map((id) => profileMap.get(id)).filter(Boolean);
       return members.length < 6;
     }).length;
-    return { activeMinistries, finalCount: finalTeams.length, validFinals, draftCount };
-  }, [byMinistry, finalTeams, profileMap]);
+    return {
+      activeMinistries,
+      finalCount: finalTeams.length,
+      validFinals,
+      draftCount,
+      completeTeamsCount: completeTeamsStats.completeTeamsCount,
+      boysCount: completeTeamsStats.boysCount,
+      girlsCount: completeTeamsStats.girlsCount,
+      totalStudents: completeTeamsStats.totalStudents,
+    };
+  }, [byMinistry, finalTeams, profileMap, completeTeamsStats]);
 
   const displayedMinistries = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -1077,7 +1119,7 @@ export default function SpocDashboard() {
     }
     if (activeTab === "final-teams") {
       if (finalTeamValidityFilter === "draft") return "incomplete-drafts";
-      if (finalTeamValidityFilter === "valid") return "valid-finals";
+      if (finalTeamValidityFilter === "valid") return "complete-teams";
       return "final-teams";
     }
     return null;
@@ -1093,6 +1135,9 @@ export default function SpocDashboard() {
     } else if (cardId === "final-teams") {
       setActiveTab("final-teams");
       setFinalTeamValidityFilter("all");
+    } else if (cardId === "complete-teams") {
+      setActiveTab("final-teams");
+      setFinalTeamValidityFilter("valid");
     } else if (cardId === "incomplete-drafts") {
       setActiveTab("final-teams");
       setFinalTeamValidityFilter("draft");
@@ -1610,14 +1655,57 @@ export default function SpocDashboard() {
         ))}
       </div>
 
+      {/* Consider Only Complete Teams Banner — Boys, Girls, Total Students */}
+      <div className="mb-6 rounded-2xl border border-emerald-500/30 bg-gradient-to-r from-emerald-950/40 via-[#0a1226]/80 to-blue-950/40 p-4 sm:p-5 shadow-xl shadow-emerald-950/20 backdrop-blur-md relative overflow-hidden">
+        <div className="absolute -right-10 -bottom-10 size-40 rounded-full bg-emerald-500/5 blur-3xl pointer-events-none" />
+        
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-semibold">
+              <ShieldCheck className="size-3.5" />
+              <span>Consider Only Complete Teams (Database Data)</span>
+            </div>
+            <h3 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
+              Complete 6-Member Teams Breakdown
+            </h3>
+            <p className="text-xs text-[#94a3b8]">
+              Displays count of boys, girls, and total students considering only complete 6-member teams in database.
+            </p>
+          </div>
+
+          {/* Stat Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 shrink-0">
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3.5 py-2.5 flex flex-col items-start min-w-[110px]">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-300">Complete Teams</span>
+              <span className="text-xl font-black text-white">{completeTeamsStats.completeTeamsCount}</span>
+            </div>
+            
+            <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 px-3.5 py-2.5 flex flex-col items-start min-w-[110px]">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-blue-300">Boys (Male)</span>
+              <span className="text-xl font-black text-white">{completeTeamsStats.boysCount}</span>
+            </div>
+
+            <div className="rounded-xl border border-pink-500/20 bg-pink-500/10 px-3.5 py-2.5 flex flex-col items-start min-w-[110px]">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-pink-300">Girls (Female)</span>
+              <span className="text-xl font-black text-white">{completeTeamsStats.girlsCount}</span>
+            </div>
+
+            <div className="rounded-xl border border-violet-500/20 bg-violet-500/10 px-3.5 py-2.5 flex flex-col items-start min-w-[110px]">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-violet-300">Total Students</span>
+              <span className="text-xl font-black text-white">{completeTeamsStats.totalStudents}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Stats row — interactive filter cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3 mb-6">
         {[
           { id: "active-ministries", label: "Active Ministries", value: stats.activeMinistries,                          icon: Building2,     color: "text-[#c9a227]"   },
           { id: "pair-teams",        label: "Pair Teams",        value: pairTeams.filter((t) => t.team.ministry).length, icon: Users,         color: "text-blue-400"    },
           { id: "final-teams",       label: "Final Teams",       value: stats.finalCount,                                icon: CheckCircle2,  color: "text-emerald-400" },
+          { id: "complete-teams",    label: "Complete 6-Member Teams", value: completeTeamsStats.completeTeamsCount,      icon: ShieldCheck,   color: "text-emerald-300" },
           { id: "incomplete-drafts", label: "Incomplete Drafts", value: stats.draftCount,                                icon: AlertTriangle, color: "text-amber-400"  },
-          { id: "valid-finals",      label: "Valid Finals",      value: stats.validFinals,                               icon: CheckCircle2,  color: "text-emerald-400" },
         ].map((s) => {
           const isSelected = activeStatId === s.id;
           return (

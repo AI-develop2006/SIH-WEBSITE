@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search, X, CheckCircle2, AlertTriangle, Download, Code2, Cpu, Sparkles, FileText } from "lucide-react";
+import { Search, X, CheckCircle2, AlertTriangle, Download, Code2, Cpu, Sparkles, FileText, ShieldCheck } from "lucide-react";
 import { cn, validateFinalTeam } from "@/lib/utils";
 import { useSihPsMap } from "@/lib/sih2026Problems";
 
@@ -63,6 +63,37 @@ export function FinalTeamsPsView({
     }).length;
     return { total: finalTeams.length, selected, open, none, validCount, draftCount, software, hardware };
   }, [finalTeams, psMap, profileMap]);
+
+  // ── Consider ONLY complete 6-member teams statistics ───────────────────────
+  const completeTeamsStats = useMemo(() => {
+    const completeTeams = finalTeams.filter(
+      (ft) => Array.isArray(ft.member_ids) && ft.member_ids.length === 6
+    );
+    let boysCount = 0;
+    let girlsCount = 0;
+    let totalStudents = 0;
+
+    completeTeams.forEach((ft) => {
+      (ft.member_ids || []).forEach((id) => {
+        totalStudents++;
+        const p = profileMap.get(id);
+        if (p) {
+          if (p.gender === "Female") {
+            girlsCount++;
+          } else if (p.gender === "Male") {
+            boysCount++;
+          }
+        }
+      });
+    });
+
+    return {
+      completeTeamsCount: completeTeams.length,
+      boysCount,
+      girlsCount,
+      totalStudents,
+    };
+  }, [finalTeams, profileMap]);
 
   // ── Filtered rows ─────────────────────────────────────────────────────────
   const filtered = useMemo(() => {
@@ -148,6 +179,38 @@ export function FinalTeamsPsView({
         <p className="text-[11px] text-[#94a3b8]">
           Every final team and the problem statement they have confirmed
         </p>
+      </div>
+
+      {/* ── Consider Only Complete Teams Banner ────────────────────────────── */}
+      <div className="rounded-2xl border border-emerald-500/30 bg-gradient-to-r from-emerald-950/40 via-[#0a1226]/80 to-blue-950/40 p-4 shadow-xl shadow-emerald-950/20 backdrop-blur-md relative overflow-hidden">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[11px] font-semibold mb-1">
+              <ShieldCheck className="size-3.5" />
+              Consider Only Complete Teams (Database Data)
+            </span>
+            <h3 className="text-sm font-bold text-white">Complete 6-Member Teams Summary</h3>
+            <p className="text-[11px] text-[#94a3b8]">Database records considering only complete 6-member teams</p>
+          </div>
+          <div className="grid grid-cols-4 gap-2 text-center shrink-0">
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5">
+              <p className="text-[10px] text-emerald-300 uppercase font-semibold">Teams</p>
+              <p className="text-base font-black text-white">{completeTeamsStats.completeTeamsCount}</p>
+            </div>
+            <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 px-3 py-1.5">
+              <p className="text-[10px] text-blue-300 uppercase font-semibold">Boys</p>
+              <p className="text-base font-black text-white">{completeTeamsStats.boysCount}</p>
+            </div>
+            <div className="rounded-xl border border-pink-500/20 bg-pink-500/10 px-3 py-1.5">
+              <p className="text-[10px] text-pink-300 uppercase font-semibold">Girls</p>
+              <p className="text-base font-black text-white">{completeTeamsStats.girlsCount}</p>
+            </div>
+            <div className="rounded-xl border border-violet-500/20 bg-violet-500/10 px-3 py-1.5">
+              <p className="text-[10px] text-violet-300 uppercase font-semibold">Total</p>
+              <p className="text-base font-black text-white">{completeTeamsStats.totalStudents}</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* ── Stat pills ──────────────────────────────────────────────────── */}

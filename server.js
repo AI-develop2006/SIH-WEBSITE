@@ -742,6 +742,86 @@ app.get("/api/spoc/final-teams", async (_req, res) => {
   }
 });
 
+// GET /api/spoc/complete-teams-stats
+// Returns statistics considering ONLY complete 6-member teams directly from DB
+app.get("/api/spoc/complete-teams-stats", async (_req, res) => {
+  try {
+    let finalTeams = [];
+    if (DATABASE_URL) {
+      const { rows } = await dbQuery(
+        `SELECT id, name, ministry, member_ids, selected_ps_number, created_at FROM public.spoc_final_teams;`
+      );
+      finalTeams = rows || [];
+    } else if (supabase) {
+      const { data, error } = await supabase
+        .from("spoc_final_teams")
+        .select("id, name, ministry, member_ids, selected_ps_number, created_at");
+      if (error) return res.status(500).json({ error: error.message });
+      finalTeams = data || [];
+    }
+
+    // Filter ONLY complete 6-member teams
+    const completeTeams = finalTeams.filter(
+      (ft) => Array.isArray(ft.member_ids) && ft.member_ids.length === 6
+    );
+
+    const allMemberIds = [...new Set(completeTeams.flatMap((ft) => ft.member_ids))];
+
+    let profiles = [];
+    if (allMemberIds.length > 0) {
+      if (DATABASE_URL) {
+        const { rows } = await dbQuery(
+          `SELECT id, name, gender, department, year FROM public.profiles WHERE id = ANY($1);`,
+          [allMemberIds]
+        );
+        profiles = rows || [];
+      } else if (supabase) {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("id, name, gender, department, year")
+          .in("id", allMemberIds);
+        if (!error && data) profiles = data;
+      }
+    }
+
+    const profileMap = new Map(profiles.map((p) => [p.id, p]));
+
+    let boysCount = 0;
+    let girlsCount = 0;
+    let otherCount = 0;
+
+    completeTeams.forEach((ft) => {
+      (ft.member_ids || []).forEach((id) => {
+        const p = profileMap.get(id);
+        if (p) {
+          if (p.gender === "Female") {
+            girlsCount++;
+          } else if (p.gender === "Male") {
+            boysCount++;
+          } else {
+            otherCount++;
+          }
+        }
+      });
+    });
+
+    const totalStudents = boysCount + girlsCount + otherCount;
+
+    return res.json({
+      success: true,
+      data: {
+        completeTeamsCount: completeTeams.length,
+        boysCount,
+        girlsCount,
+        otherCount,
+        totalStudents,
+      },
+    });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 // ── Master-only guard helper ──────────────────────────────────────────────────
 // Returns true if the request carries the master token.
 // Used to block all write operations for read-only (normal SPOC) sessions.

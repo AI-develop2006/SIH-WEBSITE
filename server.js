@@ -1629,7 +1629,12 @@ app.get("/api/spoc/export-teams/:type", async (req, res) => {
 // GET /api/spoc/download-document/:docName
 app.get("/api/spoc/download-document/:docName", (req, res) => {
   const { docName } = req.params;
-  const allowedDocs = ["Software_Room_Allotment.docx", "Hardware_Room_Allotment.docx", "xglsr_Software_Room_Allotment.docx"];
+  const allowedDocs = [
+    "Software_Room_Allotment.docx",
+    "Hardware_Room_Allotment.docx",
+    "Hardware_Room_Allotment.pdf",
+    "xglsr_Software_Room_Allotment.docx",
+  ];
   if (!allowedDocs.includes(docName)) {
     return res.status(400).json({ error: "Invalid document requested" });
   }

@@ -11,7 +11,7 @@ import {
   fetchFinalTeams, saveFinalTeam, updateFinalTeam, deleteFinalTeam,
   fetchClaimedMembers, subscribeToTeamEvents, subscribeToPairTeamEvents,
   isMasterSession, sessionMsRemaining, SESSION_TIMEOUT_MS, fetchPsChangeRequests,
-  downloadTeamsXlsx,
+  downloadTeamsXlsx, downloadRefineryDoc,
 } from "@/lib/data";
 import { useToast } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
@@ -871,6 +871,7 @@ export default function SpocDashboard() {
   const [liveConnected, setLiveConnected] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("active");
+  const [finalTeamValidityFilter, setFinalTeamValidityFilter] = useState("all"); // "all" | "valid" | "draft"
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState("teams"); // "teams" | "final-teams" | "monitoring" | "dept" | "ps-requests" | "access-log"
   const [pendingPsRequests, setPendingPsRequests] = useState(0);
@@ -892,7 +893,14 @@ export default function SpocDashboard() {
   const exportMenuRef = useRef(null);
 
   // Downloads tab state — tracks per-type loading/error
-  const [dlState, setDlState] = useState({ software: "idle", hardware: "idle", aicte: "idle" });
+  const [dlState, setDlState] = useState({
+    software: "idle",
+    hardware: "idle",
+    aicte: "idle",
+    all: "idle",
+    software_refinery: "idle",
+    hardware_refinery: "idle",
+  });
 
   // ── Load data ──────────────────────────────────────────────────────────────
   const loadAll = useCallback(async () => {
@@ -1062,6 +1070,37 @@ export default function SpocDashboard() {
       return true;
     });
   }, [byMinistry, search, statusFilter]);
+
+  const activeStatId = useMemo(() => {
+    if (activeTab === "teams") {
+      return statusFilter === "active" ? "active-ministries" : "pair-teams";
+    }
+    if (activeTab === "final-teams") {
+      if (finalTeamValidityFilter === "draft") return "incomplete-drafts";
+      if (finalTeamValidityFilter === "valid") return "valid-finals";
+      return "final-teams";
+    }
+    return null;
+  }, [activeTab, statusFilter, finalTeamValidityFilter]);
+
+  function handleStatCardClick(cardId) {
+    if (cardId === "active-ministries") {
+      setActiveTab("teams");
+      setStatusFilter("active");
+    } else if (cardId === "pair-teams") {
+      setActiveTab("teams");
+      setStatusFilter("all");
+    } else if (cardId === "final-teams") {
+      setActiveTab("final-teams");
+      setFinalTeamValidityFilter("all");
+    } else if (cardId === "incomplete-drafts") {
+      setActiveTab("final-teams");
+      setFinalTeamValidityFilter("draft");
+    } else if (cardId === "valid-finals") {
+      setActiveTab("final-teams");
+      setFinalTeamValidityFilter("valid");
+    }
+  }
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -1571,21 +1610,39 @@ export default function SpocDashboard() {
         ))}
       </div>
 
-      {/* Stats row — always visible */}
+      {/* Stats row — interactive filter cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3 mb-6">
         {[
-          { label: "Active Ministries", value: stats.activeMinistries,                                    icon: Building2,    color: "text-[#c9a227]"   },
-          { label: "Pair Teams",        value: pairTeams.filter((t) => t.team.ministry).length,           icon: Users,        color: "text-blue-400"    },
-          { label: "Final Teams",       value: stats.finalCount,                                          icon: CheckCircle2, color: "text-emerald-400" },
-          { label: "Incomplete Drafts", value: stats.draftCount,                                          icon: AlertTriangle, color: "text-amber-400"  },
-          { label: "Valid Finals",      value: stats.validFinals,                                         icon: CheckCircle2, color: "text-emerald-400" },
-        ].map((s) => (
-          <div key={s.label} className="rounded-2xl border border-[rgba(147,197,253,0.10)] bg-[#0a1226]/60 p-4 transition-all hover:border-[rgba(147,197,253,0.18)]">
-            <s.icon className={cn("size-5 mb-2", s.color)} />
-            <p className="text-2xl font-black text-white">{s.value}</p>
-            <p className="text-[10px] text-[#94a3b8] font-semibold uppercase tracking-wider mt-0.5">{s.label}</p>
-          </div>
-        ))}
+          { id: "active-ministries", label: "Active Ministries", value: stats.activeMinistries,                          icon: Building2,     color: "text-[#c9a227]"   },
+          { id: "pair-teams",        label: "Pair Teams",        value: pairTeams.filter((t) => t.team.ministry).length, icon: Users,         color: "text-blue-400"    },
+          { id: "final-teams",       label: "Final Teams",       value: stats.finalCount,                                icon: CheckCircle2,  color: "text-emerald-400" },
+          { id: "incomplete-drafts", label: "Incomplete Drafts", value: stats.draftCount,                                icon: AlertTriangle, color: "text-amber-400"  },
+          { id: "valid-finals",      label: "Valid Finals",      value: stats.validFinals,                               icon: CheckCircle2,  color: "text-emerald-400" },
+        ].map((s) => {
+          const isSelected = activeStatId === s.id;
+          return (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => handleStatCardClick(s.id)}
+              className={cn(
+                "rounded-2xl border p-4 transition-all text-left cursor-pointer relative overflow-hidden group focus:outline-none",
+                isSelected
+                  ? "border-[#c9a227] bg-[#c9a227]/12 ring-2 ring-[#c9a227]/50 shadow-lg shadow-[#c9a227]/10"
+                  : "border-[rgba(147,197,253,0.10)] bg-[#0a1226]/60 hover:border-[rgba(147,197,253,0.25)] hover:bg-[#0a1226]/90"
+              )}
+            >
+              <s.icon className={cn("size-5 mb-2 transition-transform group-hover:scale-110", s.color)} />
+              <p className="text-2xl font-black text-white">{s.value}</p>
+              <div className="flex items-center justify-between mt-0.5">
+                <p className="text-[10px] text-[#94a3b8] font-semibold uppercase tracking-wider">{s.label}</p>
+                {isSelected && (
+                  <span className="inline-block size-1.5 rounded-full bg-[#c9a227] animate-pulse" />
+                )}
+              </div>
+            </button>
+          );
+        })}
       </div>
 
       {/* ── TEAMS & MINISTRIES tab ────────────────────────────────────────── */}
@@ -1710,6 +1767,8 @@ export default function SpocDashboard() {
           <FinalTeamsPsView
             finalTeams={finalTeams}
             profileMap={profileMap}
+            validityFilter={finalTeamValidityFilter}
+            onValidityFilterChange={setFinalTeamValidityFilter}
           />
         </div>
       )}
@@ -1755,8 +1814,8 @@ export default function SpocDashboard() {
             </p>
           </div>
 
-          {/* Four download cards */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Six download cards */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {[
               {
                 type:    "software",
@@ -1810,7 +1869,35 @@ export default function SpocDashboard() {
                 btnClr:  "bg-emerald-600 hover:bg-emerald-500",
                 file:    "all_sih_teams.xlsx",
               },
-            ].map(({ type, label, desc, icon: Icon, border, bg, iconBg, iconClr, btnClr, file }) => {
+              {
+                type:    "software_refinery",
+                label:   "Software Refinery",
+                desc:    "Software Room Allotment document containing room and venue allocations",
+                icon:    FileText,
+                accent:  "violet",
+                border:  "border-violet-500/25",
+                bg:      "bg-violet-500/5",
+                iconBg:  "bg-violet-500/10 border-violet-500/20",
+                iconClr: "text-violet-400",
+                btnClr:  "bg-violet-600 hover:bg-violet-500",
+                file:    "Software_Room_Allotment.docx",
+                isDoc:   true,
+              },
+              {
+                type:    "hardware_refinery",
+                label:   "Hardware Refinery",
+                desc:    "Hardware Room Allotment document containing room and venue allocations",
+                icon:    FileText,
+                accent:  "cyan",
+                border:  "border-cyan-500/25",
+                bg:      "bg-cyan-500/5",
+                iconBg:  "bg-cyan-500/10 border-cyan-500/20",
+                iconClr: "text-cyan-400",
+                btnClr:  "bg-cyan-600 hover:bg-cyan-500",
+                file:    "Hardware_Room_Allotment.docx",
+                isDoc:   true,
+              },
+            ].map(({ type, label, desc, icon: Icon, border, bg, iconBg, iconClr, btnClr, file, isDoc }) => {
               const state = dlState[type]; // "idle" | "loading" | "done" | "error"
               return (
                 <div key={type} className={cn("rounded-2xl border p-5 flex flex-col gap-4 transition-all", border, bg)}>
@@ -1821,7 +1908,7 @@ export default function SpocDashboard() {
                     </div>
                     <div className="min-w-0">
                       <p className="text-sm font-extrabold text-white">{label}</p>
-                      <p className="text-[10px] font-mono text-[#94a3b8]">{file}</p>
+                      <p className="text-[10px] font-mono text-[#94a3b8] truncate max-w-[180px]">{file}</p>
                     </div>
                   </div>
 
@@ -1838,7 +1925,7 @@ export default function SpocDashboard() {
                   {state === "error" && (
                     <div className="flex items-center gap-1.5 text-[10px] font-bold text-red-400">
                       <AlertTriangle className="size-3.5 shrink-0" />
-                      No {label.toLowerCase()} found in database
+                      Failed to download {label.toLowerCase()}
                     </div>
                   )}
 
@@ -1848,7 +1935,13 @@ export default function SpocDashboard() {
                     disabled={state === "loading"}
                     onClick={async () => {
                       setDlState((s) => ({ ...s, [type]: "loading" }));
-                      const { ok, error } = await downloadTeamsXlsx(type);
+                      let res;
+                      if (isDoc) {
+                        res = await downloadRefineryDoc(file);
+                      } else {
+                        res = await downloadTeamsXlsx(type);
+                      }
+                      const { ok, error } = res;
                       setDlState((s) => ({ ...s, [type]: ok ? "done" : "error" }));
                       if (!ok) toast("error", error || `Failed to download ${file}`);
                       // Reset status badge after 4 s
@@ -1863,7 +1956,7 @@ export default function SpocDashboard() {
                     {state === "loading" ? (
                       <>
                         <RefreshCw className="size-3.5 animate-spin shrink-0" />
-                        Generating…
+                        Downloading…
                       </>
                     ) : (
                       <>

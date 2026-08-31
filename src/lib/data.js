@@ -376,6 +376,57 @@ export async function downloadTeamsXlsx(type) {
   }
 }
 
+/**
+ * Trigger download for refinery documents (Software_Room_Allotment.docx / Hardware_Room_Allotment.docx).
+ */
+export async function downloadRefineryDoc(filename) {
+  try {
+    const token     = localStorage.getItem("spoc_auth_token");
+    const loginTime = localStorage.getItem("spoc_login_time");
+    const url = `${API_BASE}/api/spoc/download-document/${filename}`;
+
+    const res = await fetch(url, {
+      headers: {
+        ...(token     ? { Authorization: `Bearer ${token}` } : {}),
+        ...(loginTime ? { "X-Login-Time": loginTime }        : {}),
+      },
+    });
+
+    if (!res.ok) {
+      const a = document.createElement("a");
+      a.href = `/${filename}`;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      return { ok: true, error: null };
+    }
+
+    const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = blobUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(blobUrl);
+    return { ok: true, error: null };
+  } catch (err) {
+    try {
+      const a = document.createElement("a");
+      a.href = `/${filename}`;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      return { ok: true, error: null };
+    } catch (fallbackErr) {
+      return { ok: false, error: err.message };
+    }
+  }
+}
+
 // ─── SIH 2026 Problem Statements (live from DB) ───────────────────────────────
 export async function fetchSihProblems() {
   try {

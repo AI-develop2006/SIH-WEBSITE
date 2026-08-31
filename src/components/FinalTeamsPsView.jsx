@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Search, X, CheckCircle2, AlertTriangle, Download, Code2, Cpu, Sparkles, FileText } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, validateFinalTeam } from "@/lib/utils";
 import { useSihPsMap } from "@/lib/sih2026Problems";
 
 /**
@@ -12,14 +12,25 @@ import { useSihPsMap } from "@/lib/sih2026Problems";
  * problem statement (or custom Open Innovation title for AICTE teams).
  *
  * Props:
- *   finalTeams  – array of spoc_final_teams rows (from SpocDashboard state)
- *   profileMap  – Map<profileId, profile> for resolving member count
+ *   finalTeams            – array of spoc_final_teams rows (from SpocDashboard state)
+ *   profileMap            – Map<profileId, profile> for resolving member count
+ *   validityFilter        – "all" | "valid" | "draft"
+ *   onValidityFilterChange– callback to update validity filter
  */
-export function FinalTeamsPsView({ finalTeams = [], profileMap = new Map() }) {
-  const [search, setSearch]             = useState("");
-  const [ministryFilter, setMinistryFilter] = useState("all");
-  const [psFilter, setPsFilter]         = useState("all"); // "all"|"selected"|"open"|"none"
-  const [catFilter, setCatFilter]       = useState("all"); // "all"|"Software"|"Hardware"
+export function FinalTeamsPsView({
+  finalTeams = [],
+  profileMap = new Map(),
+  validityFilter: propValidityFilter,
+  onValidityFilterChange,
+}) {
+  const [search, setSearch]                   = useState("");
+  const [ministryFilter, setMinistryFilter]   = useState("all");
+  const [psFilter, setPsFilter]               = useState("all"); // "all"|"selected"|"open"|"none"
+  const [catFilter, setCatFilter]             = useState("all"); // "all"|"Software"|"Hardware"
+  const [localValidityFilter, setLocalValidityFilter] = useState("all");
+
+  const validityFilter = propValidityFilter ?? localValidityFilter;
+  const setValidityFilter = onValidityFilterChange ?? setLocalValidityFilter;
 
   // ── Pre-computed lookups ──────────────────────────────────────────────────
   const psMap = useSihPsMap();
@@ -34,6 +45,14 @@ export function FinalTeamsPsView({ finalTeams = [], profileMap = new Map() }) {
     const selected  = finalTeams.filter((ft) => ft.selected_ps_number).length;
     const open      = finalTeams.filter((ft) => !ft.selected_ps_number && ft.custom_ps_title).length;
     const none      = finalTeams.filter((ft) => !ft.selected_ps_number && !ft.custom_ps_title).length;
+    const validCount = finalTeams.filter((ft) => {
+      const members = (ft.member_ids || []).map((id) => profileMap.get(id)).filter(Boolean);
+      return validateFinalTeam(members).length === 0;
+    }).length;
+    const draftCount = finalTeams.filter((ft) => {
+      const members = (ft.member_ids || []).map((id) => profileMap.get(id)).filter(Boolean);
+      return members.length < 6;
+    }).length;
     const software  = finalTeams.filter((ft) => {
       const ps = ft.selected_ps_number ? psMap.get(ft.selected_ps_number) : null;
       return ps?.category === "Software";
@@ -42,14 +61,21 @@ export function FinalTeamsPsView({ finalTeams = [], profileMap = new Map() }) {
       const ps = ft.selected_ps_number ? psMap.get(ft.selected_ps_number) : null;
       return ps?.category === "Hardware";
     }).length;
-    return { total: finalTeams.length, selected, open, none, software, hardware };
-  }, [finalTeams, psMap]);
+    return { total: finalTeams.length, selected, open, none, validCount, draftCount, software, hardware };
+  }, [finalTeams, psMap, profileMap]);
 
   // ── Filtered rows ─────────────────────────────────────────────────────────
   const filtered = useMemo(() => {
     const needle = search.trim().toLowerCase();
     return finalTeams.filter((ft) => {
       if (ministryFilter !== "all" && ft.ministry !== ministryFilter) return false;
+
+      const members = (ft.member_ids || []).map((id) => profileMap.get(id)).filter(Boolean);
+      const isDraft = members.length < 6;
+      const isValid = validateFinalTeam(members).length === 0;
+
+      if (validityFilter === "draft" && !isDraft) return false;
+      if (validityFilter === "valid" && !isValid) return false;
 
       const hasSelected = !!ft.selected_ps_number;
       const hasOpen     = !ft.selected_ps_number && !!ft.custom_ps_title;
@@ -76,7 +102,7 @@ export function FinalTeamsPsView({ finalTeams = [], profileMap = new Map() }) {
       }
       return true;
     });
-  }, [finalTeams, search, ministryFilter, psFilter, catFilter, psMap]);
+  }, [finalTeams, search, ministryFilter, psFilter, catFilter, validityFilter, psMap, profileMap]);
 
   // ── CSV Export ─────────────────────────────────────────────────────────────
   function exportCsv() {
@@ -169,8 +195,30 @@ export function FinalTeamsPsView({ finalTeams = [], profileMap = new Map() }) {
           </select>
         </div>
 
-        {/* PS status chips */}
+        {/* Team Status chips */}
         <div className="flex flex-wrap gap-2 items-center">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-[#94a3b8] shrink-0">Team Status:</span>
+          {[
+            { id: "all",   label: `All Finals (${stats.total})`,           cls: "bg-[#c9a227]/20 border-[#c9a227]/40 text-[#e8c058]" },
+            { id: "valid", label: `Valid Finals (${stats.validCount})`,    cls: "bg-emerald-500/20 border-emerald-500/40 text-emerald-300" },
+            { id: "draft", label: `Incomplete Drafts (${stats.draftCount})`, cls: "bg-amber-500/20 border-amber-500/40 text-amber-300" },
+          ].map((f) => (
+            <button
+              key={f.id}
+              type="button"
+              onClick={() => setValidityFilter(f.id)}
+              className={cn(
+                "px-3 py-1 rounded-full text-[10px] font-bold border transition-all cursor-pointer",
+                validityFilter === f.id
+                  ? f.cls
+                  : "bg-transparent border-[rgba(147,197,253,0.14)] text-[#94a3b8] hover:border-[rgba(147,197,253,0.3)] hover:text-white"
+              )}
+            >
+              {f.label}
+            </button>
+          ))}
+
+          <span className="text-[#94a3b8]/30 mx-1">|</span>
           <span className="text-[10px] font-bold uppercase tracking-wider text-[#94a3b8] shrink-0">PS Status:</span>
           {[
             { id: "all",      label: `All (${stats.total})`,             cls: "bg-[#c9a227]/20 border-[#c9a227]/40 text-[#e8c058]" },

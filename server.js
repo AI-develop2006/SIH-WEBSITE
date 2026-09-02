@@ -1111,6 +1111,121 @@ app.patch("/api/spoc/final-teams/:id", async (req, res) => {
   }
 });
 
+// ─── Shortlist a final team ───────────────────────────────────────────────────
+// PATCH /api/spoc/final-teams/:id/shortlist
+// Sets is_shortlisted = true/false and sends notifications to all team members.
+app.patch("/api/spoc/final-teams/:id/shortlist", async (req, res) => {
+  if (!requireMaster(req, res)) return;
+  const { id } = req.params;
+  const { shortlisted = true } = req.body; // default to marking shortlisted
+
+  try {
+    let updated = null;
+    if (DATABASE_URL) {
+      const { rows } = await dbQuery(
+        `UPDATE public.spoc_final_teams
+         SET is_shortlisted = $1, updated_at = now()
+         WHERE id = $2 RETURNING *`,
+        [shortlisted, id]
+      );
+      if (!rows.length) return res.status(404).json({ error: "Team not found" });
+      updated = rows[0];
+    } else if (supabase) {
+      const { data, error } = await supabase
+        .from("spoc_final_teams")
+        .update({ is_shortlisted: shortlisted, updated_at: new Date().toISOString() })
+        .eq("id", id).select().single();
+      if (error) return res.status(500).json({ error: error.message });
+      updated = data;
+    }
+
+    // Notify all team members
+    const memberIds = updated?.member_ids ?? [];
+    const teamName  = updated?.name ?? "";
+    const ministry  = updated?.ministry ?? "";
+
+    if (shortlisted) {
+      sendNotifications(memberIds, {
+        type:  "spoc_shortlisted",
+        title: "🏅 Shortlisted in Top 50 Teams!",
+        message: `Congratulations! Your team "${teamName}" has been shortlisted in the Top 50 teams from the SIH 2026 Internal Hackathon conducted at our institution${ministry ? ` under ${ministry}` : ""}. Well done!`,
+        metadata: { team_name: teamName, ministry, team_id: id, shortlisted: true },
+      });
+    } else {
+      sendNotifications(memberIds, {
+        type:  "spoc_shortlisted",
+        title: "📋 Shortlist Status Updated",
+        message: `The shortlist status for your team "${teamName}" has been updated.`,
+        metadata: { team_name: teamName, ministry, team_id: id, shortlisted: false },
+      });
+    }
+
+    broadcastUpdate("final_teams_updated", { action: "shortlisted", team_id: id, shortlisted });
+    logAudit({
+      action: "UPDATE_FINAL_TEAM",
+      entityId: id,
+      entityName: teamName,
+      details: { is_shortlisted: shortlisted },
+      ip: extractIp(req),
+    });
+
+    return res.json({ data: updated });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Bulk shortlist teams ─────────────────────────────────────────────────────
+// POST /api/spoc/final-teams/bulk-shortlist
+// Marks multiple teams as shortlisted at once and notifies all their members.
+app.post("/api/spoc/final-teams/bulk-shortlist", async (req, res) => {
+  if (!requireMaster(req, res)) return;
+  const { team_names = [], shortlisted = true } = req.body;
+  if (!Array.isArray(team_names) || team_names.length === 0) {
+    return res.status(400).json({ error: "team_names array is required" });
+  }
+
+  try {
+    let updatedTeams = [];
+    if (DATABASE_URL) {
+      const { rows } = await dbQuery(
+        `UPDATE public.spoc_final_teams
+         SET is_shortlisted = $1, updated_at = now()
+         WHERE LOWER(name) = ANY($2::text[])
+         RETURNING *`,
+        [shortlisted, team_names.map(n => n.toLowerCase())]
+      );
+      updatedTeams = rows;
+    } else if (supabase) {
+      const { data, error } = await supabase
+        .from("spoc_final_teams")
+        .update({ is_shortlisted: shortlisted, updated_at: new Date().toISOString() })
+        .in("name", team_names)
+        .select();
+      if (error) return res.status(500).json({ error: error.message });
+      updatedTeams = data ?? [];
+    }
+
+    // Notify all members of all updated teams
+    for (const team of updatedTeams) {
+      if ((team.member_ids ?? []).length > 0 && shortlisted) {
+        sendNotifications(team.member_ids, {
+          type:  "spoc_shortlisted",
+          title: "🏅 Shortlisted in Top 50 Teams!",
+          message: `Congratulations! Your team "${team.name}" has been shortlisted in the Top 50 teams from the SIH 2026 Internal Hackathon conducted at our institution${team.ministry ? ` under ${team.ministry}` : ""}. Well done!`,
+          metadata: { team_name: team.name, ministry: team.ministry, team_id: team.id, shortlisted: true },
+        });
+      }
+    }
+
+    broadcastUpdate("final_teams_updated", { action: "bulk_shortlisted", count: updatedTeams.length });
+
+    return res.json({ data: updatedTeams, updated: updatedTeams.length });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 // DELETE — remove a final team (with member notifications + broadcast)
 app.delete("/api/spoc/final-teams/:id", async (req, res) => {
   if (!requireMaster(req, res)) return;
@@ -1469,7 +1584,7 @@ const XLSX_COL_HEADERS = [
 const XLSX_COL_WIDTHS = [5, 28, 28, 16, 6, 8, 38, 34, 38, 14, 8, 18];
 
 function buildTeamsSheet(ws, teams, memberMap, label, psMap = new Map()) {
-  const ExcelJS = ws.workbook.creator ? ws : null; void ExcelJS;
+  // Builds the sheet — ws is a worksheet object from ExcelJS workbook
 
   // Title row
   ws.mergeCells(1, 1, 1, XLSX_COL_HEADERS.length);
@@ -1728,6 +1843,251 @@ app.get("/api/spoc/download-document/:docName", (req, res) => {
   }
 
   res.download(targetPath, docName);
+});
+
+// ─── AI & DS Department Teams — Word Document Export ─────────────────────────
+// GET /api/spoc/export-aids-dept-doc
+// A4 LANDSCAPE, 12 columns:
+// S.No | Team Name | Team Members | Register No | Email | Dept | Year | Sec |
+// Ministry | Problem Statement | Phone No. | M/F
+// keepNext chains all rows of a team → no team splits across pages.
+app.get("/api/spoc/export-aids-dept-doc", async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith("Bearer ")) return res.status(401).json({ error: "Not signed in" });
+
+  try {
+    const SELECTED_TEAM_NAMES = new Set([
+      "ELITE MINDS","csefina#01","MCTRFINAL#01","SIH-FINAL#CCE","AK Tech",
+      "Claude code tech","SIH#IT012","The Alpha Phoenix","Team Optimus",
+      "SIHFINALTEAM#007","AQUA","Bio Nex","TEAM ALPHA","CSEFINAL#09",
+      "Health Tech","SIH-FINAL-30","MechNova","VISION X","GEOTWIN 360",
+      "TEAM AGRATHON","Yodha","SPINNERS STOP","CSEFINAL#05","MIGHTY EAGLE",
+      "THE IRON LOGIC","GLADIATORS","CSEFINAL#07","SIH#IT011","SIH AI&DS FINAL TEAM",
+      "ECE-FINAL-002","cyberGuard","ETTA","ECE-FINAL-010","NEXOVA",
+      "sih-final-39","CSEFINAL#47","TECH_BULL","CODE WIZARDS","BIOFORGE",
+      "CSEFINAL#04","TECH SHARKS","AI_MAVERIX","KREONYX","Choas to code",
+    ].map(n => n.toLowerCase().trim()));
+
+    const { rows: finalTeams } = await dbQuery(
+      `SELECT id, name, ministry, member_ids, selected_ps_number, custom_ps_title
+       FROM public.spoc_final_teams ORDER BY name`
+    );
+    const allIds = [...new Set(finalTeams.flatMap(t => t.member_ids ?? []))];
+    const memberMap = new Map();
+    if (allIds.length) {
+      const { rows: members } = await dbQuery(
+        `SELECT id, name, phone, register_no, email, department, year, section, gender
+         FROM public.profiles WHERE id = ANY($1)`, [allIds]
+      );
+      for (const m of members) memberMap.set(m.id, m);
+    }
+    const { rows: psRows } = await dbQuery(`SELECT ps_number, title FROM public.sih_problems`);
+    const psMap = new Map(psRows.map(r => [r.ps_number, r.title]));
+
+    const AIDS_KEYWORDS = ["artificial intelligence", "ai & ds", "ai&ds", "ai and data science", "aids"];
+    const isAids = dept => dept && AIDS_KEYWORDS.some(k => dept.toLowerCase().includes(k));
+
+    const DEPT_ABBR = {
+      "Artificial Intelligence and Data Science": "AI & DS",
+      "Computer Science and Engineering": "CSE",
+      "Computer Science and Engineering and Business Systems": "CSE-BS",
+      "Electronics and Communication Engineering": "ECE",
+      "Electrical and Electronics Engineering": "EEE",
+      "Mechanical Engineering": "MECH",
+      "Civil Engineering": "CIVIL",
+      "Information Technology": "IT",
+      "Cyber Security": "CYS",
+      "Robotics and Automation": "R&A",
+      "BioMedical Engineering": "BME",
+      "Biomedical Engineering": "BME",
+      "Bio Medical Engineering": "BME",
+      "Mechatronics": "MCTR",
+      "Instrumentation and Control Engineering": "ICE",
+      "Computer and Communication Engineering": "CCE",
+      "Master of Computer Applications": "MCA",
+    };
+    const abbr = dept => DEPT_ABBR[dept] ?? (dept ?? "—");
+
+    const aidsTeams = finalTeams
+      .filter(t => SELECTED_TEAM_NAMES.has(t.name.toLowerCase().trim()))
+      .map(t => ({
+        t,
+        members: (t.member_ids ?? []).map(id => memberMap.get(id)).filter(Boolean),
+      }))
+      .filter(({ members }) => members.some(m => isAids(m.department)))
+      .sort((a, b) => a.t.name.localeCompare(b.t.name));
+
+    const {
+      Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
+      WidthType, AlignmentType, BorderStyle, ShadingType, VerticalAlign,
+    } = await import("docx");
+
+    // A4 LANDSCAPE usable ≈ 16838 - 1200 margins = 15638 twips
+    // S.No=340 | TeamName=1100 | MemberName=1800 | RegNo=1000 | Email=2200 |
+    // Dept=900 | Year=340 | Sec=300 | Ministry=1500 | PS=4758 | Phone=1100 | MF=300
+    // Total = 340+1100+1800+1000+2200+900+340+300+1500+4758+1100+300 = 15638
+    const W   = [340, 1100, 1800, 1000, 2200, 900, 340, 300, 1500, 4758, 1100, 300];
+    const HDR = ["S.No","Team Name","Team Members","Reg No","Email","Dept","Year","Sec","Ministry","Problem Statement","Phone No.","M/F"];
+
+    const BLK = { style: BorderStyle.SINGLE, color: "000000", size: 4 };
+    const borders = { top: BLK, bottom: BLK, left: BLK, right: BLK };
+
+    const hdrCell = (text, w) => new TableCell({
+      width: { size: w, type: WidthType.DXA }, borders,
+      shading: { type: ShadingType.SOLID, color: "1F3864", fill: "1F3864" },
+      verticalAlign: VerticalAlign.CENTER,
+      children: [new Paragraph({
+        alignment: AlignmentType.CENTER, keepLines: true,
+        children: [new TextRun({ text, bold: true, color: "FFFFFF", size: 16, font: "Calibri" })],
+      })],
+    });
+
+    const mkCell = (children, w, opts = {}) => new TableCell({
+      width: { size: w, type: WidthType.DXA }, borders,
+      verticalAlign: VerticalAlign.CENTER,
+      ...(opts.rowSpan ? { rowSpan: opts.rowSpan } : {}),
+      ...(opts.shading ? { shading: opts.shading } : {}),
+      children,
+    });
+
+    const tx = (text, opts = {}) => new TextRun({
+      text: text ?? "—",
+      size: opts.size ?? 15, bold: opts.bold ?? false,
+      italics: opts.italics ?? false, color: opts.color ?? "000000", font: "Calibri",
+    });
+
+    const para = (runs, center = false, kn = false) => new Paragraph({
+      alignment: center ? AlignmentType.CENTER : AlignmentType.LEFT,
+      keepLines: true, keepNext: kn,
+      spacing: { before: 20, after: 20 },
+      children: runs,
+    });
+
+    const headerRow = new TableRow({
+      tableHeader: true, cantSplit: true,
+      children: HDR.map((h, i) => hdrCell(h, W[i])),
+    });
+
+    const dataRows = [];
+    let sno = 1;
+
+    for (const { t: team, members } of aidsTeams) {
+      const n = members.length;
+      const teamShading = { type: ShadingType.SOLID, color: "D6EAF8", fill: "D6EAF8" };
+
+      const buildPS = () => {
+        if (team.custom_ps_title) return [
+          tx("Open Innovation", { bold: true, size: 14 }),
+          new TextRun({ break: 1 }),
+          tx(team.custom_ps_title.trim(), { size: 13, italics: true }),
+        ];
+        if (team.selected_ps_number) return [
+          tx(team.selected_ps_number, { bold: true, size: 15 }),
+          new TextRun({ break: 1 }),
+          tx(psMap.get(team.selected_ps_number) ?? "", { size: 13, color: "333333" }),
+        ];
+        return [tx("Pending", { italics: true, color: "888888" })];
+      };
+
+      members.forEach((m, mi) => {
+        const isFirst  = mi === 0;
+        const isLast   = mi === n - 1;
+        const aidsMem  = isAids(m.department);
+        const kn       = !isLast; // keepNext on all but last row keeps team on one page
+        const memShading = aidsMem
+          ? { type: ShadingType.SOLID, color: "EBF5FB", fill: "EBF5FB" }
+          : undefined;
+
+        dataRows.push(new TableRow({
+          cantSplit: true,
+          children: [
+            // 1. S.No (rowspan)
+            ...(isFirst ? [mkCell([para([tx(String(sno), { bold: true, size: 17 })], true, kn)], W[0], { rowSpan: n })] : []),
+
+            // 2. Team Name (rowspan)
+            ...(isFirst ? [mkCell([para([tx(team.name, { bold: true, size: 14 })], false, kn)], W[1], { rowSpan: n, shading: teamShading })] : []),
+
+            // 3. Team Members (name only, ★ for AI&DS)
+            mkCell([para([
+              tx(`${mi + 1}. ${m.name ?? "—"}`, { size: 15, bold: aidsMem, color: aidsMem ? "1A2F6A" : "000000" }),
+              ...(aidsMem ? [tx(" ★", { bold: true, color: "1A3C8A", size: 15 })] : []),
+            ], false, kn)], W[2], { shading: memShading }),
+
+            // 4. Register No
+            mkCell([para([tx(m.register_no ?? "—", { size: 14 })], true, kn)], W[3], { shading: memShading }),
+
+            // 5. Email
+            mkCell([para([tx(m.email ?? "—", { size: 13 })], false, kn)], W[4], { shading: memShading }),
+
+            // 6. Dept (abbreviated)
+            mkCell([para([tx(abbr(m.department), { size: 13, color: aidsMem ? "1A3C8A" : "333333", bold: aidsMem })], true, kn)], W[5], { shading: memShading }),
+
+            // 7. Year
+            mkCell([para([tx(m.year ?? "—", { size: 15 })], true, kn)], W[6], { shading: memShading }),
+
+            // 8. Section
+            mkCell([para([tx(m.section ?? "—", { size: 15 })], true, kn)], W[7], { shading: memShading }),
+
+            // 9. Ministry (rowspan)
+            ...(isFirst ? [mkCell([para([tx(team.ministry ?? "—", { size: 13 })], false, kn)], W[8], { rowSpan: n })] : []),
+
+            // 10. Problem Statement (rowspan)
+            ...(isFirst ? [mkCell([new Paragraph({
+              alignment: AlignmentType.LEFT, keepLines: true, keepNext: kn,
+              spacing: { before: 20, after: 20 }, children: buildPS(),
+            })], W[9], { rowSpan: n })] : []),
+
+            // 11. Phone
+            mkCell([para([tx(m.phone ?? "—", { size: 14 })], false, kn)], W[10], { shading: memShading }),
+
+            // 12. Gender
+            mkCell([para([tx(
+              m.gender === "Female" ? "F" : m.gender === "Male" ? "M" : "—",
+              { size: 15, bold: true, color: m.gender === "Female" ? "C0392B" : "1A5276" }
+            )], true, kn)], W[11], { shading: memShading }),
+          ],
+        }));
+      });
+      sno++;
+    }
+
+    const doc = new Document({
+      sections: [{
+        properties: {
+          page: {
+            size: { width: 16838, height: 11906, orientation: "landscape" },
+            margin: { top: 600, right: 600, bottom: 600, left: 600 },
+          },
+        },
+        children: [
+          new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 100 }, keepNext: true,
+            children: [tx("SIH 2026 — INTERNAL HACKATHON", { bold: true, size: 26 })] }),
+          new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 50 }, keepNext: true,
+            children: [tx("AI & Data Science Department — Selected Teams", { bold: true, size: 22, color: "1F3864" })] }),
+          new Paragraph({ alignment: AlignmentType.LEFT, spacing: { after: 160 }, keepNext: true,
+            children: [
+              tx(`Total Teams: ${aidsTeams.length}    `, { size: 16, italics: true }),
+              tx("★ = AI & DS member   ", { size: 16, bold: true, color: "1A3C8A" }),
+              tx("(blue rows = AI & DS dept | Dept = abbreviated department name)", { size: 14, italics: true, color: "555555" }),
+            ],
+          }),
+          new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [headerRow, ...dataRows] }),
+          new Paragraph({ spacing: { before: 200 }, alignment: AlignmentType.RIGHT,
+            children: [tx(`Generated: ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`, { size: 14, italics: true, color: "888888" })] }),
+        ],
+      }],
+    });
+
+    const buffer = await Packer.toBuffer(doc);
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+    res.setHeader("Content-Disposition", 'attachment; filename="AI_DS_Teams_SIH2026.docx"');
+    res.setHeader("Content-Length", buffer.length);
+    res.end(buffer);
+    console.log(`[export-aids-dept-doc] AI_DS_Teams_SIH2026.docx — ${aidsTeams.length} teams`);
+  } catch (err) {
+    console.error("[/api/spoc/export-aids-dept-doc]", err.message, err.stack?.split("\n")[1]);
+    if (!res.headersSent) res.status(500).json({ error: err.message });
+  }
 });
 
 // ─── Fallback / Root health page ─────────────────────────────────────────────

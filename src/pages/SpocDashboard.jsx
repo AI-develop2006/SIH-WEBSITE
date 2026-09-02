@@ -11,7 +11,7 @@ import {
   fetchFinalTeams, saveFinalTeam, updateFinalTeam, deleteFinalTeam, fetchCompleteTeamsStats,
   fetchClaimedMembers, subscribeToTeamEvents, subscribeToPairTeamEvents,
   isMasterSession, sessionMsRemaining, SESSION_TIMEOUT_MS, fetchPsChangeRequests,
-  downloadTeamsXlsx, downloadRefineryDoc,
+  downloadTeamsXlsx, downloadRefineryDoc, downloadAidsDeptDoc,
 } from "@/lib/data";
 import { useToast } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
@@ -900,6 +900,7 @@ export default function SpocDashboard() {
     all: "idle",
     software_refinery: "idle",
     hardware_refinery: "idle",
+    aids_dept: "idle",
   });
 
   // ── Load data ──────────────────────────────────────────────────────────────
@@ -1995,7 +1996,22 @@ export default function SpocDashboard() {
                 docxFile: "Hardware_Room_Allotment.docx",
                 isDoc:    true,
               },
-            ].map(({ type, label, desc, icon: Icon, border, bg, iconBg, iconClr, btnClr, pdfFile, docxFile, isRoster, isDoc }) => {
+              {
+                type:     "aids_dept",
+                label:    "AI & DS Dept Teams",
+                desc:     "Word document listing all final teams with members from the AI & Data Science department — Team Name, Members, Year, Sec, Ministry, Problem Statement, Phone",
+                icon:     Sparkles,
+                accent:   "indigo",
+                border:   "border-indigo-500/25",
+                bg:       "bg-indigo-500/5",
+                iconBg:   "bg-indigo-500/10 border-indigo-500/20",
+                iconClr:  "text-indigo-400",
+                btnClr:   "bg-indigo-600 hover:bg-indigo-500",
+                pdfFile:  null,
+                docxFile: "AI_DS_Teams_SIH2026.docx",
+                isAidsDept: true,
+              },
+            ].map(({ type, label, desc, icon: Icon, border, bg, iconBg, iconClr, btnClr, pdfFile, docxFile, isRoster, isDoc, isAidsDept }) => {
               const state = dlState[type]; // "idle" | "loading" | "done" | "error"
               return (
                 <div key={type} className={cn("rounded-2xl border p-5 flex flex-col gap-3.5 transition-all", border, bg)}>
@@ -2007,7 +2023,7 @@ export default function SpocDashboard() {
                     <div className="min-w-0">
                       <p className="text-sm font-extrabold text-white">{label}</p>
                       <p className="text-[10px] font-mono text-[#94a3b8] truncate max-w-[180px]">
-                        Formats: PDF & {docxFile.endsWith(".xlsx") ? "XLSX" : "DOCX"}
+                        {isAidsDept ? "Format: DOCX" : `Formats: PDF & ${docxFile.endsWith(".xlsx") ? "XLSX" : "DOCX"}`}
                       </p>
                     </div>
                   </div>
@@ -2029,7 +2045,32 @@ export default function SpocDashboard() {
                     </div>
                   )}
 
-                  {/* Dual Format Download Buttons: PDF & DOCX/XLSX */}
+                  {/* AI & DS dept: single DOCX button */}
+                  {isAidsDept ? (
+                    <button
+                      type="button"
+                      disabled={state === "loading"}
+                      onClick={async () => {
+                        setDlState((s) => ({ ...s, [type]: "loading" }));
+                        const { ok, error } = await downloadAidsDeptDoc();
+                        setDlState((s) => ({ ...s, [type]: ok ? "done" : "error" }));
+                        if (!ok) toast("error", error || "Failed to download AI & DS teams document");
+                        setTimeout(() => setDlState((s) => ({ ...s, [type]: "idle" })), 4000);
+                      }}
+                      className={cn(
+                        "flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-extrabold text-white transition-all cursor-pointer shadow-sm disabled:opacity-50 mt-1",
+                        btnClr,
+                        state === "loading" && "opacity-60 cursor-wait"
+                      )}
+                    >
+                      {state === "loading" ? (
+                        <><RefreshCw className="size-3.5 shrink-0 animate-spin" /> Generating…</>
+                      ) : (
+                        <><Download className="size-3.5 shrink-0" /> Download DOCX</>
+                      )}
+                    </button>
+                  ) : (
+                  /* Dual Format Download Buttons: PDF & DOCX/XLSX */
                   <div className="grid grid-cols-2 gap-2 mt-1">
                     {/* PDF Button */}
                     <button
@@ -2083,6 +2124,7 @@ export default function SpocDashboard() {
                       )}
                     </button>
                   </div>
+                  )}
                 </div>
               );
             })}

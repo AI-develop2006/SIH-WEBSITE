@@ -196,6 +196,36 @@ export async function deleteFinalTeam(id) {
   }
 }
 
+export async function shortlistFinalTeam(id, shortlisted = true) {
+  try {
+    const res = await fetch(`${API_BASE}/api/spoc/final-teams/${id}/shortlist`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...getAuthHeader() },
+      body: JSON.stringify({ shortlisted }),
+    });
+    const json = await res.json();
+    if (!res.ok) return { data: null, error: json.error };
+    return { data: json.data, error: null };
+  } catch (err) {
+    return { data: null, error: err.message };
+  }
+}
+
+export async function bulkShortlistTeams(teamNames, shortlisted = true) {
+  try {
+    const res = await fetch(`${API_BASE}/api/spoc/final-teams/bulk-shortlist`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...getAuthHeader() },
+      body: JSON.stringify({ team_names: teamNames, shortlisted }),
+    });
+    const json = await res.json();
+    if (!res.ok) return { data: null, error: json.error };
+    return { data: json.data, updated: json.updated, error: null };
+  } catch (err) {
+    return { data: null, error: err.message };
+  }
+}
+
 // ─── Real-time: claimed members ───────────────────────────────────────────────
 // Returns the flat list of member IDs already assigned to any final team.
 // Pass excludeTeamId when editing a team so its own members aren't marked taken.
@@ -379,6 +409,40 @@ export async function downloadTeamsXlsx(type) {
     const a = document.createElement("a");
     a.href     = blobUrl;
     a.download = `${type}_teams.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(blobUrl);
+    return { ok: true, error: null };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
+/**
+ * Download the AI & DS department teams Word document from the backend.
+ */
+export async function downloadAidsDeptDoc() {
+  try {
+    const token     = localStorage.getItem("spoc_auth_token");
+    const loginTime = localStorage.getItem("spoc_login_time");
+    const url = `${API_BASE}/api/spoc/export-aids-dept-doc`;
+
+    const res = await fetch(url, {
+      headers: {
+        ...(token     ? { Authorization: `Bearer ${token}` } : {}),
+        ...(loginTime ? { "X-Login-Time": loginTime }        : {}),
+      },
+    });
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}));
+      return { ok: false, error: json.error || `HTTP ${res.status}` };
+    }
+    const blob    = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const a       = document.createElement("a");
+    a.href        = blobUrl;
+    a.download    = "AI_DS_Teams_SIH2026.docx";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
